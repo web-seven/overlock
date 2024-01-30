@@ -24,6 +24,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/kndpio/kndp/internal/install"
 	"github.com/spf13/afero"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
@@ -35,14 +36,12 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/pkg/errors"
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
-
-	"github.com/upbound/up/internal/install"
 )
 
 const (
 	helmDriverSecret = "secret"
 	defaultCacheDir  = ".cache/up/charts"
-	defaultNamespace = "upbound-system"
+	defaultNamespace = "default"
 	allVersions      = ">0.0.0-0"
 	waitTimeout      = 10 * time.Minute
 )

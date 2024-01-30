@@ -17,9 +17,8 @@ package helm
 import (
 	"fmt"
 
+	"github.com/kndpio/kndp/internal/install"
 	"helm.sh/helm/v3/pkg/strvals"
-
-	"github.com/upbound/up/internal/install"
 )
 
 // Parser is a helm-style parameter parser.
