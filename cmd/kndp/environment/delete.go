@@ -23,9 +23,9 @@ func (c *deleteCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 	}
 	cmd.Start()
 
-	scanner := bufio.NewScanner(stderr)
-	for scanner.Scan() {
-		fmt.Println(scanner.Text(), "1")
+	stderrScanner := bufio.NewScanner(stderr)
+	for stderrScanner.Scan() {
+		fmt.Println(stderrScanner.Text(), "1")
 	}
 	return nil
 }

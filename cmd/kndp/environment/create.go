@@ -40,46 +40,6 @@ nodes:
     protocol: TCP  
 `
 
-// AfterApply sets default values in command after assignment and validation.
-// func (c *createCmd) AfterApply(insCtx *install.Context) error {
-
-// 	repo, err := url.Parse("https://charts.crossplane.io/stable")
-// 	if err != nil {
-// 		fmt.Println("Error parsing repository URL:", err)
-// 		os.Exit(1)
-// 	}
-// 	chartName := "crossplane"
-// 	mgr, err := helm.NewManager(insCtx.Kubeconfig,
-// 		chartName,
-// 		repo,
-// 		helm.WithNamespace(insCtx.Namespace))
-// 	if err != nil {
-// 		return err
-// 	}
-// 	c.mgr = mgr
-// 	client, err := kubernetes.NewForConfig(insCtx.Kubeconfig)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	c.kClient = client
-// 	base := map[string]any{}
-// 	if c.File != nil {
-// 		defer c.File.Close() //nolint:errcheck,gosec
-// 		b, err := io.ReadAll(c.File)
-// 		if err != nil {
-// 			return errors.Wrap(err, errReadParametersFile)
-// 		}
-// 		if err := yaml.Unmarshal(b, &base); err != nil {
-// 			return errors.Wrap(err, errReadParametersFile)
-// 		}
-// 		if err := c.File.Close(); err != nil {
-// 			return errors.Wrap(err, errReadParametersFile)
-// 		}
-// 	}
-// 	c.parser = helm.NewParser(base, c.Set)
-// 	return nil
-// }
-
 type createCmd struct {
 	mgr     install.Manager
 	parser  install.ParameterParser
@@ -105,28 +65,17 @@ func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 
 	cmd.Start()
 
-	scanner := bufio.NewScanner(stderr)
-	for scanner.Scan() {
-		fmt.Println(scanner.Text(), "1")
+	stderrScanner := bufio.NewScanner(stderr)
+	for stderrScanner.Scan() {
+		fmt.Println(stderrScanner.Text(), "1")
 	}
 
-	scanner2 := bufio.NewScanner(stdout)
-	for scanner2.Scan() {
-		fmt.Println(scanner.Text(), "2")
+	stdoutScanner := bufio.NewScanner(stdout)
+	for stdoutScanner.Scan() {
+		fmt.Println(stderrScanner.Text(), "2")
 	}
 
 	cmd.Wait()
-
-	// namespace := &corev1.Namespace{
-	// 	ObjectMeta: metav1.ObjectMeta{
-	// 		Name: c.Name,
-	// 	},
-	// }
-
-	// _, err = c.kClient.CoreV1().Namespaces().Create(ctx, namespace, metav1.CreateOptions{})
-	// if err != nil && !errors.IsAlreadyExists(err) {
-	// 	return fmt.Errorf("error creating namespace: %v", err)
-	// }
 
 	config := ctrl.GetConfigOrDie()
 	chartName := "crossplane"
