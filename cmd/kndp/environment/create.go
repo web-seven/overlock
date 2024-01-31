@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/url"
 	"os/exec"
-	"strings"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -33,27 +32,19 @@ nodes:
   - containerPort: 80
     hostPort: %d
     protocol: TCP
-  - containerPort: 443
-    hostPort: %d
-    protocol: TCP
 `
 
 type createCmd struct {
 	Name     string `arg:"" required:"" help:"Name of environment."`
-	HostPort []int  `optional:"" help:"Host ports for mapping" default:"80,443"`
+	HostPort int    `optional:"" short:"p" help:"Host port for mapping" default:"80"`
 }
 
 func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 
-	if len(c.HostPort) != 2 {
-		return fmt.Errorf("you must provide exactly two host ports")
-	}
-
-	clusterYaml := fmt.Sprintf(yamlTemplate, c.HostPort[0], c.HostPort[1])
+	clusterYaml := fmt.Sprintf(yamlTemplate, c.HostPort)
 
 	cmd := exec.Command("kind", "create", "cluster", "--name", c.Name, "--config", "-")
-	cmd.Stdin = strings.NewReader(clusterYaml)
-
+	fmt.Println(clusterYaml)
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		return fmt.Errorf("error creating StderrPipe: %v", err)
