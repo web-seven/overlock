@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"os/exec"
+	"strings"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -44,7 +45,8 @@ func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 	clusterYaml := fmt.Sprintf(yamlTemplate, c.HostPort)
 
 	cmd := exec.Command("kind", "create", "cluster", "--name", c.Name, "--config", "-")
-	fmt.Println(clusterYaml)
+	cmd.Stdin = strings.NewReader(clusterYaml)
+
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		return fmt.Errorf("error creating StderrPipe: %v", err)
