@@ -11,6 +11,8 @@ import (
 	"github.com/kndpio/kndp/cmd/kndp/environment"
 	"github.com/pterm/pterm"
 	"github.com/willabides/kongplete"
+	"k8s.io/client-go/dynamic"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 type Globals struct {
@@ -29,6 +31,10 @@ func (v VersionFlag) BeforeApply(app *kong.Kong, vars kong.Vars) error {
 }
 
 func (c *cli) AfterApply(ctx *kong.Context) error { //nolint:unparam
+	config := ctrl.GetConfigOrDie()
+	dynamicClient := dynamic.NewForConfigOrDie(config)
+	ctx.Bind(config)
+	ctx.Bind(dynamicClient)
 	ctx.BindTo(pterm.DefaultBasicText.WithWriter(ctx.Stdout), (*pterm.TextPrinter)(nil))
 	return nil
 }
