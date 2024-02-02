@@ -11,7 +11,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
-	ctrl "sigs.k8s.io/controller-runtime"
+	"k8s.io/client-go/rest"
 
 	"github.com/charmbracelet/huh"
 	"github.com/kndpio/kndp/internal/install/helm"
@@ -30,6 +30,19 @@ type ResourceParams struct {
 	namespace string
 }
 
+type ObjectRef struct {
+	Name string `json:"name"`
+	Kind string `json:"kind"`
+}
+type ConfigurationRevisions struct {
+	Spec struct {
+		Image string `json:"image"`
+	} `json:"spec"`
+	Status struct {
+		ObjectRefs []ObjectRef `json:"objectRefs"`
+	}
+}
+
 func GetResources(p ResourceParams) ([]unstructured.Unstructured, error) {
 	resourceId := schema.GroupVersionResource{
 		Group:    p.group,
@@ -46,25 +59,8 @@ func GetResources(p ResourceParams) ([]unstructured.Unstructured, error) {
 	return list.Items, nil
 }
 
-type ObjectRef struct {
-	Name string `json:"name"`
-	Kind string `json:"kind"`
-}
-type ConfigurationRevisions struct {
-	Spec struct {
-		Image string `json:"image"`
-	} `json:"spec"`
-	Status struct {
-		ObjectRefs []ObjectRef `json:"objectRefs"`
-	}
-}
-
-func (c *applyCmd) Run(p pterm.TextPrinter) error {
-	//call k8s api with spec.image link to match the right configuration revision, after that extract status.objectRefs of it with kind xrd and get their names.
+func fetchXRDs(Link string, ctx context.Context, config *rest.Config, dynamicClient *dynamic.DynamicClient) []string {
 	var xrds []string
-	ctx := context.Background()
-	config := ctrl.GetConfigOrDie()
-	dynamicClient := dynamic.NewForConfigOrDie(config)
 	var ResourceParams = ResourceParams{
 		dynamic:   dynamicClient,
 		ctx:       ctx,
@@ -77,10 +73,8 @@ func (c *applyCmd) Run(p pterm.TextPrinter) error {
 	items, _ := GetResources(ResourceParams)
 	for _, item := range items {
 		image := &ConfigurationRevisions{}
-		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(item.Object, image); err != nil {
-			return fmt.Errorf("error converting Unstructured to Meal: %v", err)
-		}
-		if image.Spec.Image == c.Link {
+		runtime.DefaultUnstructuredConverter.FromUnstructured(item.Object, image)
+		if image.Spec.Image == Link {
 			for _, objectRef := range image.Status.ObjectRefs {
 				if objectRef.Kind == "CompositeResourceDefinition" {
 					xrds = append(xrds, objectRef.Name)
@@ -88,7 +82,12 @@ func (c *applyCmd) Run(p pterm.TextPrinter) error {
 			}
 		}
 	}
+	return xrds
+}
+
+func applyConfiguration(Link string, config *rest.Config) {
 	chartName := "crossplane"
+
 	repoURL, err := url.Parse("https://charts.crossplane.io/stable")
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
@@ -101,7 +100,7 @@ func (c *applyCmd) Run(p pterm.TextPrinter) error {
 
 	parameters := map[string]interface{}{
 		"configuration": map[string]interface{}{
-			"packages": []string{c.Link},
+			"packages": []string{Link},
 		},
 	}
 
@@ -112,6 +111,9 @@ func (c *applyCmd) Run(p pterm.TextPrinter) error {
 
 	pterm.Success.Println("KNDP configuration applied successfully.")
 
+}
+
+func handleForm(xrds []string, Link string) {
 	var createResource bool
 	formConfirm := huh.NewForm(
 		huh.NewGroup(
@@ -139,19 +141,24 @@ func (c *applyCmd) Run(p pterm.TextPrinter) error {
 			}(),
 		),
 	)
-
 	formConfirm.Run()
 	if createResource {
 		if len(xrds) > 0 {
 			form.Run()
 		} else {
-			fmt.Println("No resource to create from: ", c.Link)
+			fmt.Println("No resource to create from: ", Link)
 		}
 		selectedValues := xrds
 		for _, value := range selectedValues {
 			fmt.Println("Creating KNDP resource from: ", value, "\n")
 		}
 	}
+}
+
+func (c *applyCmd) Run(p pterm.TextPrinter, ctx context.Context, config *rest.Config, dynamicClient *dynamic.DynamicClient) error {
+	applyConfiguration(c.Link, config)
+	xrds := fetchXRDs(c.Link, ctx, config, dynamicClient)
+	handleForm(xrds, c.Link)
 
 	return nil
 }
