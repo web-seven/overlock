@@ -61,12 +61,18 @@ func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 
 	stderrScanner := bufio.NewScanner(stderr)
 	for stderrScanner.Scan() {
-		fmt.Println(stderrScanner.Text(), "1")
+		line := stderrScanner.Text()
+		if !strings.Contains(line, " • ") {
+			fmt.Println(line)
+		}
 	}
 
 	stdoutScanner := bufio.NewScanner(stdout)
 	for stdoutScanner.Scan() {
-		fmt.Println(stderrScanner.Text(), "2")
+		line := stdoutScanner.Text()
+		if !strings.Contains(line, " • ") {
+			fmt.Println(line)
+		}
 	}
 
 	cmd.Wait()
