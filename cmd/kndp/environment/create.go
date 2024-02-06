@@ -68,6 +68,7 @@ func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 	for stdoutScanner.Scan() {
 		fmt.Println(stderrScanner.Text(), "2")
 	}
+	fmt.Println("Installing crossplane ...")
 
 	cmd.Wait()
 
@@ -78,7 +79,8 @@ func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 		return fmt.Errorf("error parsing repository URL: %v", err)
 	}
 
-	installer, err := helm.NewManager(config, chartName, repoURL)
+	setWait := helm.InstallerModifierFn(helm.Wait())
+	installer, err := helm.NewManager(config, chartName, repoURL, setWait)
 	if err != nil {
 		return fmt.Errorf("error creating Helm manager: %v", err)
 	}
@@ -92,5 +94,6 @@ func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 	if err != nil {
 		return err
 	}
+	fmt.Println("Crossplane installation completed successfully!")
 	return nil
 }
