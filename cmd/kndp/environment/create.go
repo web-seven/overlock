@@ -37,8 +37,8 @@ nodes:
 `
 
 type createCmd struct {
-	Name     string
-	HostPort int `optional:"" short:"p" help:"Host port for mapping" default:"80"`
+	Name     string `arg:"" optional:"" help:"Name of environment."`
+	HostPort int    `optional:"" short:"p" help:"Host port for mapping" default:"80"`
 }
 
 func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
@@ -49,7 +49,9 @@ func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 				Value(&c.Name),
 		),
 	)
-	form.Run()
+	if !(len(c.Name) > 0) {
+		form.Run()
+	}
 
 	clusterYaml := fmt.Sprintf(yamlTemplate, c.HostPort)
 
