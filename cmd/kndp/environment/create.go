@@ -10,6 +10,7 @@ import (
 
 	ctrl "sigs.k8s.io/controller-runtime"
 
+	"github.com/charmbracelet/huh"
 	"github.com/kndpio/kndp/internal/install/helm"
 	"github.com/pterm/pterm"
 )
@@ -36,11 +37,19 @@ nodes:
 `
 
 type createCmd struct {
-	Name     string `arg:"" required:"" help:"Name of environment."`
-	HostPort int    `optional:"" short:"p" help:"Host port for mapping" default:"80"`
+	Name     string
+	HostPort int `optional:"" short:"p" help:"Host port for mapping" default:"80"`
 }
 
 func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Enter a name for environment: ").
+				Value(&c.Name),
+		),
+	)
+	form.Run()
 
 	clusterYaml := fmt.Sprintf(yamlTemplate, c.HostPort)
 
