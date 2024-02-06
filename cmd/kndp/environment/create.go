@@ -42,14 +42,14 @@ type createCmd struct {
 }
 
 func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
-	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewInput().
-				Title("Enter a name for environment: ").
-				Value(&c.Name),
-		),
-	)
 	if !(len(c.Name) > 0) {
+		form := huh.NewForm(
+			huh.NewGroup(
+				huh.NewInput().
+					Title("Enter a name for environment: ").
+					Value(&c.Name),
+			),
+		)
 		form.Run()
 	}
 
