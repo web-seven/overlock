@@ -25,7 +25,7 @@ func (c *deleteCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 
 	stderrScanner := bufio.NewScanner(stderr)
 	for stderrScanner.Scan() {
-		fmt.Println(stderrScanner.Text(), "1")
+		fmt.Println(stderrScanner.Text())
 	}
 	return nil
 }
