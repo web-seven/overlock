@@ -175,6 +175,7 @@ require (
 	github.com/alecthomas/kong v0.8.1
 	github.com/charmbracelet/huh v0.3.0
 	github.com/containerd/console v1.0.4-0.20230313162750-1ae8d489ac81 // indirect
+	github.com/crossplane/crossplane v1.14.5
 	github.com/crossplane/crossplane-runtime v1.14.4
 	github.com/google/go-containerregistry v0.19.0
 	github.com/gookit/color v1.5.4 // indirect

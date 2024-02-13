@@ -9,6 +9,7 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/kndpio/kndp/cmd/kndp/configuration"
 	"github.com/kndpio/kndp/cmd/kndp/environment"
+	"github.com/kndpio/kndp/cmd/kndp/resource"
 	"github.com/pterm/pterm"
 	"github.com/willabides/kongplete"
 	"k8s.io/client-go/dynamic"
@@ -45,6 +46,7 @@ type cli struct {
 	Help               helpCmd                      `cmd:"" help:"Show help."`
 	Environment        environment.Cmd              `cmd:"" name:"environment" aliases:"env" help:"KNDP Environment commands"`
 	Configuration      configuration.Cmd            `cmd:"" name:"configuration" aliases:"cfg" help:"KNDP Configuration commands"`
+	Resource           resource.Cmd                 `cmd:"" name:"resource" aliases:"res" help:"KNDP Resource commands"`
 	InstallCompletions kongplete.InstallCompletions `cmd:"" help:"Install shell completions"`
 }
 
