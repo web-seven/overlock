@@ -32,10 +32,12 @@ func (v VersionFlag) BeforeApply(app *kong.Kong, vars kong.Vars) error {
 }
 
 func (c *cli) AfterApply(ctx *kong.Context) error { //nolint:unparam
-	config := ctrl.GetConfigOrDie()
-	dynamicClient := dynamic.NewForConfigOrDie(config)
-	ctx.Bind(config)
-	ctx.Bind(dynamicClient)
+	config, _ := ctrl.GetConfig()
+	if config != nil {
+		ctx.Bind(config)
+		dynamicClient, _ := dynamic.NewForConfig(config)
+		ctx.Bind(dynamicClient)
+	}
 	ctx.BindTo(pterm.DefaultBasicText.WithWriter(ctx.Stdout), (*pterm.TextPrinter)(nil))
 	return nil
 }
