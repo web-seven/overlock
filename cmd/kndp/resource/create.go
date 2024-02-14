@@ -27,11 +27,11 @@ func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter, client *dynami
 			Kind:       "customresourcedefinitions",
 		},
 	}
-	createXResource(ctx, xrd, client)
+	CreateXResource(ctx, xrd, client)
 	return nil
 }
 
-func createXResource(ctx context.Context, xrd crossv1.CompositeResourceDefinition, client *dynamic.DynamicClient) bool {
+func CreateXResource(ctx context.Context, xrd crossv1.CompositeResourceDefinition, client *dynamic.DynamicClient) bool {
 	xResource := resources.XResource{}
 	form := xResource.GetSchemaFormFromXRDefinition(
 		ctx,
