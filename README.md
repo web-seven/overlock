@@ -1,5 +1,5 @@
 # kndp
-The @kndp CLI
+The @kndpio CLI
 
 # Roadmap
 - [X] Create/delete Kind-based environment.
