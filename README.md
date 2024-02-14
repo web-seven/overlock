@@ -12,5 +12,7 @@ The @kndp CLI
 - [ ] Display Tree of installed CRD resources for select CRD name on `kndp resource create` command.
 - [ ] List Crossplane Configurations from Upbound registry for `kndp configuration apply`.
 - [ ] Command for Install Providers package from Upbound registry.
+- [ ] k3s environment engine suppport
+- [ ] environment engine selection
 - [ ] tbc
 
