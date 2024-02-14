@@ -347,6 +347,10 @@ func (h *Installer) GetCurrentVersion() (string, error) {
 	return release.Chart.Metadata.Version, nil
 }
 
+func (h *Installer) GetCurrentRelease() (*release.Release, error) {
+	return h.getClient.Run(h.chartName)
+}
+
 // Install installs in the cluster.
 func (h *Installer) Install(version string, parameters map[string]any, opts ...install.InstallOption) error {
 	// make sure no version is already installed
