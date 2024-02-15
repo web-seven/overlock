@@ -126,6 +126,7 @@ type Installer struct {
 	tempDir         TempDirFn
 	log             logging.Logger
 	oci             bool
+	reuseValues     bool
 
 	// Auth
 	username string
@@ -224,6 +225,13 @@ func WithNoHooks() InstallerModifierFn {
 	}
 }
 
+// WithLogger sets the logger for the helm installer.
+func WithReuseValues(r bool) InstallerModifierFn {
+	return func(h *Installer) {
+		h.reuseValues = r
+	}
+}
+
 // NewManager builds a helm install manager for UXP.
 func NewManager(config *rest.Config, chartName string, repoURL *url.URL, modifiers ...InstallerModifierFn) (install.Manager, error) { // nolint:gocyclo
 	h := &Installer{
@@ -304,6 +312,7 @@ func NewManager(config *rest.Config, chartName string, repoURL *url.URL, modifie
 	uc.Wait = h.wait
 	uc.Timeout = waitTimeout
 	uc.DisableHooks = h.noHooks
+	uc.ReuseValues = h.reuseValues
 	h.upgradeClient = uc
 
 	// Uninstall Client
@@ -345,6 +354,10 @@ func (h *Installer) GetCurrentVersion() (string, error) {
 		return "", errors.New(errVerifyInstalledVersion)
 	}
 	return release.Chart.Metadata.Version, nil
+}
+
+func (h *Installer) GetRelease() (*release.Release, error) {
+	return h.getClient.Run(h.chartName)
 }
 
 // Install installs in the cluster.
