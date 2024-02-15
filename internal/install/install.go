@@ -29,7 +29,7 @@ type UpgradeOption func(oldVersion string, ch *chart.Chart) error
 // TODO(hasheddan): support custom error types, such as AlreadyExists.
 type Manager interface {
 	GetCurrentVersion() (string, error)
-	GetCurrentRelease() (*release.Release, error)
+	GetRelease() (*release.Release, error)
 	Install(version string, parameters map[string]any, opts ...InstallOption) error
 	Upgrade(version string, parameters map[string]any, opts ...UpgradeOption) error
 	Uninstall() error

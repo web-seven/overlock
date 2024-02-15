@@ -11,14 +11,14 @@ import (
 	"github.com/pterm/pterm"
 )
 
-func GetCrossplaneChart(config *rest.Config) install.Manager {
+func GetManager(config *rest.Config) install.Manager {
 	chartName := "crossplane"
 
 	repoURL, err := url.Parse("https://charts.crossplane.io/stable")
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 	}
-	installer, err := helm.NewManager(config, chartName, repoURL)
+	installer, err := helm.NewManager(config, chartName, repoURL, helm.WithReuseValues(true))
 	installer.GetCurrentVersion()
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
@@ -34,7 +34,7 @@ func ApplyConfiguration(Link string, config *rest.Config) {
 		},
 	}
 
-	installer := GetCrossplaneChart(config)
+	installer := GetManager(config)
 
 	err := installer.Upgrade("", parameters)
 	if err != nil {

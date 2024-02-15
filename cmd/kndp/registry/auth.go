@@ -2,13 +2,16 @@ package registry
 
 import (
 	"context"
+	b64 "encoding/base64"
 	"encoding/json"
 
 	"github.com/kndpio/kndp/internal/configuration"
+	"github.com/pterm/pterm"
 	coreV1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/kustomize/kyaml/yaml"
 )
 
 type DockerRegistryConfig struct {
@@ -18,6 +21,8 @@ type DockerRegistryConfig struct {
 type DockerRegistryAuth struct {
 	Username string `json:"username"`
 	Password string `json:"password"`
+	Email    string `json:"email"`
+	Auth     string `json:"auth"`
 }
 
 type authCmd struct {
@@ -38,6 +43,8 @@ func (c *authCmd) Run(ctx context.Context, client *kubernetes.Clientset, config 
 			c.RegistryServer: {
 				Username: c.Username,
 				Password: c.Password,
+				Email:    c.Email,
+				Auth:     b64.StdEncoding.EncodeToString([]byte(c.Username + ":" + c.Password)),
 			},
 		},
 	})
@@ -56,20 +63,21 @@ func (c *authCmd) Run(ctx context.Context, client *kubernetes.Clientset, config 
 		return err
 	}
 
-	installer := configuration.GetCrossplaneChart(config)
+	installer := configuration.GetManager(config)
+	parameters := map[string]any{
+		"imagePullSecrets": map[string]string{
+			secret.ObjectMeta.Name: secret.ObjectMeta.Name,
+		},
+	}
 
-	configs := ReleaseConfig{}
-	parameters := map[string]any{}
-
-	release, _ := installer.GetCurrentRelease()
-	jsons, _ := json.Marshal(release.Config)
-	json.Unmarshal(jsons, &configs)
-	configs.Secrets[secret.Name] = secret.Name
-	parameters["imagePullSecrets"] = configs.Secrets
+	yamlParams, _ := yaml.Marshal(parameters)
+	yaml.Unmarshal([]byte(yamlParams), parameters)
 
 	err = installer.Upgrade("", parameters)
 	if err != nil {
 		return err
+	} else {
+		pterm.Success.Println("KNDP Authentication Secret created successfully.")
 	}
 
 	return nil
