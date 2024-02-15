@@ -25,6 +25,8 @@ type Globals struct {
 
 type VersionFlag string
 
+var Version = "development"
+
 func (v VersionFlag) Decode(ctx *kong.DecodeContext) error { return nil }
 func (v VersionFlag) IsBool() bool                         { return true }
 func (v VersionFlag) BeforeApply(app *kong.Kong, vars kong.Vars) error {
@@ -62,7 +64,7 @@ type helpCmd struct{}
 func main() {
 	c := cli{
 		Globals: Globals{
-			Version: VersionFlag("0.0.1"),
+			Version: VersionFlag(Version),
 		},
 	}
 
@@ -73,7 +75,7 @@ func main() {
 			return kong.DefaultHelpPrinter(options, ctx)
 		}),
 		kong.Vars{
-			"version": "0.0.1",
+			"version": Version,
 		},
 		kong.ConfigureHelp(kong.HelpOptions{
 			Tree: true,

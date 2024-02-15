@@ -26,3 +26,4 @@ jobs:
         goarch: amd64
         project_path: "./cmd/kndp"
         binary_name: "kndp"
+        ldflags: -X 'main.Version=${{ vars.GITHUB_REF_NAME }}'
