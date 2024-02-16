@@ -4,7 +4,8 @@ The @kndpio CLI
 # Roadmap
 - [X] Create/delete Kind-based environment.
 - [X] Apply Crossplane configuration to environment.
-- [X] Interactive command for create k8s resources. 
+- [X] Interactive command for create k8s resources.
+- [X] Private Package Registries authentication.
 - [ ] Tree Walking Form for `kndp resource create` command.
 - [ ] Basic Terminal UI application for execute interactive commands.
 - [ ] XRD of Environment.
