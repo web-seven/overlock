@@ -2,15 +2,15 @@
 The @kndpio CLI
 
 # Roadmap
-- [X] Create/delete Kind-based environment.
-- [X] Apply Crossplane configuration to environment.
-- [X] Interactive command for create k8s resources.
-- [X] Private Package Registries authentication.
+- [X] Create/delete Kind-based environment. [https://github.com/kndpio/kndp/issues/2]
+- [X] Apply Crossplane configuration to environment. [https://github.com/kndpio/kndp/issues/5]
+- [X] Interactive command for create k8s resources. [https://github.com/kndpio/kndp/issues/6]
+- [X] Private Package Registries authentication. [https://github.com/kndpio/kndp/issues/30]
 - [ ] Tree Walking Form for `kndp resource create` command.
-- [ ] Basic Terminal UI application for execute interactive commands.
+- [ ] Basic Terminal UI application for execute interactive commands. [https://github.com/kndpio/kndp/issues/23]
 - [ ] XRD of Environment.
-- [ ] Create Remote Environment.
-- [ ] Move Environment entities to another Environment.
+- [ ] Create Remote Environment. [https://github.com/kndpio/kndp/issues/29]
+- [ ] Move Environment entities to another Environment. [https://github.com/kndpio/kndp/issues/25]
 - [ ] Selection discovered resources referecies, requested by CRD schema.
 - [ ] Display Tree of installed CRD resources for select CRD name on `kndp resource create` command.
 - [ ] List Crossplane Configurations from Upbound registry for `kndp configuration apply`.
