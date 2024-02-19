@@ -4,6 +4,7 @@ import (
 	"context"
 	b64 "encoding/base64"
 	"encoding/json"
+	"strings"
 
 	"github.com/kndpio/kndp/internal/configuration"
 	"github.com/pterm/pterm"
@@ -38,6 +39,17 @@ type ReleaseConfig struct {
 
 func (c *authCmd) Run(ctx context.Context, client *kubernetes.Clientset, config *rest.Config) error {
 
+	secretsClient := client.CoreV1().Secrets("default")
+
+	secrets, _ := secretsClient.List(ctx, v1.ListOptions{LabelSelector: "kndp-registry-auth-config=true"})
+
+	for _, existsSecret := range secrets.Items {
+		if existsUrl := existsSecret.Annotations["kndp-registry-server-url"]; existsUrl != "" && strings.Contains(existsUrl, c.RegistryServer) {
+			pterm.Info.Println("Secret for this registry server already exists.")
+			return nil
+		}
+	}
+
 	regConf, _ := json.Marshal(DockerRegistryConfig{
 		Auths: map[string]DockerRegistryAuth{
 			c.RegistryServer: {
@@ -52,12 +64,17 @@ func (c *authCmd) Run(ctx context.Context, client *kubernetes.Clientset, config 
 	secretSpec := coreV1.Secret{
 		ObjectMeta: v1.ObjectMeta{
 			GenerateName: "registry-server-auth-",
+			Labels: map[string]string{
+				"kndp-registry-auth-config": "true",
+			},
+			Annotations: map[string]string{
+				"kndp-registry-server-url": c.RegistryServer,
+			},
 		},
 		Data: map[string][]byte{".dockerconfigjson": regConf},
 		Type: "kubernetes.io/dockerconfigjson",
 	}
 
-	secretsClient := client.CoreV1().Secrets("default")
 	secret, err := secretsClient.Create(ctx, &secretSpec, v1.CreateOptions{})
 	if err != nil {
 		return err
