@@ -222,6 +222,9 @@ func (xr *XResource) getFormGroupsByProps(schema *extv1.JSONSchemaProps, parent 
 		} else if property.Type == "object" && isStringInArray(metadataFields, propertyName) {
 			propertyValue := metav1.ObjectMeta{
 				Name: "",
+				Labels: map[string]string{
+					"kndp": "resource",
+				},
 			}
 			(xr.Object)[propertyName] = &propertyValue
 
