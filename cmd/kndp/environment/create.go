@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"os"
 	"os/exec"
 	"strings"
 
@@ -115,12 +116,16 @@ func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 		}
 
 		cmd.Wait()
-		configClient := ctrl.GetConfigOrDie()
+		configClient, err := ctrl.GetConfig()
+		if err != nil {
+			fmt.Println(err)
+		}
 		installHelmResources(configClient)
 	} else {
 		configClient, err := config.GetConfigWithContext(c.Context)
 		if err != nil {
 			fmt.Println(err)
+			os.Exit(1)
 		}
 		installHelmResources(configClient)
 	}
