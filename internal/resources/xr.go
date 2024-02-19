@@ -102,8 +102,10 @@ func (xr *XResource) getFormGroupsByProps(schema *extv1.JSONSchemaProps, parent 
 	}
 	for propertyName, property := range schema.Properties {
 
+		breadCrumbs := parent + "[" + propertyName + "]"
+
 		shortDescription := strings.SplitN(property.Description, ".", 2)[0]
-		description := shortDescription + "[" + parent + "] [" + propertyName + "]"
+		description := shortDescription + breadCrumbs
 		isRequired := isStringInArray(schema.Required, propertyName)
 
 		if (property.Type == "object" || property.Type == "array") && (!isStringInArray(metadataFields, propertyName) || len(property.Properties) > 0) {
@@ -147,15 +149,14 @@ func (xr *XResource) getFormGroupsByProps(schema *extv1.JSONSchemaProps, parent 
 					)
 					(xr.Object)[propertyName] = &propertyValue
 				} else if property.Items.Schema.Type == "object" {
-
-					propertyGroups := schemaXr.getFormGroupsByProps(property.Items.Schema, propertyName)
+					propertyGroups := schemaXr.getFormGroupsByProps(property.Items.Schema, breadCrumbs)
 					formGroups = append(formGroups, propertyGroups...)
 					(xr.Object)[propertyName] = &[]map[string]interface{}{schemaXr.Object}
 
 				}
 
 			} else {
-				propertyGroups := schemaXr.getFormGroupsByProps(&property, propertyName)
+				propertyGroups := schemaXr.getFormGroupsByProps(&property, breadCrumbs)
 				formGroups = append(formGroups, propertyGroups...)
 				(xr.Object)[propertyName] = &schemaXr.Object
 			}
