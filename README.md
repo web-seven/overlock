@@ -17,5 +17,9 @@ The @kndpio CLI
 - [ ] Command for Install Providers package from Upbound registry.
 - [ ] k3s Environment engine.
 - [ ] Environment engine selection.
+- [ ] Display list of resources created by KNDP CLI.
+- [ ] Manage Resources created by KNDP CLI (edit/delete).
+- [ ] Display resource card with: logs, events, actions (clone/edit/delete).
+- [ ] Display propogated events from children resources.
 - [ ] tbc...
 
