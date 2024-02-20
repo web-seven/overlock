@@ -2,14 +2,12 @@ package environment
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os/exec"
 	"strings"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
@@ -25,21 +23,8 @@ type moveCmd struct {
 	Destination string `arg:"" required:"" help:"Name destination of environment."`
 }
 
-func getAppliedConfigurations(paramsList []kube.ResourceParams) []unstructured.Unstructured {
-	var items []unstructured.Unstructured
-	for _, params := range paramsList {
-		items, err := kube.GetKubeResources(params)
-		if err != nil {
-			log.Println(err)
-			continue
-		}
-		return items
-	}
-	return items
-}
-
 func (c *moveCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
-	log.Println("Moving Kubernetes resources to the destination cluster...")
+	log.Println("Moving Kubernetes resources to the destination cluster ...")
 	// Create a Kubernetes client for the source cluster
 	sourceConfig, err := ctrl.GetConfigWithContext(c.Source)
 	if err != nil {
@@ -52,23 +37,23 @@ func (c *moveCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 		return err
 	}
 
-	paramsConfiguration := []kube.ResourceParams{
-		{
-			Dynamic:   sourceDynamicClient,
-			Ctx:       ctx,
-			Group:     "pkg.crossplane.io",
-			Version:   "v1",
-			Resource:  "configurations",
-			Namespace: "",
-		},
+	paramsConfiguration := kube.ResourceParams{
+		Dynamic:   sourceDynamicClient,
+		Ctx:       ctx,
+		Group:     "pkg.crossplane.io",
+		Version:   "v1",
+		Resource:  "configurations",
+		Namespace: "",
 	}
 
-	configurations := getAppliedConfigurations(paramsConfiguration)
+	configurations, err := kube.GetKubeResources(paramsConfiguration)
 
 	if err != nil {
 		return err
 	}
+
 	// Create a Kubernetes client for the destination cluster
+
 	destConfig, err := ctrl.GetConfigWithContext(c.Destination)
 	if err != nil {
 		log.Println(err)
@@ -80,49 +65,48 @@ func (c *moveCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 		log.Println(err)
 		return err
 	}
+	log.Println("Creating resources in destination cluster, please wait ...")
 
-	fmt.Println("Creating resources in destination cluster, please wait ...")
 	//Apply configurations
+
 	for _, item := range configurations {
 		item.SetResourceVersion("")
-		var resourceId schema.GroupVersionResource
-		for _, params := range paramsConfiguration {
-			resourceId = schema.GroupVersionResource{
-				Group:    params.Group,
-				Version:  params.Version,
-				Resource: params.Resource,
-			}
-			_, err := destClientset.Resource(resourceId).Namespace(params.Namespace).Create(ctx, &item, metav1.CreateOptions{})
-			if err != nil {
-				fmt.Println(err)
-			} else {
-				fmt.Println("Resource", item.GetName(), "created successfully")
-			}
+		resourceId := schema.GroupVersionResource{
+			Group:    paramsConfiguration.Group,
+			Version:  paramsConfiguration.Version,
+			Resource: paramsConfiguration.Resource,
 		}
+		_, err := destClientset.Resource(resourceId).Namespace(paramsConfiguration.Namespace).Create(ctx, &item, metav1.CreateOptions{})
+		if err != nil {
+			log.Println(err)
+		} else {
+			log.Println("Resource", item.GetName(), "created successfully")
+		}
+
 	}
+
 	//Get composite resources xrds definition and apply them
 
-	paramsXRDs := []kube.ResourceParams{
-		{
-			Dynamic:   sourceDynamicClient,
-			Ctx:       ctx,
-			Group:     "apiextensions.crossplane.io",
-			Version:   "v1",
-			Resource:  "compositeresourcedefinitions",
-			Namespace: "",
-		},
+	paramsXRDs := kube.ResourceParams{
+		Dynamic:   sourceDynamicClient,
+		Ctx:       ctx,
+		Group:     "apiextensions.crossplane.io",
+		Version:   "v1",
+		Resource:  "compositeresourcedefinitions",
+		Namespace: "",
 	}
-	XRDs := getAppliedConfigurations(paramsXRDs)
-
-	var paramsXR []kube.ResourceParams
-	for _, item := range XRDs {
+	XRDs, err := kube.GetKubeResources(paramsXRDs)
+	if err != nil {
+		log.Println(err)
+	}
+	for _, xrd := range XRDs {
 		var paramsXRs v1.CompositeResourceDefinition
-		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(item.UnstructuredContent(), &paramsXRs); err != nil {
-			fmt.Printf("Failed to convert item %s: %v\n", item.GetName(), err)
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(xrd.UnstructuredContent(), &paramsXRs); err != nil {
+			log.Printf("Failed to convert item %s: %v\n", xrd.GetName(), err)
 			continue
 		}
 
-		paramsXR = append(paramsXR, kube.ResourceParams{
+		XRs, err := kube.GetKubeResources(kube.ResourceParams{
 			Dynamic:   sourceDynamicClient,
 			Ctx:       ctx,
 			Group:     paramsXRs.Spec.Group,
@@ -130,37 +114,35 @@ func (c *moveCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 			Resource:  paramsXRs.Spec.Names.Plural,
 			Namespace: "",
 		})
-	}
+		if err != nil {
+			log.Println(err)
+		}
 
-	XRs := getAppliedConfigurations(paramsXR)
-	cmd := exec.Command("kind", "delete", "cluster", "--name", strings.TrimPrefix(c.Source, "kind-"))
-	cmd.Run()
-
-	for _, item := range XRs {
-		item.SetResourceVersion("")
-		labels := item.GetLabels()
-		var resourceId schema.GroupVersionResource
-		if labels != nil && labels["kndp"] == "resources" {
-			for _, params := range paramsXR {
-				resourceId = schema.GroupVersionResource{
-					Group:    params.Group,
-					Version:  params.Version,
-					Resource: params.Resource,
+		for _, xr := range XRs {
+			xr.SetResourceVersion("")
+			labels := xr.GetLabels()
+			if labels != nil && labels["kndp"] == "resources" {
+				resourceId := schema.GroupVersionResource{
+					Group:    paramsXRs.Spec.Group,
+					Version:  paramsXRs.Spec.Versions[0].Name,
+					Resource: paramsXRs.Spec.Names.Plural,
 				}
 				for {
-					_, err := destClientset.Resource(resourceId).Namespace(params.Namespace).Create(ctx, &item, metav1.CreateOptions{})
-					fmt.Println(err)
+					_, err := destClientset.Resource(resourceId).Namespace("").Create(ctx, &xr, metav1.CreateOptions{})
 					if err == nil {
-						fmt.Println("Resource", item.GetName(), "created successfully")
+						log.Println("Resource", xr.GetName(), "created successfully")
 						break
 					}
 					time.Sleep(5 * time.Second)
 				}
+			} else {
+				log.Printf("No resource to create from: %s\n", xrd.GetName())
 			}
-		} else {
-			fmt.Println("No resource to create...")
 		}
 	}
+
+	cmd := exec.Command("kind", "delete", "cluster", "--name", strings.TrimPrefix(c.Source, "kind-"))
+	cmd.Run()
 
 	log.Println("Successfully moved Kubernetes resources to the destination cluster.")
 
