@@ -11,7 +11,7 @@ The @kndpio CLI
 - [ ] XRD of Environment.
 - [ ] Create Remote Environment. [https://github.com/kndpio/kndp/issues/29]
 - [ ] Move Environment entities to another Environment. [https://github.com/kndpio/kndp/issues/25]
-- [ ] Selection discovered resources referecies, requested by CRD schema.
+- [ ] Suggest resources referece, requested by CRD schema property, on resource created/edit.
 - [ ] Display Tree of installed CRD resources for select CRD name on `kndp resource create` command.
 - [ ] List Crossplane Configurations from Upbound registry for `kndp configuration apply`.
 - [ ] Command for Install Providers package from Upbound registry.
