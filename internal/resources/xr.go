@@ -223,7 +223,7 @@ func (xr *XResource) getFormGroupsByProps(schema *extv1.JSONSchemaProps, parent 
 			propertyValue := metav1.ObjectMeta{
 				Name: "",
 				Labels: map[string]string{
-					"kndp": "resource",
+					"app.kubernetes.io/managed-by": "kndp",
 				},
 			}
 			(xr.Object)[propertyName] = &propertyValue

@@ -121,7 +121,7 @@ func (c *moveCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 		for _, xr := range XRs {
 			xr.SetResourceVersion("")
 			labels := xr.GetLabels()
-			if labels != nil && labels["kndp"] == "resources" {
+			if labels != nil && labels["app.kubernetes.io/managed-by"] == "kndp" {
 				resourceId := schema.GroupVersionResource{
 					Group:    paramsXRs.Spec.Group,
 					Version:  paramsXRs.Spec.Versions[0].Name,
