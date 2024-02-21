@@ -2,8 +2,6 @@ package environment
 
 import (
 	"context"
-
-	"github.com/pterm/pterm"
 )
 
 type moveCmd struct {
@@ -11,6 +9,6 @@ type moveCmd struct {
 	Destination string `arg:"" required:"" help:"Name destination of environment."`
 }
 
-func (c *moveCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
+func (c *moveCmd) Run(ctx context.Context) error {
 	return nil
 }

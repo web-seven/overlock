@@ -6,8 +6,9 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/charmbracelet/log"
+
 	"github.com/kndpio/kndp/internal/configuration"
-	"github.com/pterm/pterm"
 	coreV1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -37,7 +38,7 @@ type ReleaseConfig struct {
 	Secrets map[string]string `json:"imagePullSecrets"`
 }
 
-func (c *authCmd) Run(ctx context.Context, client *kubernetes.Clientset, config *rest.Config) error {
+func (c *authCmd) Run(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, logger *log.Logger) error {
 
 	secretsClient := client.CoreV1().Secrets("default")
 
@@ -45,7 +46,7 @@ func (c *authCmd) Run(ctx context.Context, client *kubernetes.Clientset, config 
 
 	for _, existsSecret := range secrets.Items {
 		if existsUrl := existsSecret.Annotations["kndp-registry-server-url"]; existsUrl != "" && strings.Contains(existsUrl, c.RegistryServer) {
-			pterm.Info.Println("Secret for this registry server already exists.")
+			logger.Info("Secret for this registry server already exists.")
 			return nil
 		}
 	}
@@ -80,7 +81,7 @@ func (c *authCmd) Run(ctx context.Context, client *kubernetes.Clientset, config 
 		return err
 	}
 
-	installer := configuration.GetManager(config)
+	installer := configuration.GetManager(config, logger)
 	parameters := map[string]any{
 		"imagePullSecrets": map[string]string{
 			secret.ObjectMeta.Name: secret.ObjectMeta.Name,
@@ -94,7 +95,7 @@ func (c *authCmd) Run(ctx context.Context, client *kubernetes.Clientset, config 
 	if err != nil {
 		return err
 	} else {
-		pterm.Success.Println("KNDP Authentication Secret created successfully.")
+		logger.Info("KNDP Authentication Secret created successfully.")
 	}
 
 	return nil
