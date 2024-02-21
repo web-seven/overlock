@@ -5,13 +5,12 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"os"
 	"os/exec"
 	"strings"
 
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/log"
 	"github.com/kndpio/kndp/internal/install/helm"
-	"github.com/pterm/pterm"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -44,31 +43,31 @@ type createCmd struct {
 	Context  string `optional:"" short:"c" help:"Kubernetes context where Environment will be created."`
 }
 
-func installHelmResources(configClient *rest.Config) error {
-	fmt.Println("Installing crossplane ...")
+func installHelmResources(configClient *rest.Config, logger *log.Logger) error {
+	logger.Info("Installing crossplane ...")
 
 	chartName := "crossplane"
 	repoURL, err := url.Parse("https://charts.crossplane.io/stable")
 	if err != nil {
-		return fmt.Errorf("error parsing repository URL: %v", err)
+		logger.Errorf("error parsing repository URL: %v", err)
 	}
 
 	setWait := helm.InstallerModifierFn(helm.Wait())
 	installer, err := helm.NewManager(configClient, chartName, repoURL, setWait)
 	if err != nil {
-		return fmt.Errorf("error creating Helm manager: %v", err)
+		logger.Errorf("error creating Helm manager: %v", err)
 	}
 
 	err = installer.Install("", nil)
 	if err != nil {
-		fmt.Println(err)
+		logger.Error(err)
 	}
 
-	fmt.Println("Crossplane installation completed successfully!")
+	logger.Info("Crossplane installation completed successfully!")
 	return nil
 }
 
-func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
+func (c *createCmd) Run(ctx context.Context, logger *log.Logger) error {
 	if c.Context == "" {
 
 		if !(len(c.Name) > 0) {
@@ -89,12 +88,12 @@ func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 
 		stderr, err := cmd.StderrPipe()
 		if err != nil {
-			return fmt.Errorf("error creating StderrPipe: %v", err)
+			logger.Errorf("error creating StderrPipe: %v", err)
 		}
 
 		stdout, err := cmd.StdoutPipe()
 		if err != nil {
-			return fmt.Errorf("error creating StdoutPipe: %v", err)
+			logger.Errorf("error creating StdoutPipe: %v", err)
 		}
 
 		cmd.Start()
@@ -103,7 +102,7 @@ func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 		for stderrScanner.Scan() {
 			line := stderrScanner.Text()
 			if !strings.Contains(line, " • ") {
-				fmt.Println(line)
+				logger.Print(line)
 			}
 		}
 
@@ -111,23 +110,22 @@ func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter) error {
 		for stdoutScanner.Scan() {
 			line := stdoutScanner.Text()
 			if !strings.Contains(line, " • ") {
-				fmt.Println(line)
+				logger.Print(line)
 			}
 		}
 
 		cmd.Wait()
 		configClient, err := ctrl.GetConfig()
 		if err != nil {
-			fmt.Println(err)
+			logger.Fatal(err)
 		}
-		installHelmResources(configClient)
+		installHelmResources(configClient, logger)
 	} else {
 		configClient, err := config.GetConfigWithContext(c.Context)
 		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+			logger.Fatal(err)
 		}
-		installHelmResources(configClient)
+		installHelmResources(configClient, logger)
 	}
 	return nil
 }

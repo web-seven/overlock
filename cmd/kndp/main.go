@@ -2,16 +2,15 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/signal"
 
 	"github.com/alecthomas/kong"
+	"github.com/charmbracelet/log"
 	"github.com/kndpio/kndp/cmd/kndp/configuration"
 	"github.com/kndpio/kndp/cmd/kndp/environment"
 	"github.com/kndpio/kndp/cmd/kndp/registry"
 	"github.com/kndpio/kndp/cmd/kndp/resource"
-	"github.com/pterm/pterm"
 	"github.com/willabides/kongplete"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -30,7 +29,7 @@ var Version = "development"
 func (v VersionFlag) Decode(ctx *kong.DecodeContext) error { return nil }
 func (v VersionFlag) IsBool() bool                         { return true }
 func (v VersionFlag) BeforeApply(app *kong.Kong, vars kong.Vars) error {
-	fmt.Println(vars["version"])
+	log.Print(vars["version"])
 	app.Exit(0)
 	return nil
 }
@@ -44,7 +43,8 @@ func (c *cli) AfterApply(ctx *kong.Context) error { //nolint:unparam
 		ctx.Bind(dynamicClient)
 		ctx.Bind(kubeClient)
 	}
-	ctx.BindTo(pterm.DefaultBasicText.WithWriter(ctx.Stdout), (*pterm.TextPrinter)(nil))
+	logger := log.Default()
+	ctx.Bind(logger)
 	return nil
 }
 

@@ -13,14 +13,14 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/charmbracelet/huh"
-	"github.com/pterm/pterm"
+	"github.com/charmbracelet/log"
 )
 
 type applyCmd struct {
 	Link string `arg:"" required:"" help:"Link URL to Crossplane configuration to be applied to Environment."`
 }
 
-func handleForm(ctx context.Context, client *dynamic.DynamicClient, xrds []string, Link string) {
+func handleForm(ctx context.Context, client *dynamic.DynamicClient, xrds []string, Link string, logger *log.Logger) {
 	var createResource bool
 	formConfirm := huh.NewForm(
 		huh.NewGroup(
@@ -63,16 +63,16 @@ func handleForm(ctx context.Context, client *dynamic.DynamicClient, xrds []strin
 						Kind:       "customresourcedefinitions",
 					},
 				}
-				resource.CreateXResource(ctx, xrd, client)
+				resource.CreateXResource(ctx, xrd, client, logger)
 			}
 		}
 	}
 }
 
-func (c *applyCmd) Run(p pterm.TextPrinter, ctx context.Context, config *rest.Config, dynamicClient *dynamic.DynamicClient) error {
-	configuration.ApplyConfiguration(c.Link, config)
+func (c *applyCmd) Run(ctx context.Context, config *rest.Config, dynamicClient *dynamic.DynamicClient, logger *log.Logger) error {
+	configuration.ApplyConfiguration(c.Link, config, logger)
 	xrds := xrd.GetXRDs(c.Link, ctx, config, dynamicClient)
-	handleForm(ctx, dynamicClient, xrds, c.Link)
+	handleForm(ctx, dynamicClient, xrds, c.Link, logger)
 
 	return nil
 }

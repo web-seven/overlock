@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/charmbracelet/log"
 
 	"github.com/charmbracelet/huh"
 	crossv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
@@ -27,7 +28,7 @@ type XResource struct {
 var apiFields = []string{"apiVersion", "kind"}
 var metadataFields = []string{"metadata"}
 
-func (xr *XResource) GetSchemaFormFromXRDefinition(ctx context.Context, xrd crossv1.CompositeResourceDefinition, client *dynamic.DynamicClient) *huh.Form {
+func (xr *XResource) GetSchemaFormFromXRDefinition(ctx context.Context, xrd crossv1.CompositeResourceDefinition, client *dynamic.DynamicClient, logger *log.Logger) *huh.Form {
 
 	xrdInstance, err := client.Resource(schema.GroupVersionResource{
 		Group:    xrd.GroupVersionKind().Group,
@@ -36,7 +37,7 @@ func (xr *XResource) GetSchemaFormFromXRDefinition(ctx context.Context, xrd cros
 	}).Get(ctx, xrd.Name, metav1.GetOptions{})
 
 	if err != nil {
-		fmt.Println(err)
+		logger.Error(err)
 	}
 
 	runtime.DefaultUnstructuredConverter.FromUnstructured(xrdInstance.UnstructuredContent(), &xrd)
@@ -64,10 +65,10 @@ func (xr *XResource) GetSchemaFormFromXRDefinition(ctx context.Context, xrd cros
 		selectedVersion = xrd.Spec.Versions[selectedVersionIndex]
 	}
 
-	versionSchema, _ := parseSchema(selectedVersion.Schema)
+	versionSchema, _ := parseSchema(selectedVersion.Schema, logger)
 
-	fmt.Println("Type: \t\t" + xrd.Name)
-	fmt.Println("Description: \t" + versionSchema.Description)
+	logger.Info("Type: \t\t" + xrd.Name)
+	logger.Info("Description: \t" + versionSchema.Description)
 
 	versionGroups := xr.getFormGroupsByProps(versionSchema, "")
 	formGroups = append(formGroups, versionGroups...)
@@ -250,14 +251,14 @@ func (xr *XResource) getFormGroupsByProps(schema *extv1.JSONSchemaProps, parent 
 	return formGroups
 }
 
-func parseSchema(v *v1.CompositeResourceValidation) (*extv1.JSONSchemaProps, error) {
+func parseSchema(v *v1.CompositeResourceValidation, logger *log.Logger) (*extv1.JSONSchemaProps, error) {
 	if v == nil {
 		return nil, nil
 	}
 
 	s := &extv1.JSONSchemaProps{}
 	if err := json.Unmarshal(v.OpenAPIV3Schema.Raw, s); err != nil {
-		fmt.Println(err)
+		logger.Error(err)
 	}
 	return s, nil
 }

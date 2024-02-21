@@ -2,11 +2,11 @@ package resource
 
 import (
 	"context"
-	"log"
+
+	"github.com/charmbracelet/log"
 
 	crossv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	"github.com/kndpio/kndp/internal/resources"
-	"github.com/pterm/pterm"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
@@ -16,7 +16,7 @@ type createCmd struct {
 	Type string `arg:"" required:"" help:"XRD type name."`
 }
 
-func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter, client *dynamic.DynamicClient) error {
+func (c *createCmd) Run(ctx context.Context, client *dynamic.DynamicClient, logger *log.Logger) error {
 
 	xrd := crossv1.CompositeResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
@@ -27,21 +27,22 @@ func (c *createCmd) Run(ctx context.Context, p pterm.TextPrinter, client *dynami
 			Kind:       "customresourcedefinitions",
 		},
 	}
-	CreateXResource(ctx, xrd, client)
+	CreateXResource(ctx, xrd, client, logger)
 	return nil
 }
 
-func CreateXResource(ctx context.Context, xrd crossv1.CompositeResourceDefinition, client *dynamic.DynamicClient) bool {
+func CreateXResource(ctx context.Context, xrd crossv1.CompositeResourceDefinition, client *dynamic.DynamicClient, logger *log.Logger) bool {
 	xResource := resources.XResource{}
 	form := xResource.GetSchemaFormFromXRDefinition(
 		ctx,
 		xrd,
 		client,
+		logger,
 	)
 
 	err := form.Run()
 	if err != nil {
-		log.Fatal(err)
+		logger.Error(err)
 	}
 
 	if form.GetBool("confirm") {
@@ -56,7 +57,7 @@ func CreateXResource(ctx context.Context, xrd crossv1.CompositeResourceDefinitio
 			groupVersion,
 		).Create(ctx, &xResource.Unstructured, metav1.CreateOptions{})
 		if err != nil {
-			log.Fatal(err)
+			logger.Error(err)
 		}
 		return true
 	}
