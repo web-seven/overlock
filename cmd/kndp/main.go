@@ -9,6 +9,8 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/kndpio/kndp/cmd/kndp/configuration"
 	"github.com/kndpio/kndp/cmd/kndp/environment"
+	"github.com/kndpio/kndp/cmd/kndp/provider"
+
 	"github.com/kndpio/kndp/cmd/kndp/registry"
 	"github.com/kndpio/kndp/cmd/kndp/resource"
 	"github.com/willabides/kongplete"
@@ -57,6 +59,7 @@ type cli struct {
 	Resource           resource.Cmd                 `cmd:"" name:"resource" aliases:"res" help:"KNDP Resource commands"`
 	Registry           registry.Cmd                 `cmd:"" name:"registry" aliases:"rgs" help:"Packages registy commands"`
 	InstallCompletions kongplete.InstallCompletions `cmd:"" help:"Install shell completions"`
+	Provider           provider.Cmd                 `cmd:"" name:"provider" help:"KNDP Provider commands"`
 }
 
 type helpCmd struct{}
