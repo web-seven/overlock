@@ -15,7 +15,7 @@ The @kndpio CLI
 - [ ] [TUI] Display Tree of installed CRD resources for select CRD name on `kndp resource create` command.
 - [ ] [TUI] List Crossplane Configurations from Upbound registry for `kndp configuration apply`.
 - [ ] Command for Install Providers package from Upbound registry. [https://github.com/kndpio/kndp/issues/48]
-- [ ] k3s Environment engine.
+- [ ] k3s Environment engine. [https://github.com/kndpio/kndp/issues/54]
 - [ ] Environment engine selection.
 - [ ] [TUI] Display list of resources created by KNDP CLI.
 - [ ] [TUI] Manage Resources created by KNDP CLI (edit/delete).
