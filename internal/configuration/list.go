@@ -3,22 +3,14 @@ package configuration
 import (
 	"context"
 
-	"github.com/kndpio/kndp/internal/kube"
-
 	crossv1 "github.com/crossplane/crossplane/apis/pkg/v1"
+	"github.com/kndpio/kndp/internal/kube"
 	"k8s.io/apimachinery/pkg/runtime"
-
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 )
 
-type Configuration struct {
-	Name    string
-	Package string
-}
-
-func ListConfigurations(ctx context.Context, config *rest.Config, dynamicClient *dynamic.DynamicClient) []Configuration {
-	var configurationList []Configuration
+func GetConfigurations(ctx context.Context, config *rest.Config, dynamicClient dynamic.Interface) []crossv1.Configuration {
 	var params = kube.ResourceParams{
 		Dynamic:   dynamicClient,
 		Ctx:       ctx,
@@ -27,15 +19,13 @@ func ListConfigurations(ctx context.Context, config *rest.Config, dynamicClient 
 		Resource:  "configurations",
 		Namespace: "",
 	}
-	var paramsXRs crossv1.Configuration
+	var configurations []crossv1.Configuration
 	items, _ := kube.GetKubeResources(params)
 	for _, item := range items {
-		runtime.DefaultUnstructuredConverter.FromUnstructured(item.UnstructuredContent(), &paramsXRs)
-		configurationList = append(configurationList, Configuration{
-			Name:    paramsXRs.Name,
-			Package: paramsXRs.Spec.Package,
-		})
+		var configuration crossv1.Configuration
+		runtime.DefaultUnstructuredConverter.FromUnstructured(item.UnstructuredContent(), &configuration)
+		configurations = append(configurations, configuration)
 	}
 
-	return configurationList
+	return configurations
 }
