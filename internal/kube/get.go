@@ -25,12 +25,11 @@ func GetKubeResources(p ResourceParams) ([]unstructured.Unstructured, error) {
 		Version:  p.Version,
 		Resource: p.Resource,
 	}
-	list, err := p.Dynamic.Resource(resourceId).Namespace(p.Namespace).
-		List(p.Ctx, metav1.ListOptions{})
+	list, err := p.Dynamic.Resource(resourceId).Namespace(p.Namespace).List(p.Ctx, metav1.ListOptions{})
 
 	if err != nil {
 		return nil, err
 	}
 
-	return list.Items, nil
+	return list.Items, err
 }
