@@ -9,7 +9,6 @@ import (
 	"github.com/charmbracelet/log"
 	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	"github.com/kndpio/kndp/internal/kube"
-	"github.com/pterm/pterm"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -22,7 +21,7 @@ type moveCmd struct {
 	Destination string `arg:"" required:"" help:"Name destination of environment."`
 }
 
-func (c *moveCmd) Run(ctx context.Context, p pterm.TextPrinter, logger *log.Logger) error {
+func (c *moveCmd) Run(ctx context.Context, logger *log.Logger) error {
 	logger.Info("Moving Kubernetes resources to the destination cluster ...")
 	// Create a Kubernetes client for the source cluster
 	sourceConfig, err := ctrl.GetConfigWithContext(c.Source)
