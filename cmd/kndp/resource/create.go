@@ -2,13 +2,14 @@ package resource
 
 import (
 	"context"
+	"fmt"
+	"os"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/log"
-
 	crossv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	"github.com/kndpio/kndp/internal/resources"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 )
 
@@ -32,35 +33,35 @@ func (c *createCmd) Run(ctx context.Context, client *dynamic.DynamicClient, logg
 }
 
 func CreateXResource(ctx context.Context, xrd crossv1.CompositeResourceDefinition, client *dynamic.DynamicClient, logger *log.Logger) bool {
-	xResource := resources.XResource{}
-	form := xResource.GetSchemaFormFromXRDefinition(
-		ctx,
-		xrd,
-		client,
-		logger,
-	)
-
-	if form != nil {
-		form.Run()
-	} else {
-		return false
+	xrm := resources.CreateResourceModel(ctx, &xrd, client)
+	xrm.WithLogger(logger)
+	_, err := tea.NewProgram(xrm).Run()
+	if err != nil {
+		fmt.Println("Oh no:", err)
+		os.Exit(1)
 	}
+	return true
 
-	if form.GetBool("confirm") {
+	// err := form.Run()
+	// if err != nil {
+	// 	logger.Error(err)
+	// }
 
-		groupVersion := schema.GroupVersionResource{
-			Group:    xResource.GroupVersionKind().Group,
-			Version:  xResource.GroupVersionKind().Version,
-			Resource: xResource.Resource,
-		}
+	// if form.GetBool("confirm") {
 
-		_, err := client.Resource(
-			groupVersion,
-		).Create(ctx, &xResource.Unstructured, metav1.CreateOptions{})
-		if err != nil {
-			logger.Error(err)
-		}
-		return true
-	}
-	return false
+	// 	groupVersion := schema.GroupVersionResource{
+	// 		Group:    xResource.GroupVersionKind().Group,
+	// 		Version:  xResource.GroupVersionKind().Version,
+	// 		Resource: xResource.Resource,
+	// 	}
+
+	// 	_, err := client.Resource(
+	// 		groupVersion,
+	// 	).Create(ctx, &xResource.Unstructured, metav1.CreateOptions{})
+	// 	if err != nil {
+	// 		logger.Error(err)
+	// 	}
+	// 	return true
+	// }
+	// return false
 }

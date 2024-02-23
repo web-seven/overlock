@@ -51,7 +51,7 @@ func (c *cli) AfterApply(ctx *kong.Context) error { //nolint:unparam
 		ctx.Bind(dynamicClient)
 		ctx.Bind(kubeClient)
 	}
-	logger := log.Default()
+	logger := log.New(os.Stdout)
 	if c.Globals.Debug {
 		logger.SetLevel(log.DebugLevel)
 	}
