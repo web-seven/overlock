@@ -15,7 +15,7 @@ The @kndpio CLI
 - [ ] XRD of Environment.
 - [ ] Environment engine selection.
 - [ ] Suggest resources referece, requested by CRD schema property, on resource created/edit.
-- [ ] [TUI] Terminal UI application interface structure. [https://github.com/kndpio/kndp/issues/23]
+- [ ] [TUI] Terminal UI application plaugin structure. [https://github.com/kndpio/kndp/issues/23]
 - [ ] [TUI] Tree Walking Form for `kndp resource create` command. [https://github.com/kndpio/kndp/issues/41]
 - [ ] [TUI] Display Tree of installed CRD resources for select CRD name on `kndp resource create` command.
 - [ ] [TUI] List Crossplane Configurations from Upbound registry for `kndp configuration apply`.
