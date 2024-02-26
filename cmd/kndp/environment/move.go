@@ -27,12 +27,12 @@ func (c *moveCmd) Run(ctx context.Context, logger *log.Logger) error {
 	sourceConfig, err := ctrl.GetConfigWithContext(c.Source)
 	if err != nil {
 		logger.Error(err)
-		return err
+		return nil
 	}
 	sourceDynamicClient, err := dynamic.NewForConfig(sourceConfig)
 	if err != nil {
 		logger.Error(err)
-		return err
+		return nil
 	}
 
 	paramsConfiguration := kube.ResourceParams{
@@ -47,7 +47,8 @@ func (c *moveCmd) Run(ctx context.Context, logger *log.Logger) error {
 	configurations, err := kube.GetKubeResources(paramsConfiguration)
 
 	if err != nil {
-		return err
+		logger.Error(err)
+		return nil
 	}
 
 	// Create a Kubernetes client for the destination cluster
@@ -55,13 +56,13 @@ func (c *moveCmd) Run(ctx context.Context, logger *log.Logger) error {
 	destConfig, err := ctrl.GetConfigWithContext(c.Destination)
 	if err != nil {
 		logger.Error(err)
-		return err
+		return nil
 	}
 
 	destClientset, err := dynamic.NewForConfig(destConfig)
 	if err != nil {
 		logger.Error(err)
-		return err
+		return nil
 	}
 	logger.Info("Creating resources in destination cluster, please wait ...")
 
