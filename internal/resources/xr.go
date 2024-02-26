@@ -38,6 +38,7 @@ func (xr *XResource) GetSchemaFormFromXRDefinition(ctx context.Context, xrd cros
 
 	if err != nil {
 		logger.Error(err)
+		return nil
 	}
 
 	runtime.DefaultUnstructuredConverter.FromUnstructured(xrdInstance.UnstructuredContent(), &xrd)
