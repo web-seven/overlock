@@ -2,7 +2,6 @@ package resource
 
 import (
 	"context"
-	"strings"
 
 	"github.com/charmbracelet/log"
 	"github.com/kndpio/kndp/internal/resources"
@@ -20,7 +19,7 @@ func (listCmd) Run(ctx context.Context, config *rest.Config, dynamicClient *dyna
 
 	xresources := resources.GetXResources(ctx, dynamicClient, logger)
 	for _, resource := range xresources {
-		labels := extractLabels(resource.GetLabels())
+		labels := resources.ExtractLabels(resource.GetLabels())
 		tbl.AddRow(resource.GetName(), resource.GetAPIVersion(), resource.GetKind(), labels)
 
 	}
@@ -28,14 +27,4 @@ func (listCmd) Run(ctx context.Context, config *rest.Config, dynamicClient *dyna
 	tbl.Print()
 
 	return nil
-}
-func extractLabels(labels map[string]string) string {
-	var sb strings.Builder
-	for k, v := range labels {
-		sb.WriteString(k)
-		sb.WriteString(": ")
-		sb.WriteString(v)
-		sb.WriteString(", ")
-	}
-	return sb.String()
 }

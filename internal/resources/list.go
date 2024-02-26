@@ -2,6 +2,7 @@ package resources
 
 import (
 	"context"
+	"strings"
 
 	"github.com/charmbracelet/log"
 	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
@@ -51,4 +52,15 @@ func GetXResources(ctx context.Context, dynamicClient *dynamic.DynamicClient, lo
 	}
 
 	return XRs
+}
+
+func ExtractLabels(labels map[string]string) string {
+	var sb strings.Builder
+	for k, v := range labels {
+		sb.WriteString(k)
+		sb.WriteString(": ")
+		sb.WriteString(v)
+		sb.WriteString(", ")
+	}
+	return sb.String()
 }
