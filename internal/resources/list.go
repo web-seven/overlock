@@ -6,6 +6,7 @@ import (
 	"github.com/charmbracelet/log"
 	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	"github.com/kndpio/kndp/internal/kube"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
@@ -41,6 +42,9 @@ func GetXResources(ctx context.Context, dynamicClient *dynamic.DynamicClient, lo
 			Version:   paramsXRs.Spec.Versions[0].Name,
 			Resource:  paramsXRs.Spec.Names.Plural,
 			Namespace: "",
+			ListOption: metav1.ListOptions{
+				LabelSelector: "app.kubernetes.io/managed-by=kndp",
+			},
 		})
 
 		if err != nil {

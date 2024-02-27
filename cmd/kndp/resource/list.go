@@ -21,17 +21,13 @@ func (listCmd) Run(ctx context.Context, config *rest.Config, dynamicClient *dyna
 
 	xresources := resources.GetXResources(ctx, dynamicClient, logger)
 	for _, resource := range xresources {
-		managedBy := resource.GetLabels()["app.kubernetes.io/managed-by"]
-		if managedBy == "kndp" {
-			createdLabel := resource.GetLabels()["creation-date"]
-			updatedLabel := resource.GetLabels()["update-date"]
-			tbl.AddRow(resource.GetName(), resource.GetAPIVersion(), resource.GetKind(), createdLabel, updatedLabel)
+		labels := resource.GetLabels()
+		tbl.AddRow(resource.GetName(), resource.GetAPIVersion(), resource.GetKind(), labels["creation-date"], labels["update-date"])
 
-			jsonFormat, _ := resource.MarshalJSON()
-			yamlFormat, _ := yaml.JSONToYAML(jsonFormat)
-			logger.Printf("\n%s JSON: \n%s\n", resource.GetName(), string(jsonFormat))
-			logger.Printf("%s YAML: \n%s\n", resource.GetName(), string(yamlFormat))
-		}
+		jsonFormat, _ := resource.MarshalJSON()
+		yamlFormat, _ := yaml.JSONToYAML(jsonFormat)
+		logger.Printf("\n%s JSON: \n%s\n", resource.GetName(), string(jsonFormat))
+		logger.Printf("%s YAML: \n%s\n", resource.GetName(), string(yamlFormat))
 	}
 
 	if len(xresources) > 0 {
