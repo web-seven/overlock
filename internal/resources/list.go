@@ -34,24 +34,25 @@ func GetXResources(ctx context.Context, dynamicClient *dynamic.DynamicClient, lo
 		if err != nil {
 			logger.Error(err)
 		}
+		for _, version := range paramsXRs.Spec.Versions {
+			xrList, err := kube.GetKubeResources(kube.ResourceParams{
+				Dynamic:   dynamicClient,
+				Ctx:       ctx,
+				Group:     paramsXRs.Spec.Group,
+				Version:   version.Name,
+				Resource:  paramsXRs.Spec.Names.Plural,
+				Namespace: "",
+				ListOption: metav1.ListOptions{
+					LabelSelector: "app.kubernetes.io/managed-by=kndp",
+				},
+			})
 
-		xrList, err := kube.GetKubeResources(kube.ResourceParams{
-			Dynamic:   dynamicClient,
-			Ctx:       ctx,
-			Group:     paramsXRs.Spec.Group,
-			Version:   paramsXRs.Spec.Versions[0].Name,
-			Resource:  paramsXRs.Spec.Names.Plural,
-			Namespace: "",
-			ListOption: metav1.ListOptions{
-				LabelSelector: "app.kubernetes.io/managed-by=kndp",
-			},
-		})
+			if err != nil {
+				logger.Error(err)
+			}
 
-		if err != nil {
-			logger.Error(err)
+			XRs = append(XRs, xrList...)
 		}
-
-		XRs = append(XRs, xrList...)
 	}
 
 	return XRs
