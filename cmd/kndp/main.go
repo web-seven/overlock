@@ -36,6 +36,12 @@ func (v VersionFlag) BeforeApply(app *kong.Kong, vars kong.Vars) error {
 	return nil
 }
 
+func getDescriptionText() string {
+	bText := "Kubernetes Native Development Platform CLI.\n\n"
+	bText += "For more details open https://kndp.io \n\n"
+	return bText
+}
+
 func (c *cli) AfterApply(ctx *kong.Context) error { //nolint:unparam
 	config, _ := ctrl.GetConfig()
 	if config != nil {
@@ -65,6 +71,7 @@ type cli struct {
 type helpCmd struct{}
 
 func main() {
+
 	c := cli{
 		Globals: Globals{
 			Version: VersionFlag(Version),
@@ -73,7 +80,7 @@ func main() {
 
 	parser := kong.Must(&c,
 		kong.Name("kndp"),
-		kong.Description("The KNDP CLI"),
+		kong.Description(getDescriptionText()),
 		kong.Help(func(options kong.HelpOptions, ctx *kong.Context) error {
 			return kong.DefaultHelpPrinter(options, ctx)
 		}),
