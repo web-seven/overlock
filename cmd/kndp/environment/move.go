@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"github.com/charmbracelet/log"
+	condition "github.com/crossplane/crossplane-runtime/apis/common/v1"
 	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
+	configuration "github.com/crossplane/crossplane/apis/pkg/v1"
 	"github.com/kndpio/kndp/internal/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -19,6 +21,16 @@ import (
 type moveCmd struct {
 	Source      string `arg:"" required:"" help:"Name source of environment."`
 	Destination string `arg:"" required:"" help:"Name destination of environment."`
+}
+
+func checkHealthStatus(status []condition.Condition) bool {
+	healthStatus := false
+	for _, condition := range status {
+		if condition.Type == "Healthy" && condition.Status == "True" {
+			healthStatus = true
+		}
+	}
+	return healthStatus
 }
 
 func (c *moveCmd) Run(ctx context.Context, logger *log.Logger) error {
@@ -35,12 +47,13 @@ func (c *moveCmd) Run(ctx context.Context, logger *log.Logger) error {
 	}
 
 	paramsConfiguration := kube.ResourceParams{
-		Dynamic:   sourceDynamicClient,
-		Ctx:       ctx,
-		Group:     "pkg.crossplane.io",
-		Version:   "v1",
-		Resource:  "configurations",
-		Namespace: "",
+		Dynamic:    sourceDynamicClient,
+		Ctx:        ctx,
+		Group:      "pkg.crossplane.io",
+		Version:    "v1",
+		Resource:   "configurations",
+		Namespace:  "",
+		ListOption: metav1.ListOptions{},
 	}
 
 	configurations, err := kube.GetKubeResources(paramsConfiguration)
@@ -78,26 +91,59 @@ func (c *moveCmd) Run(ctx context.Context, logger *log.Logger) error {
 			}
 			_, err := destClientset.Resource(resourceId).Namespace(paramsConfiguration.Namespace).Create(ctx, &item, metav1.CreateOptions{})
 			if err != nil {
-				logger.Warn(err)
+				logger.Fatal(err)
 			} else {
 				logger.Info("Configuration created successfully ", item.GetName())
 			}
 
 		}
 
-		//Get composite resources xrds definition and apply them
+		//Check configuration health status
 
-		paramsXRDs := kube.ResourceParams{
-			Dynamic:   sourceDynamicClient,
-			Ctx:       ctx,
-			Group:     "apiextensions.crossplane.io",
-			Version:   "v1",
-			Resource:  "compositeresourcedefinitions",
-			Namespace: "",
+		for {
+			outerLoopBreak := false
+			destConf, _ := kube.GetKubeResources(kube.ResourceParams{
+				Dynamic:    destClientset,
+				Ctx:        ctx,
+				Group:      "pkg.crossplane.io",
+				Version:    "v1",
+				Resource:   "configurations",
+				Namespace:  "",
+				ListOption: metav1.ListOptions{},
+			})
+			for _, conf := range destConf {
+				var paramsConf configuration.Configuration
+				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(conf.UnstructuredContent(), &paramsConf); err != nil {
+					logger.Printf("Failed to convert item %s: %v\n", conf.GetName(), err)
+					continue
+				}
+				status := paramsConf.Status.Conditions
+				healthStatus := checkHealthStatus(status)
+				if healthStatus {
+					outerLoopBreak = true
+					break
+				}
+				time.Sleep(3 * time.Second)
+			}
+			if outerLoopBreak {
+				break
+			}
+			time.Sleep(3 * time.Second)
 		}
-		XRDs, err := kube.GetKubeResources(paramsXRDs)
+
+		//Get composite resources from XRDs definition and apply them
+
+		XRDs, err := kube.GetKubeResources(kube.ResourceParams{
+			Dynamic:    sourceDynamicClient,
+			Ctx:        ctx,
+			Group:      "apiextensions.crossplane.io",
+			Version:    "v1",
+			Resource:   "compositeresourcedefinitions",
+			Namespace:  "",
+			ListOption: metav1.ListOptions{},
+		})
 		if err != nil {
-			logger.Error(err)
+			logger.Fatal(err)
 			return nil
 		}
 		for _, xrd := range XRDs {
@@ -114,6 +160,9 @@ func (c *moveCmd) Run(ctx context.Context, logger *log.Logger) error {
 				Version:   paramsXRs.Spec.Versions[0].Name,
 				Resource:  paramsXRs.Spec.Names.Plural,
 				Namespace: "",
+				ListOption: metav1.ListOptions{
+					LabelSelector: "app.kubernetes.io/managed-by=kndp",
+				},
 			})
 			if err != nil {
 				logger.Error(err)
@@ -122,24 +171,17 @@ func (c *moveCmd) Run(ctx context.Context, logger *log.Logger) error {
 
 			for _, xr := range XRs {
 				xr.SetResourceVersion("")
-				labels := xr.GetLabels()
-				if labels != nil && labels["app.kubernetes.io/managed-by"] == "kndp" {
-					resourceId := schema.GroupVersionResource{
-						Group:    paramsXRs.Spec.Group,
-						Version:  paramsXRs.Spec.Versions[0].Name,
-						Resource: paramsXRs.Spec.Names.Plural,
-					}
-					for {
-						_, err = destClientset.Resource(resourceId).Namespace("").Create(ctx, &xr, metav1.CreateOptions{})
-						if err == nil {
-							logger.Info("Resource created successfully ", xr.GetName())
-							break
-						}
-						time.Sleep(5 * time.Second)
-					}
-				} else {
-					logger.Error("No resource to create from: ", xrd.GetName())
+				resourceId := schema.GroupVersionResource{
+					Group:    paramsXRs.Spec.Group,
+					Version:  paramsXRs.Spec.Versions[0].Name,
+					Resource: paramsXRs.Spec.Names.Plural,
+				}
+				_, err = destClientset.Resource(resourceId).Namespace("").Create(ctx, &xr, metav1.CreateOptions{})
+				if err != nil {
+					logger.Warn(err)
 					return nil
+				} else {
+					logger.Info("Resource created successfully ", xr.GetName())
 				}
 			}
 		}
