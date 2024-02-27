@@ -6,8 +6,6 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/charmbracelet/lipgloss"
-
 	"github.com/alecthomas/kong"
 	"github.com/kndpio/kndp/cmd/kndp/configuration"
 	"github.com/kndpio/kndp/cmd/kndp/environment"
@@ -37,12 +35,10 @@ func (v VersionFlag) BeforeApply(app *kong.Kong, vars kong.Vars) error {
 	return nil
 }
 
-func createCLIBanner(content string, color string) {
-	style := lipgloss.NewStyle().Foreground(lipgloss.Color(color))
-
-	renderedContent := style.Render(content)
-
-	fmt.Println(renderedContent, "\n")
+func getDescriptionText() string {
+	bText := "Kubernetes Native Development Platform CLI.\n\n"
+	bText += "For more details open https://kndp.io \n\n"
+	return bText
 }
 
 func (c *cli) AfterApply(ctx *kong.Context) error { //nolint:unparam
@@ -72,10 +68,6 @@ type cli struct {
 type helpCmd struct{}
 
 func main() {
-	createCLIBanner("The kndpio CLI", "#8888FF")
-	createCLIBanner("Version 0.0.1", "#8888FF")
-	createCLIBanner("Kubernetes Native Development Platform CLI Simplify development, manages environments, deploys resources, streamline UI interactions.", "#8888FF")
-	createCLIBanner("For more help on how to use kndpio CLI, head to https://kndp.io", "#8888FF")
 
 	c := cli{
 		Globals: Globals{
@@ -85,7 +77,7 @@ func main() {
 
 	parser := kong.Must(&c,
 		kong.Name("kndp"),
-		kong.Description("The KNDP CLI"),
+		kong.Description(getDescriptionText()),
 		kong.Help(func(options kong.HelpOptions, ctx *kong.Context) error {
 			return kong.DefaultHelpPrinter(options, ctx)
 		}),
