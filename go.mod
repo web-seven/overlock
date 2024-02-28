@@ -174,9 +174,11 @@ require (
 	github.com/containerd/console v1.0.4-0.20230313162750-1ae8d489ac81 // indirect
 	github.com/crossplane/crossplane v1.14.5
 	github.com/crossplane/crossplane-runtime v1.14.4
+	github.com/ghodss/yaml v1.0.0
 	github.com/google/go-containerregistry v0.19.0
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
+	github.com/rodaine/table v1.1.1
 	github.com/spf13/afero v1.11.0
 	github.com/willabides/kongplete v0.4.0
 	golang.org/x/sys v0.16.0 // indirect

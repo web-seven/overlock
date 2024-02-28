@@ -6,6 +6,7 @@ import (
 	"errors"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/log"
 
@@ -227,6 +228,8 @@ func (xr *XResource) getFormGroupsByProps(schema *extv1.JSONSchemaProps, parent 
 				Name: "",
 				Labels: map[string]string{
 					"app.kubernetes.io/managed-by": "kndp",
+					"creation-date":                time.Now().String(),
+					"update-date":                  time.Now().String(),
 				},
 			}
 			(xr.Object)[propertyName] = &propertyValue
