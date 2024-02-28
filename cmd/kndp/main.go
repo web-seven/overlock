@@ -52,6 +52,10 @@ func (c *cli) AfterApply(ctx *kong.Context) error { //nolint:unparam
 		ctx.Bind(kubeClient)
 	}
 	logger := log.Default()
+	if c.Globals.Debug {
+		logger.SetLevel(log.DebugLevel)
+	}
+	logger.SetReportTimestamp(false)
 	ctx.Bind(logger)
 	return nil
 }
@@ -63,7 +67,7 @@ type cli struct {
 	Environment        environment.Cmd              `cmd:"" name:"environment" aliases:"env" help:"KNDP Environment commands"`
 	Configuration      configuration.Cmd            `cmd:"" name:"configuration" aliases:"cfg" help:"KNDP Configuration commands"`
 	Resource           resource.Cmd                 `cmd:"" name:"resource" aliases:"res" help:"KNDP Resource commands"`
-	Registry           registry.Cmd                 `cmd:"" name:"registry" aliases:"rgs" help:"Packages registy commands"`
+	Registry           registry.Cmd                 `cmd:"" name:"registry" aliases:"reg" help:"Packages registy commands"`
 	InstallCompletions kongplete.InstallCompletions `cmd:"" help:"Install shell completions"`
 	Provider           provider.Cmd                 `cmd:"" name:"provider" help:"KNDP Provider commands"`
 }
