@@ -1,4 +1,4 @@
-package environment
+package configuration
 
 import (
 	"context"
@@ -7,7 +7,6 @@ import (
 	condition "github.com/crossplane/crossplane-runtime/apis/common/v1"
 
 	"github.com/charmbracelet/log"
-	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	configuration "github.com/crossplane/crossplane/apis/pkg/v1"
 	"github.com/kndpio/kndp/internal/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,7 +26,7 @@ func CheckHealthStatus(status []condition.Condition) bool {
 	return healthStatus
 }
 
-func GetConfigurations(ctx context.Context, logger *log.Logger, sourceDynamicClient dynamic.Interface, paramsConfiguration kube.ResourceParams) ([]unstructured.Unstructured, error) {
+func GetConfiguration(ctx context.Context, logger *log.Logger, sourceDynamicClient dynamic.Interface, paramsConfiguration kube.ResourceParams) ([]unstructured.Unstructured, error) {
 
 	configurations, err := kube.GetKubeResources(paramsConfiguration)
 	if err != nil {
@@ -95,49 +94,5 @@ func MoveConfigurations(ctx context.Context, logger *log.Logger, destClientset d
 		logger.Fatal("No Kubernetes resources to move !")
 	}
 
-	return nil
-}
-
-func MoveCompositeResources(ctx context.Context, logger *log.Logger, sourceContext dynamic.Interface, destinationContext dynamic.Interface, XRDs []unstructured.Unstructured) error {
-	for _, xrd := range XRDs {
-		var paramsXRs v1.CompositeResourceDefinition
-		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(xrd.UnstructuredContent(), &paramsXRs); err != nil {
-			logger.Printf("Failed to convert item %s: %v\n", xrd.GetName(), err)
-			return nil
-		}
-		for _, version := range paramsXRs.Spec.Versions {
-			XRs, err := kube.GetKubeResources(kube.ResourceParams{
-				Dynamic:   sourceContext,
-				Ctx:       ctx,
-				Group:     paramsXRs.Spec.Group,
-				Version:   version.Name,
-				Resource:  paramsXRs.Spec.Names.Plural,
-				Namespace: "",
-				ListOption: metav1.ListOptions{
-					LabelSelector: "app.kubernetes.io/managed-by=kndp",
-				},
-			})
-			if err != nil {
-				logger.Error(err)
-				return nil
-			}
-
-			for _, xr := range XRs {
-				xr.SetResourceVersion("")
-				resourceId := schema.GroupVersionResource{
-					Group:    paramsXRs.Spec.Group,
-					Version:  version.Name,
-					Resource: paramsXRs.Spec.Names.Plural,
-				}
-				_, err = destinationContext.Resource(resourceId).Namespace("").Create(ctx, &xr, metav1.CreateOptions{})
-				if err != nil {
-					logger.Fatal(err)
-					return nil
-				} else {
-					logger.Infof("Resource created successfully %s", xr.GetName())
-				}
-			}
-		}
-	}
 	return nil
 }

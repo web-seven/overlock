@@ -45,19 +45,17 @@ const (
 	UpboundK8sResource = "k8s"
 )
 
-func CreateKubernetesClients(ctx context.Context, logger *logger.Logger, context string) (*dynamic.DynamicClient, error) {
+func CreateKubernetesClients(ctx context.Context, logger *logger.Logger, context string) *dynamic.DynamicClient {
 	config, err := ctrl.GetConfigWithContext(context)
 	if err != nil {
-		logger.Error(err)
-		return nil, err
+		logger.Fatal(err)
 	}
 	dynamicClient, err := dynamic.NewForConfig(config)
 	if err != nil {
-		logger.Error(err)
-		return nil, err
+		logger.Fatal(err)
 	}
 
-	return dynamicClient, nil
+	return dynamicClient
 }
 
 // GetKubeConfig constructs a Kubernetes REST config from the specified
