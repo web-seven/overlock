@@ -21,12 +21,12 @@ type moveCmd struct {
 func (c *moveCmd) Run(ctx context.Context, logger *log.Logger) error {
 
 	// Create a Kubernetes client
-	sourceContext, err := environment.CreateKubernetesClients(ctx, logger, c.Source)
+	sourceContext, err := kube.CreateKubernetesClients(ctx, logger, c.Source)
 	if err != nil {
 		logger.Error(err)
 		return nil
 	}
-	destinationContext, err := environment.CreateKubernetesClients(ctx, logger, c.Destination)
+	destinationContext, err := kube.CreateKubernetesClients(ctx, logger, c.Destination)
 	if err != nil {
 		logger.Error(err)
 		return nil

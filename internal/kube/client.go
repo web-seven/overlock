@@ -15,11 +15,16 @@
 package kube
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"path"
 	"strings"
 
+	logger "github.com/charmbracelet/log"
+	ctrl "sigs.k8s.io/controller-runtime/pkg/client/config"
+
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -39,6 +44,21 @@ const (
 	// UpboundK8sResource is appended to the end of the kubeconfig server path.
 	UpboundK8sResource = "k8s"
 )
+
+func CreateKubernetesClients(ctx context.Context, logger *logger.Logger, context string) (*dynamic.DynamicClient, error) {
+	config, err := ctrl.GetConfigWithContext(context)
+	if err != nil {
+		logger.Error(err)
+		return nil, err
+	}
+	dynamicClient, err := dynamic.NewForConfig(config)
+	if err != nil {
+		logger.Error(err)
+		return nil, err
+	}
+
+	return dynamicClient, nil
+}
 
 // GetKubeConfig constructs a Kubernetes REST config from the specified
 // kubeconfig, or falls back to same defaults as kubectl.

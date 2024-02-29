@@ -15,7 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
-	ctrl "sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 func CheckHealthStatus(status []condition.Condition) bool {
@@ -26,21 +25,6 @@ func CheckHealthStatus(status []condition.Condition) bool {
 		}
 	}
 	return healthStatus
-}
-
-func CreateKubernetesClients(ctx context.Context, logger *log.Logger, context string) (*dynamic.DynamicClient, error) {
-	config, err := ctrl.GetConfigWithContext(context)
-	if err != nil {
-		logger.Error(err)
-		return nil, err
-	}
-	dynamicClient, err := dynamic.NewForConfig(config)
-	if err != nil {
-		logger.Error(err)
-		return nil, err
-	}
-
-	return dynamicClient, nil
 }
 
 func GetConfigurations(ctx context.Context, logger *log.Logger, sourceDynamicClient dynamic.Interface, paramsConfiguration kube.ResourceParams) ([]unstructured.Unstructured, error) {
