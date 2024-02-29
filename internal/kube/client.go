@@ -45,7 +45,7 @@ const (
 	UpboundK8sResource = "k8s"
 )
 
-func CreateKubernetesClients(ctx context.Context, logger *logger.Logger, context string) *dynamic.DynamicClient {
+func Context(ctx context.Context, logger *logger.Logger, context string) *dynamic.DynamicClient {
 	config, err := ctrl.GetConfigWithContext(context)
 	if err != nil {
 		logger.Fatal(err)
