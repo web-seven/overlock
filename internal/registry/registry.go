@@ -27,6 +27,7 @@ type RegistryConfig struct {
 }
 
 type Registry struct {
+	Name   string
 	Config RegistryConfig
 }
 
@@ -105,6 +106,10 @@ func (r *Registry) Create(ctx context.Context, client *kubernetes.Clientset, con
 	logger.Debug("Upgrade Corssplane chart", "Values", release.Config)
 
 	return installer.Upgrade("", release.Config)
+}
+
+func (r *Registry) Delete(ctx context.Context, client *kubernetes.Clientset) error {
+	return secretClient(client).Delete(ctx, r.Name, v1.DeleteOptions{})
 }
 
 func secretClient(client *kubernetes.Clientset) kv1.SecretInterface {
