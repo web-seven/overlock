@@ -5,11 +5,16 @@ import (
 	b64 "encoding/base64"
 
 	"github.com/charmbracelet/log"
+	"github.com/go-playground/validator/v10"
 
 	"github.com/kndpio/kndp/internal/registry"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+)
+
+const (
+	fieldErrMsg = "Field validation for '%s' failed on the '%s' tag"
 )
 
 type createCmd struct {
@@ -32,6 +37,14 @@ func (c *createCmd) Run(ctx context.Context, client *kubernetes.Clientset, confi
 				},
 			},
 		},
+	}
+	verr := reg.Validate()
+	if verr != nil {
+		errs := verr.(validator.ValidationErrors)
+		for _, err := range errs {
+			logger.Errorf(fieldErrMsg, err.Field(), err.Tag())
+		}
+		return nil
 	}
 
 	if reg.Exists(ctx, client) {

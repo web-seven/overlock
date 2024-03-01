@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/log"
+	"github.com/go-playground/validator/v10"
 	"github.com/kndpio/kndp/internal/configuration"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,9 +16,9 @@ import (
 )
 
 type RegistryAuth struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Email    string `json:"email"`
+	Username string `json:"username" validate:"required"`
+	Password string `json:"password" validate:"required"`
+	Email    string `json:"email" validate:"required,email"`
 	Auth     string `json:"auth"`
 }
 
@@ -34,8 +35,21 @@ func Registries(ctx context.Context, client *kubernetes.Clientset) (*corev1.Secr
 		List(ctx, v1.ListOptions{LabelSelector: "kndp-registry-auth-config=true"})
 }
 
-func (r *Registry) Validate() {
+func (r *Registry) Validate() error {
+	validate := validator.New(validator.WithRequiredStructEnabled())
+	for serverUrl, auth := range r.Config.Auths {
 
+		err := validate.Var(serverUrl, "required,http_url")
+		if err != nil {
+			return err
+		}
+
+		err = validate.Struct(auth)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (r *Registry) Exists(ctx context.Context, client *kubernetes.Clientset) bool {
