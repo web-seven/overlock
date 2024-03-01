@@ -181,6 +181,7 @@ require (
 	github.com/crossplane/crossplane v1.14.5
 	github.com/crossplane/crossplane-runtime v1.14.4
 	github.com/ghodss/yaml v1.0.0
+	github.com/go-yaml/yaml v2.1.0+incompatible
 	github.com/google/go-containerregistry v0.19.0
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/pterm/pterm v0.12.79

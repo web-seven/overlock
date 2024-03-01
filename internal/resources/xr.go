@@ -280,6 +280,30 @@ func isStringInArray(a []string, s string) bool {
 	return false
 }
 
+func ApplyResources(ctx context.Context, client *dynamic.DynamicClient, logger *log.Logger, file string) error {
+	resources, err := transformToUnstructured(file, logger)
+
+	if err != nil {
+		return err
+	}
+	for _, resource := range resources {
+		apiAndVersion := strings.Split(resource.GetAPIVersion(), "/")
+
+		resourceId := schema.GroupVersionResource{
+			Group:    apiAndVersion[0],
+			Version:  apiAndVersion[1],
+			Resource: strings.ToLower(resource.GetKind()) + "s",
+		}
+		res, err := client.Resource(resourceId).Create(ctx, &resource, metav1.CreateOptions{})
+
+		if err != nil {
+			return err
+		} else {
+			logger.Infof("Resource %s from %s successfully applied", res.GetName(), res.GetAPIVersion())
+		}
+	}
+
+
 func MoveCompositeResources(ctx context.Context, logger *log.Logger, sourceContext dynamic.Interface, destinationContext dynamic.Interface, XRDs []unstructured.Unstructured) error {
 	for _, xrd := range XRDs {
 		var paramsXRs v1.CompositeResourceDefinition
