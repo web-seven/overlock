@@ -302,7 +302,8 @@ func ApplyResources(ctx context.Context, client *dynamic.DynamicClient, logger *
 			logger.Infof("Resource %s from %s successfully applied", res.GetName(), res.GetAPIVersion())
 		}
 	}
-
+	return nil
+}
 
 func MoveCompositeResources(ctx context.Context, logger *log.Logger, sourceContext dynamic.Interface, destinationContext dynamic.Interface, XRDs []unstructured.Unstructured) error {
 	for _, xrd := range XRDs {
