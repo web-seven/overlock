@@ -11,12 +11,13 @@ import (
 )
 
 type ResourceParams struct {
-	Dynamic   dynamic.Interface
-	Ctx       context.Context
-	Group     string
-	Version   string
-	Resource  string
-	Namespace string
+	Dynamic    dynamic.Interface
+	Ctx        context.Context
+	Group      string
+	Version    string
+	Resource   string
+	Namespace  string
+	ListOption metav1.ListOptions
 }
 
 func GetKubeResources(p ResourceParams) ([]unstructured.Unstructured, error) {
@@ -25,12 +26,11 @@ func GetKubeResources(p ResourceParams) ([]unstructured.Unstructured, error) {
 		Version:  p.Version,
 		Resource: p.Resource,
 	}
-	list, err := p.Dynamic.Resource(resourceId).Namespace(p.Namespace).
-		List(p.Ctx, metav1.ListOptions{})
+	list, err := p.Dynamic.Resource(resourceId).Namespace(p.Namespace).List(p.Ctx, p.ListOption)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return list.Items, nil
+	return list.Items, err
 }

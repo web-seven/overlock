@@ -40,9 +40,10 @@ func CreateXResource(ctx context.Context, xrd crossv1.CompositeResourceDefinitio
 		logger,
 	)
 
-	err := form.Run()
-	if err != nil {
-		logger.Error(err)
+	if form != nil {
+		form.Run()
+	} else {
+		return false
 	}
 
 	if form.GetBool("confirm") {

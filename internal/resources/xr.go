@@ -6,8 +6,10 @@ import (
 	"errors"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/log"
+	"github.com/kndpio/kndp/internal/kube"
 
 	"github.com/charmbracelet/huh"
 	crossv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
@@ -38,6 +40,7 @@ func (xr *XResource) GetSchemaFormFromXRDefinition(ctx context.Context, xrd cros
 
 	if err != nil {
 		logger.Error(err)
+		return nil
 	}
 
 	runtime.DefaultUnstructuredConverter.FromUnstructured(xrdInstance.UnstructuredContent(), &xrd)
@@ -224,6 +227,11 @@ func (xr *XResource) getFormGroupsByProps(schema *extv1.JSONSchemaProps, parent 
 		} else if property.Type == "object" && isStringInArray(metadataFields, propertyName) {
 			propertyValue := metav1.ObjectMeta{
 				Name: "",
+				Labels: map[string]string{
+					"app.kubernetes.io/managed-by": "kndp",
+					"creation-date":                time.Now().String(),
+					"update-date":                  time.Now().String(),
+				},
 			}
 			(xr.Object)[propertyName] = &propertyValue
 
@@ -270,4 +278,73 @@ func isStringInArray(a []string, s string) bool {
 		}
 	}
 	return false
+}
+
+func ApplyResources(ctx context.Context, client *dynamic.DynamicClient, logger *log.Logger, file string) error {
+	resources, err := transformToUnstructured(file, logger)
+
+	if err != nil {
+		return err
+	}
+	for _, resource := range resources {
+		apiAndVersion := strings.Split(resource.GetAPIVersion(), "/")
+
+		resourceId := schema.GroupVersionResource{
+			Group:    apiAndVersion[0],
+			Version:  apiAndVersion[1],
+			Resource: strings.ToLower(resource.GetKind()) + "s",
+		}
+		res, err := client.Resource(resourceId).Create(ctx, &resource, metav1.CreateOptions{})
+
+		if err != nil {
+			return err
+		} else {
+			logger.Infof("Resource %s from %s successfully applied", res.GetName(), res.GetAPIVersion())
+		}
+	}
+	return nil
+}
+
+func MoveCompositeResources(ctx context.Context, logger *log.Logger, sourceContext dynamic.Interface, destinationContext dynamic.Interface, XRDs []unstructured.Unstructured) error {
+	for _, xrd := range XRDs {
+		var paramsXRs v1.CompositeResourceDefinition
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(xrd.UnstructuredContent(), &paramsXRs); err != nil {
+			logger.Printf("Failed to convert item %s: %v\n", xrd.GetName(), err)
+			return nil
+		}
+		for _, version := range paramsXRs.Spec.Versions {
+			XRs, err := kube.GetKubeResources(kube.ResourceParams{
+				Dynamic:   sourceContext,
+				Ctx:       ctx,
+				Group:     paramsXRs.Spec.Group,
+				Version:   version.Name,
+				Resource:  paramsXRs.Spec.Names.Plural,
+				Namespace: "",
+				ListOption: metav1.ListOptions{
+					LabelSelector: "app.kubernetes.io/managed-by=kndp",
+				},
+			})
+			if err != nil {
+				logger.Error(err)
+				return nil
+			}
+
+			for _, xr := range XRs {
+				xr.SetResourceVersion("")
+				resourceId := schema.GroupVersionResource{
+					Group:    paramsXRs.Spec.Group,
+					Version:  version.Name,
+					Resource: paramsXRs.Spec.Names.Plural,
+				}
+				_, err = destinationContext.Resource(resourceId).Namespace("").Create(ctx, &xr, metav1.CreateOptions{})
+				if err != nil {
+					logger.Fatal(err)
+					return nil
+				} else {
+					logger.Infof("Resource created successfully %s", xr.GetName())
+				}
+			}
+		}
+	}
+	return nil
 }
