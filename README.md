@@ -8,8 +8,8 @@ The @kndpio CLI
 - [X] Private Package Registries authentication. [https://github.com/kndpio/kndp/issues/30]
 - [X] Create Remote Environment. [https://github.com/kndpio/kndp/issues/29]
 - [X] Move Environment entities to another Environment. [https://github.com/kndpio/kndp/issues/25]
-- [ ] Make all core commands compatible with CI. [https://github.com/kndpio/kndp/issues/55]
-- [ ] Command for Install Providers package from Upbound registry. [https://github.com/kndpio/kndp/issues/48]
+- [X] Make all core commands compatible with CI. [https://github.com/kndpio/kndp/issues/55]
+- [X] Command for Install Providers package from Upbound registry. [https://github.com/kndpio/kndp/issues/48]
 - [ ] k3s Environment engine. [https://github.com/kndpio/kndp/issues/54]
 - [ ] Add Trace ID data to resource events.
 - [ ] XRD of Environment.
