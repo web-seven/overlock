@@ -13,7 +13,7 @@ import (
 	"github.com/charmbracelet/log"
 )
 
-func KindCluster(context string, logger *log.Logger, name string, hostPort int, yamlTemplate string) {
+func KindEnvironment(context string, logger *log.Logger, name string, hostPort int, yamlTemplate string) {
 	if context == "" {
 		if !(len(name) > 0) {
 			form := huh.NewForm(
@@ -64,12 +64,12 @@ func KindCluster(context string, logger *log.Logger, name string, hostPort int, 
 		if err != nil {
 			logger.Fatal(err)
 		}
-		installHelmResources(configClient, logger)
+		installEngine(configClient, logger)
 	} else {
 		configClient, err := config.GetConfigWithContext(context)
 		if err != nil {
 			logger.Fatal(err)
 		}
-		installHelmResources(configClient, logger)
+		installEngine(configClient, logger)
 	}
 }

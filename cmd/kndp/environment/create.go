@@ -5,6 +5,7 @@ import (
 
 	"github.com/kndpio/kndp/internal/environment"
 
+	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/log"
 )
 
@@ -37,17 +38,28 @@ type createCmd struct {
 }
 
 func (c *createCmd) Run(ctx context.Context, logger *log.Logger) error {
-	if c.Engine == "kind" {
-		environment.KindCluster(c.Context, logger, c.Name, c.HostPort, yamlTemplate)
-	} else if c.Engine == "k3s" {
-		err := environment.K3sCluster(c.Context, logger)
+	if !(len(c.Name) > 0) {
+		form := huh.NewForm(
+			huh.NewGroup(
+				huh.NewInput().
+					Title("Enter a name for environment: ").
+					Value(&c.Name),
+			),
+		)
+		form.Run()
+	}
+	switch c.Engine {
+	case "kind":
+		logger.Infof("Creating environment with Kubernetes engine 'kind'")
+		environment.KindEnvironment(c.Context, logger, c.Name, c.HostPort, yamlTemplate)
+	case "k3s":
+		logger.Infof("Creating environment with Kubernetes engine 'k3s'")
+		err := environment.K3sEnvironment(c.Context, logger)
 		if err != nil {
 			logger.Fatal(err)
-			return nil
 		}
-	} else {
-		logger.Fatal("Kubernetes engine not supported")
-		return nil
+	default:
+		logger.Fatalf("Kubernetes engine '%s' not supported", c.Engine)
 	}
 	return nil
 }
