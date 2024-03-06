@@ -98,6 +98,9 @@ func (r *Registry) Create(ctx context.Context, client *kubernetes.Clientset, con
 
 	installer := configuration.GetManager(config, logger)
 	release, _ := installer.GetRelease()
+	if release.Config["imagePullSecrets"] == nil {
+		release.Config["imagePullSecrets"] = []interface{}{}
+	}
 	release.Config["imagePullSecrets"] = append(
 		release.Config["imagePullSecrets"].([]interface{}),
 		secret.ObjectMeta.Name,
