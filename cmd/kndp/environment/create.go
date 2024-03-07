@@ -54,7 +54,7 @@ func (c *createCmd) Run(ctx context.Context, logger *log.Logger) error {
 		environment.KindEnvironment(c.Context, logger, c.Name, c.HostPort, yamlTemplate)
 	case "k3s":
 		logger.Infof("Creating environment with Kubernetes engine 'k3s'")
-		err := environment.K3sEnvironment(c.Context, logger)
+		err := environment.K3sEnvironment(c.Context, logger, c.Name)
 		if err != nil {
 			logger.Fatal(err)
 		}
