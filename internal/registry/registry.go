@@ -66,7 +66,7 @@ func (r *Registry) Exists(ctx context.Context, client *kubernetes.Clientset) boo
 }
 
 func (r *Registry) Secret() corev1.Secret {
-	regConf, _ := json.Marshal(r)
+	regConf, _ := json.Marshal(r.Config)
 	servers := []string{}
 	for authServer, _ := range r.Config.Auths {
 		servers = append(servers, authServer)
