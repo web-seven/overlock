@@ -2,12 +2,15 @@ package environment
 
 import (
 	"context"
+	"net/url"
 	"os/exec"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/rest"
 
 	"github.com/kndpio/kndp/internal/configuration"
+	"github.com/kndpio/kndp/internal/install/helm"
 	"github.com/kndpio/kndp/internal/kube"
 	"github.com/kndpio/kndp/internal/resources"
 
@@ -66,5 +69,29 @@ func MoveKndpResources(ctx context.Context, logger *log.Logger, source string, d
 		logger.Info("Successfully moved Kubernetes resources to the destination cluster.")
 	}
 
+	return nil
+}
+
+func installEngine(configClient *rest.Config, logger *log.Logger) error {
+	logger.Info("Installing crossplane ...")
+
+	chartName := "crossplane"
+	repoURL, err := url.Parse("https://charts.crossplane.io/stable")
+	if err != nil {
+		logger.Errorf("error parsing repository URL: %v", err)
+	}
+
+	setWait := helm.InstallerModifierFn(helm.Wait())
+	installer, err := helm.NewManager(configClient, chartName, repoURL, setWait)
+	if err != nil {
+		logger.Errorf("error creating Helm manager: %v", err)
+	}
+
+	err = installer.Install("", nil)
+	if err != nil {
+		logger.Error(err)
+	}
+
+	logger.Info("Crossplane installation completed successfully!")
 	return nil
 }
