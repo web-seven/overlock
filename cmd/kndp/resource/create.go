@@ -8,7 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/log"
 	crossv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
-	"github.com/kndpio/kndp/internal/resources"
+	"github.com/kndpio/kndp/internal/tui"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 )
@@ -33,8 +33,7 @@ func (c *createCmd) Run(ctx context.Context, client *dynamic.DynamicClient, logg
 }
 
 func CreateXResource(ctx context.Context, xrd crossv1.CompositeResourceDefinition, client *dynamic.DynamicClient, logger *log.Logger) bool {
-	xrm := resources.CreateResourceModel(ctx, &xrd, client)
-	xrm.WithLogger(logger)
+	xrm := tui.Create()
 	_, err := tea.NewProgram(xrm, tea.WithAltScreen()).Run()
 	if err != nil {
 		fmt.Println("Oh no:", err)
