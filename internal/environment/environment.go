@@ -22,6 +22,8 @@ import (
 	"github.com/charmbracelet/log"
 )
 
+const ReleaseName = "kndp-crossplane"
+
 func MoveKndpResources(ctx context.Context, logger *log.Logger, source string, destination string) error {
 
 	// Create a Kubernetes client
@@ -81,13 +83,12 @@ func InstallEngine(configClient *rest.Config, logger *log.Logger) error {
 	logger.Info("Installing crossplane ...")
 
 	chartName := "crossplane"
-	releaseName := "kndp-crossplane"
 	repoURL, err := url.Parse("https://charts.crossplane.io/stable")
 	if err != nil {
 		logger.Errorf("error parsing repository URL: %v", err)
 	}
 	setWait := helm.InstallerModifierFn(helm.Wait())
-	installer, err := helm.NewManager(configClient, chartName, repoURL, releaseName, setWait)
+	installer, err := helm.NewManager(configClient, chartName, repoURL, ReleaseName, setWait)
 	if err != nil {
 		logger.Errorf("error creating Helm manager: %v", err)
 	}
@@ -113,7 +114,7 @@ func ListEnvironments(logger *log.Logger, tableData pterm.TableData) pterm.Table
 		if err != nil {
 			logger.Fatal(err)
 		}
-		if IsHelmReleaseFound(configClient, logger, "kndp-crossplane") {
+		if IsHelmReleaseFound(configClient, logger, ReleaseName) {
 			types := regexp.MustCompile(`(\w+)`).FindStringSubmatch(name)
 			tableData = append(tableData, []string{name, strings.ToUpper(types[0])})
 		}
@@ -123,7 +124,7 @@ func ListEnvironments(logger *log.Logger, tableData pterm.TableData) pterm.Table
 
 func IsHelmReleaseFound(configClient *rest.Config, logger *log.Logger, chartName string) bool {
 
-	installer, err := helm.NewManager(configClient, chartName, &url.URL{}, "")
+	installer, err := helm.NewManager(configClient, chartName, &url.URL{}, ReleaseName)
 	if err != nil {
 		return false
 	}
