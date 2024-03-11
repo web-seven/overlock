@@ -35,6 +35,6 @@ func K3sEnvironment(context string, logger *log.Logger, name string) error {
 		logger.Fatal(err)
 	}
 
-	installEngine(configClient, logger)
+	InstallEngine(configClient, logger)
 	return nil
 }

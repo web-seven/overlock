@@ -72,7 +72,7 @@ func MoveKndpResources(ctx context.Context, logger *log.Logger, source string, d
 	return nil
 }
 
-func installEngine(configClient *rest.Config, logger *log.Logger) error {
+func InstallEngine(configClient *rest.Config, logger *log.Logger) error {
 	logger.Info("Installing crossplane ...")
 
 	chartName := "crossplane"
