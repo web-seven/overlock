@@ -4,17 +4,20 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"regexp"
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
-	"github.com/kndpio/kndp/internal/kube"
 	crossv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
+	"github.com/kndpio/kndp/internal/kube"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -56,35 +59,26 @@ var (
 type Styles struct {
 	Base,
 	HeaderText,
-	Status,
+	Sidebar,
 	StatusHeader,
 	Highlight,
 	ErrorHeaderText,
 	Help lipgloss.Style
 }
 
-func NewStyles(lg *lipgloss.Renderer) *Styles {
+func initStyles(lg *lipgloss.Renderer) *Styles {
 	s := Styles{}
 	s.Base = lg.NewStyle().
-		Padding(1, 4, 0, 1)
+		Padding(0, 0, 0, 0)
 	s.HeaderText = lg.NewStyle().
 		Foreground(indigo).
 		Bold(true).
 		Padding(0, 1, 0, 2)
-	s.Status = lg.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+	s.Sidebar = lg.NewStyle().
+		Border(lipgloss.ThickBorder(), false, true, false, false).
 		BorderForeground(indigo).
-		PaddingLeft(1).
-		MarginTop(1)
-	s.StatusHeader = lg.NewStyle().
-		Foreground(green).
-		Bold(true)
-	s.Highlight = lg.NewStyle().
-		Foreground(lipgloss.Color("212"))
-	s.ErrorHeaderText = s.HeaderText.Copy().
-		Foreground(red)
-	s.Help = lg.NewStyle().
-		Foreground(lipgloss.Color("240"))
+		PaddingRight(1)
+
 	return &s
 }
 
@@ -95,10 +89,41 @@ const (
 	stateDone
 )
 
+type item struct {
+	title, desc string
+}
+
+func (i item) Title() string       { return i.title }
+func (i item) Description() string { return i.desc }
+func (i item) FilterValue() string { return i.title }
+
+type itemDelegate struct{}
+
+func (d itemDelegate) Height() int                             { return 1 }
+func (d itemDelegate) Spacing() int                            { return 0 }
+func (d itemDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
+func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
+	i, ok := listItem.(item)
+	if !ok {
+		return
+	}
+
+	str := fmt.Sprintf("%d. %s", index+1, i)
+
+	fn := lipgloss.NewStyle().PaddingLeft(4).Render
+	if index == m.Index() {
+		fn = func(s ...string) string {
+			return lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("170")).Render("> " + strings.Join(s, " "))
+		}
+	}
+
+	fmt.Fprint(w, fn(str))
+}
+
 func CreateResourceModel(ctx context.Context, xrd *crossv1.CompositeResourceDefinition, client *dynamic.DynamicClient) XResource {
 	m := XResource{width: maxWidth}
 	m.lg = lipgloss.DefaultRenderer()
-	m.styles = NewStyles(m.lg)
+	m.styles = initStyles(m.lg)
 	if m.logger == nil {
 		m.logger = log.Default()
 	}
@@ -144,7 +169,7 @@ func (m XResource) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = min(msg.Width, maxWidth) - m.styles.Base.GetHorizontalFrameSize()
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "esc", "ctrl+c", "q":
+		case "ctrl+c":
 			return m, tea.Quit
 		case "ctrl+d":
 			reverse()
@@ -166,49 +191,63 @@ func (m XResource) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m XResource) View() string {
-	s := m.styles
+	styles := m.styles
 	v := ""
 	if m.view != nil {
-		v += strings.TrimSuffix(m.view.View(), "\n\n")
+		v = strings.TrimSuffix(m.view.View(), "\n\n")
 	}
 
-	form := m.lg.NewStyle().Margin(1, 0).Render(v)
+	form := m.lg.NewStyle().Render(v)
 
-	// Status (right side)
-	var status string
+	var sidebar string
 	{
-		var (
-			buildInfo      = "(None)"
-			role           string
-			jobDescription string
-		)
 
-		const statusWidth = 28
-		statusMarginLeft := m.width - statusWidth - lipgloss.Width(form) - s.Status.GetMarginRight()
-		status = s.Status.Copy().
+		items := []list.Item{
+			item{title: "Raspberry Pi’s", desc: "I have ’em all over my house"},
+			item{title: "Nutella", desc: "It's good on toast"},
+			item{title: "Bitter melon", desc: "It cools you down"},
+			item{title: "Nice socks", desc: "And by that I mean socks without holes"},
+			item{title: "Eight hours of sleep", desc: "I had this once"},
+			item{title: "Cats", desc: "Usually"},
+			item{title: "Plantasia, the album", desc: "My plants love it too"},
+			item{title: "Pour over coffee", desc: "It takes forever to make though"},
+			item{title: "VR", desc: "Virtual reality...what is there to say?"},
+			item{title: "Noguchi Lamps", desc: "Such pleasing organic forms"},
+			item{title: "Linux", desc: "Pretty much the best OS"},
+			item{title: "Business school", desc: "Just kidding"},
+			item{title: "Pottery", desc: "Wet clay is a great feeling"},
+			item{title: "Shampoo", desc: "Nothing like clean hair"},
+			item{title: "Table tennis", desc: "It’s surprisingly exhausting"},
+			item{title: "Milk crates", desc: "Great for packing in your extra stuff"},
+			item{title: "Afternoon tea", desc: "Especially the tea sandwich part"},
+			item{title: "Stickers", desc: "The thicker the vinyl the better"},
+			item{title: "20° Weather", desc: "Celsius, not Fahrenheit"},
+			item{title: "Warm light", desc: "Like around 2700 Kelvin"},
+			item{title: "The vernal equinox", desc: "The autumnal equinox is pretty good too"},
+			item{title: "Gaffer’s tape", desc: "Basically sticky fabric"},
+			item{title: "Terrycloth", desc: "In other words, towel fabric"},
+		}
+
+		const defaultWidth = 20
+
+		l := list.New(items, itemDelegate{}, defaultWidth, 14)
+		l.Title = "What do you want for dinner?"
+		l.SetShowStatusBar(true)
+		l.SetFilteringEnabled(true)
+		// l.Styles.Title = "sdfsdfs"
+		// l.Styles.PaginationStyle = paginationStyle
+		// l.Styles.HelpStyle = helpStyle
+
+		sidebar = styles.Sidebar.Copy().
 			Height(lipgloss.Height(form)).
-			Width(statusWidth).
-			MarginLeft(statusMarginLeft).
-			Render(s.StatusHeader.Render("Current Build") + "\n" +
-				buildInfo +
-				role +
-				"Path:" + path +
-				jobDescription)
+			Width(28).
+			MarginRight(1).
+			Render(l.View())
 	}
-
-	// errors := m.form.Errors()
-	header := m.appBoundaryView("Charm Employment Application")
-	// if len(errors) > 0 {
-	// 	header = m.appErrorBoundaryView(m.errorView())
-	// }
-	body := lipgloss.JoinHorizontal(lipgloss.Top, form, status)
-
-	// footer := m.appBoundaryView(m.form.Help().ShortHelpView(m.form.KeyBinds()))
-	// if len(errors) > 0 {
-	// 	footer = m.appErrorBoundaryView("")
-	// }
-
-	return s.Base.Render(header + "\n" + body)
+	header := styles.HeaderText.Copy().Render("sdfsdf")
+	body := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, form)
+	footer := lipgloss.JoinHorizontal(lipgloss.Bottom, "Footer")
+	return styles.Base.Render(lipgloss.JoinVertical(lipgloss.Top, header, body), footer)
 }
 
 // func (m XResource) errorView() string {
@@ -458,7 +497,7 @@ func (xr *XResource) getFormGroupsByProps(schema *extv1.JSONSchemaProps, parent 
 	}
 
 	if len(formFields) > 0 {
-		group := huh.NewGroup(formFields...).Description(schema.Description).
+		group := huh.NewGroup(formFields...).Description(schema.Description)
 		formGroups[parent] = group
 	}
 

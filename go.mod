@@ -33,7 +33,7 @@ require (
 	github.com/catppuccin/go v0.2.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
-	github.com/charmbracelet/bubbles v0.17.2-0.20240108170749-ec883029c8e6 // indirect
+	github.com/charmbracelet/bubbles v0.18.0 // indirect
 	github.com/charmbracelet/bubbletea v0.25.0 // indirect
 	github.com/charmbracelet/lipgloss v0.9.1 // indirect
 	github.com/containerd/containerd v1.7.11 // indirect
@@ -133,6 +133,7 @@ require (
 	github.com/riywo/loginshell v0.0.0-20200815045211-7d26008be1ab // indirect
 	github.com/rubenv/sql-migrate v1.5.2 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
+	github.com/sahilm/fuzzy v0.1.1-0.20230530133925-c48e322e2a8f // indirect
 	github.com/sergi/go-diff v1.2.0 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
@@ -187,11 +188,11 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-playground/validator v9.31.0+incompatible
 	github.com/go-playground/validator/v10 v10.18.0
-        github.com/go-yaml/yaml v2.1.0+incompatible
+	github.com/go-yaml/yaml v2.1.0+incompatible
 	github.com/google/go-containerregistry v0.19.0
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/pterm/pterm v0.12.79
-	github.com/rivo/uniseg v0.4.4 // indirect
+	github.com/rivo/uniseg v0.4.6 // indirect
 	github.com/rodaine/table v1.1.1
 	github.com/spf13/afero v1.11.0
 	github.com/willabides/kongplete v0.4.0
