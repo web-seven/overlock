@@ -10,8 +10,8 @@ The @kndpio CLI
 - [X] Move Environment entities to another Environment. [https://github.com/kndpio/kndp/issues/25]
 - [X] Make all core commands compatible with CI. [https://github.com/kndpio/kndp/issues/55]
 - [X] Command for Install Providers package from Upbound registry. [https://github.com/kndpio/kndp/issues/48]
-- [ ] k3s Environment engine. [https://github.com/kndpio/kndp/issues/54]
-- [ ] k3d Environment engine. [https://github.com/kndpio/kndp/issues/54]
+- [X] k3s Environment engine. [https://github.com/kndpio/kndp/issues/54]
+- [X] k3d Environment engine. [https://github.com/kndpio/kndp/issues/54]
 - [ ] Add Trace ID data to resource events.
 - [ ] XRD of Environment.
 - [ ] Environment engine selection.
