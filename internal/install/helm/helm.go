@@ -233,11 +233,11 @@ func WithReuseValues(r bool) InstallerModifierFn {
 }
 
 // NewManager builds a helm install manager for UXP.
-func NewManager(config *rest.Config, chartName string, repoURL *url.URL, modifiers ...InstallerModifierFn) (install.Manager, error) { // nolint:gocyclo
+func NewManager(config *rest.Config, chartName string, repoURL *url.URL, releaseName string, modifiers ...InstallerModifierFn) (install.Manager, error) { // nolint:gocyclo
 	h := &Installer{
 		repoURL:     repoURL,
 		chartName:   chartName,
-		releaseName: chartName,
+		releaseName: releaseName,
 		namespace:   defaultNamespace,
 		home:        os.UserHomeDir,
 		fs:          afero.NewOsFs(),
@@ -300,7 +300,7 @@ func NewManager(config *rest.Config, chartName string, repoURL *url.URL, modifie
 	// Install Client
 	ic := action.NewInstall(actionConfig)
 	ic.Namespace = h.namespace
-	ic.ReleaseName = h.chartName
+	ic.ReleaseName = h.releaseName
 	ic.Wait = h.wait
 	ic.Timeout = waitTimeout
 	ic.DisableHooks = h.noHooks
