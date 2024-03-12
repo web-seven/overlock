@@ -11,15 +11,16 @@ import (
 	"github.com/kndpio/kndp/internal/install/helm"
 )
 
+const ReleaseName = "kndp-crossplane"
+
 func GetManager(config *rest.Config, logger *log.Logger) install.Manager {
 	chartName := "crossplane"
-	releaseName := "kndp-crossplane"
 
 	repoURL, err := url.Parse("https://charts.crossplane.io/stable")
 	if err != nil {
 		logger.Errorf(" %v\n", err)
 	}
-	installer, err := helm.NewManager(config, chartName, repoURL, releaseName, helm.WithReuseValues(true))
+	installer, err := helm.NewManager(config, chartName, repoURL, ReleaseName, helm.WithReuseValues(true))
 	installer.GetCurrentVersion()
 	if err != nil {
 		logger.Errorf(" %v\n", err)
