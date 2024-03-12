@@ -3,16 +3,21 @@ package environment
 import (
 	"context"
 	"net/url"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"regexp"
 	"strings"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/rest"
 
 	"github.com/kndpio/kndp/internal/configuration"
 	"github.com/kndpio/kndp/internal/install/helm"
 	"github.com/kndpio/kndp/internal/kube"
 	"github.com/kndpio/kndp/internal/resources"
+	"github.com/pterm/pterm"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	"github.com/charmbracelet/log"
 )
@@ -80,9 +85,8 @@ func InstallEngine(configClient *rest.Config, logger *log.Logger) error {
 	if err != nil {
 		logger.Errorf("error parsing repository URL: %v", err)
 	}
-
 	setWait := helm.InstallerModifierFn(helm.Wait())
-	installer, err := helm.NewManager(configClient, chartName, repoURL, setWait)
+	installer, err := helm.NewManager(configClient, chartName, repoURL, configuration.ReleaseName, setWait)
 	if err != nil {
 		logger.Errorf("error creating Helm manager: %v", err)
 	}
@@ -94,4 +98,35 @@ func InstallEngine(configClient *rest.Config, logger *log.Logger) error {
 
 	logger.Info("Crossplane installation completed successfully!")
 	return nil
+}
+
+func ListEnvironments(logger *log.Logger, tableData pterm.TableData) pterm.TableData {
+	kubeconfig := os.Getenv("KUBECONFIG")
+	if kubeconfig == "" {
+		kubeconfig = filepath.Join(os.Getenv("HOME"), ".kube", "config")
+	}
+	configFile := clientcmd.GetConfigFromFileOrDie(kubeconfig)
+
+	for name := range configFile.Contexts {
+		configClient, err := config.GetConfigWithContext(name)
+		if err != nil {
+			logger.Fatal(err)
+		}
+		if IsHelmReleaseFound(configClient, logger, configuration.ReleaseName) {
+			types := regexp.MustCompile(`(\w+)`).FindStringSubmatch(name)
+			tableData = append(tableData, []string{name, strings.ToUpper(types[0])})
+		}
+	}
+	return tableData
+}
+
+func IsHelmReleaseFound(configClient *rest.Config, logger *log.Logger, chartName string) bool {
+
+	installer, err := helm.NewManager(configClient, chartName, &url.URL{}, configuration.ReleaseName)
+	if err != nil {
+		return false
+	}
+	_, err = installer.GetRelease()
+	return err == nil
+
 }
