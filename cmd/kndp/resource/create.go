@@ -33,7 +33,7 @@ func (c *createCmd) Run(ctx context.Context, client *dynamic.DynamicClient, logg
 }
 
 func CreateXResource(ctx context.Context, xrd crossv1.CompositeResourceDefinition, client *dynamic.DynamicClient, logger *log.Logger) bool {
-	xrm := tui.Create()
+	xrm := tui.CreateLayoutModel()
 	_, err := tea.NewProgram(xrm, tea.WithAltScreen()).Run()
 	if err != nil {
 		fmt.Println("Oh no:", err)
