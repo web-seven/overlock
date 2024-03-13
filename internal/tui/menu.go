@@ -4,12 +4,12 @@ import (
 	"os"
 	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"golang.org/x/term"
 )
 
 type MenuModel struct {
-	Height int
 }
 
 var (
@@ -50,9 +50,19 @@ var (
 		BorderRight(false)
 )
 
-func CreateMenu(height int) MenuModel {
-	m := MenuModel{Height: height}
+func CreateMenu() MenuModel {
+	m := MenuModel{}
 	return m
+}
+
+func (m MenuModel) Init() tea.Cmd {
+	var cmds []tea.Cmd
+	return tea.Batch(cmds...)
+}
+
+func (m MenuModel) Update(msg tea.Msg) (MenuModel, tea.Cmd) {
+	var cmds []tea.Cmd
+	return m, tea.Batch(cmds...)
 }
 
 func (m MenuModel) View() string {
@@ -67,7 +77,7 @@ func (m MenuModel) View() string {
 		tab.Render("Providers"),
 		tab.Render("About"),
 	)
-	gap := tabGap.Render(strings.Repeat(" ", max(0, physicalWidth-lipgloss.Width(row)-2)))
+	gap := tabGap.Render(strings.Repeat(" ", max(0, physicalWidth-lipgloss.Width(row))))
 	row = lipgloss.JoinHorizontal(lipgloss.Bottom, row, gap)
 	return row
 }

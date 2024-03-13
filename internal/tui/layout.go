@@ -28,6 +28,7 @@ type item struct {
 }
 
 const maxWidth = 200
+const minHeight = 7
 
 var (
 	appStyle = lipgloss.NewStyle().Padding(1, 2)
@@ -42,12 +43,13 @@ func initStyles(lg *lipgloss.Renderer) *Styles {
 }
 
 func CreateLayoutModel() LayoutModel {
+
 	m := LayoutModel{width: maxWidth}
 	m.lg = lipgloss.DefaultRenderer()
 	m.styles = initStyles(m.lg)
-	m.header = CreateHeaderModel()
-	m.menu = CreateMenu(4)
-	m.sidebar = CreateSideBar(10)
+	m.header = CreateHeader()
+	m.menu = CreateMenu()
+	m.sidebar = CreateSideBar().WidthMargin(minHeight)
 	m.status = CreateStatusBar()
 	return m
 }
@@ -67,6 +69,14 @@ func (m LayoutModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 	var cmds []tea.Cmd
+
+	headerModel, cmd := m.header.Update(msg)
+	m.header = headerModel
+	cmds = append(cmds, cmd)
+
+	menuModel, cmd := m.menu.Update(msg)
+	m.menu = menuModel
+	cmds = append(cmds, cmd)
 
 	sidebarModel, cmd := m.sidebar.Update(msg)
 	m.sidebar = sidebarModel

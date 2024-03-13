@@ -6,9 +6,14 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+var (
+	width = 40
+)
+
 type SidebarModel struct {
 	styles   *SidebarStyles
 	width    int
+	margin   int
 	renderer *lipgloss.Renderer
 	list     list.Model
 }
@@ -24,9 +29,9 @@ func (i item) Title() string       { return i.title }
 func (i item) Description() string { return i.desc }
 func (i item) FilterValue() string { return i.title }
 
-func CreateSideBar(w int) SidebarModel {
+func CreateSideBar() SidebarModel {
 	m := SidebarModel{
-		width: w,
+		width: width,
 	}
 	items := []list.Item{
 		item{title: "2", desc: "I have ’em all over my house"},
@@ -44,11 +49,17 @@ func (m SidebarModel) initStyles(lg *lipgloss.Renderer) *SidebarStyles {
 	s := SidebarStyles{}
 
 	s.Sidebar = lg.NewStyle().
-		Border(lipgloss.ThickBorder(), false, true, false, false).
+		Border(lipgloss.NormalBorder(), false, true, false, false).
 		BorderForeground(indigo).
-		PaddingRight(1)
+		PaddingRight(1).
+		PaddingLeft(1)
 
 	return &s
+}
+
+func (m SidebarModel) WidthMargin(h int) SidebarModel {
+	m.margin = h
+	return m
 }
 
 func (m SidebarModel) Init() tea.Cmd {
@@ -61,9 +72,7 @@ func (m SidebarModel) Update(msg tea.Msg) (SidebarModel, tea.Cmd) {
 	var cmds []tea.Cmd
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.list.SetSize(msg.Width, msg.Height-5)
-		m.width = msg.Width
-		// m.list.SetSize(msg.Width-h, msg.Height-v-m.menu.Height)
+		m.list.SetSize(m.width, msg.Height-m.margin)
 	case tea.KeyMsg:
 		if m.list.FilterState() == list.Filtering {
 			break

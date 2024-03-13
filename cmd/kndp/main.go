@@ -10,6 +10,7 @@ import (
 	"github.com/kndpio/kndp/cmd/kndp/configuration"
 	"github.com/kndpio/kndp/cmd/kndp/environment"
 	"github.com/kndpio/kndp/cmd/kndp/provider"
+	"github.com/kndpio/kndp/internal/globals"
 
 	"github.com/kndpio/kndp/cmd/kndp/registry"
 	"github.com/kndpio/kndp/cmd/kndp/resource"
@@ -26,7 +27,7 @@ type Globals struct {
 
 type VersionFlag string
 
-var Version = "development"
+var Version = globals.Version
 
 func (v VersionFlag) Decode(ctx *kong.DecodeContext) error { return nil }
 func (v VersionFlag) IsBool() bool                         { return true }

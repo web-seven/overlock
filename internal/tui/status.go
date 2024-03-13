@@ -77,12 +77,12 @@ func (m StatusModel) View() string {
 	{
 		w := lipgloss.Width
 
-		statusKey := m.styles.StatusStyle.Render("STATUS")
+		statusKey := m.styles.StatusStyle.Render("CONTEXT")
 		encoding := m.styles.EncodingStyle.Render("UTF-8")
 		fishCake := m.styles.FishCakeStyle.Render("🍥 Fish Cake")
 		statusVal := m.styles.StatusText.Copy().
 			Width(m.width - w(statusKey) - w(encoding) - w(fishCake)).
-			Render("Ravishing")
+			Render("kind-local (dummy)")
 
 		bar = lipgloss.JoinHorizontal(lipgloss.Top,
 			statusKey,
