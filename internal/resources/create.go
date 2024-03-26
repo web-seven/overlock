@@ -1,296 +1,76 @@
 package resources
 
 import (
-	"context"
-	"encoding/json"
-	"errors"
-	"regexp"
-	"strings"
-	"time"
-
-	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/log"
-	crossv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
-	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
-	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	resources "github.com/kndpio/kndp/internal/resources/schema"
 )
 
-type XResource struct {
-	Resource string
-	XRD      *crossv1.CompositeResourceDefinition
-	groups   map[string]*huh.Group
-	logger   *log.Logger
-	client   *dynamic.DynamicClient
-	ctx      context.Context
-	unstructured.Unstructured
+type ResourceModel struct {
+	styles   *ResourceStyles
+	width    int
+	renderer *lipgloss.Renderer
+	tree     resources.SchemaTreeModel
+	form     tea.Model
 }
 
-var apiFields = []string{"apiVersion", "kind"}
-var metadataFields = []string{"metadata"}
-
-var path = ""
-
-// func (m XResource) errorView() string {
-// 	var s string
-// 	for _, err := range m.form.Errors() {
-// 		s += err.Error()
-// 	}
-// 	return s
-// }
-
-func (xr *XResource) WithLogger(logger *log.Logger) {
-	xr.logger = logger
+type ResourceStyles struct {
+	AppStyle,
+	FormStyle,
+	TreeStyle lipgloss.Style
 }
 
-func (xr *XResource) GetSchemaFormFromXRDefinition() *XResource {
-	xrd := xr.XRD
-	xrdInstance, err := xr.client.Resource(schema.GroupVersionResource{
-		Group:    xrd.GroupVersionKind().Group,
-		Version:  xrd.GroupVersionKind().Version,
-		Resource: xrd.GroupVersionKind().Kind,
-	}).Get(xr.ctx, xrd.Name, metav1.GetOptions{})
+var ()
 
-	if err != nil {
-		xr.logger.Error(err)
-		return nil
-	}
+// Model
+func CreateResource() ResourceModel {
 
-	runtime.DefaultUnstructuredConverter.FromUnstructured(xrdInstance.UnstructuredContent(), xrd)
-
-	selectedVersion := v1.CompositeResourceDefinitionVersion{}
-	if len(xrd.Spec.Versions) == 1 {
-		selectedVersion = xrd.Spec.Versions[0]
-	} else {
-		selectedVersionIndex := 0
-		versionOptions := []huh.Option[int]{}
-		for index, version := range xrd.Spec.Versions {
-			versionOptions = append(versionOptions, huh.NewOption(version.Name, index))
-		}
-		vesionSelectForm := huh.NewForm(
-			huh.NewGroup(
-				huh.NewSelect[int]().
-					Title("Version").
-					Options(versionOptions...).
-					Value(&selectedVersionIndex),
-			),
-		)
-		vesionSelectForm.Run()
-		selectedVersion = xrd.Spec.Versions[selectedVersionIndex]
-	}
-
-	versionSchema, _ := parseSchema(selectedVersion.Schema, xr.logger)
-
-	xr.logger.Info("Type: \t\t" + xrd.Name)
-	xr.logger.Info("Description: \t" + versionSchema.Description)
-
-	xr.groups = xr.getFormGroupsByProps(versionSchema, "")
-
-	xr.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   xrd.Spec.Group,
-		Version: selectedVersion.Name,
-	})
-
-	xr.SetKind(xrd.Spec.Names.Kind)
-	xr.Resource = xrd.Spec.Names.Plural
-
-	return xr
+	m := ResourceModel{}
+	w, _ := m.styles.AppStyle.GetFrameSize()
+	m.width = w
+	m.renderer = lipgloss.DefaultRenderer()
+	m.styles = m.initStyles(m.renderer)
+	return m
 }
 
-func (xr *XResource) getFormGroupsByProps(schema *extv1.JSONSchemaProps, parent string) map[string]*huh.Group {
-	formGroups := map[string]*huh.Group{}
-	formFields := []huh.Field{}
-	groupsOptions := []huh.Option[string]{}
+// Styles
+func (m ResourceModel) initStyles(lg *lipgloss.Renderer) *ResourceStyles {
+	s := ResourceStyles{}
 
-	if xr.Object == nil {
-		xr.Object = make(map[string]interface{})
-	}
-	for propertyName, property := range schema.Properties {
+	s.AppStyle = lipgloss.NewStyle().Padding(1, 2)
 
-		breadCrumbs := parent + "." + propertyName
+	s.TreeStyle = lipgloss.NewStyle().
+		Foreground(lipgloss.AdaptiveColor{Light: "#343433", Dark: "#C1C6B2"}).
+		Background(lipgloss.AdaptiveColor{Light: "#D9DCCF", Dark: "#353533"}).
+		MarginBottom(1)
 
-		shortDescription := strings.SplitN(property.Description, ".", 2)[0]
-		description := shortDescription
-		isRequired := isStringInArray(schema.Required, propertyName)
+	s.FormStyle = lipgloss.NewStyle().
+		Foreground(lipgloss.AdaptiveColor{Light: "#343433", Dark: "#C1C6B2"}).
+		Background(lipgloss.AdaptiveColor{Light: "#D9DCCF", Dark: "#353533"}).
+		MarginBottom(1)
 
-		if (property.Type == "object" || property.Type == "array") && (!isStringInArray(metadataFields, propertyName) || len(property.Properties) > 0) {
-			schemaXr := XResource{}
-			(xr.Object)[propertyName] = &schemaXr.Object
-
-			if property.Type == "array" {
-				if property.Items.Schema.Type == "string" {
-
-					propertyValue := []string{}
-
-					if property.Items.Schema.Description != "" {
-						description = strings.SplitN(property.Items.Schema.Description, ".", 2)[0]
-					}
-					enums := []string{}
-					for _, optionValue := range property.Items.Schema.Enum {
-						timmedValue := strings.Trim(string(optionValue.Raw), "\"")
-						enums = append(enums, timmedValue)
-					}
-
-					formFields = append(formFields,
-						huh.NewText().
-							Title(breadCrumbs).
-							Description(description).
-							Lines(3).
-							Validate(func(s string) error {
-
-								if s != "" {
-									if len(enums) > 0 {
-										propertyValues := strings.Split(s, "\n")
-										for _, optionValue := range propertyValues {
-											if !isStringInArray(enums, optionValue) {
-												return errors.New("supported values: " + strings.Join(enums, ", "))
-											}
-										}
-									}
-									propertyValue = strings.Split(s, "\n")
-
-								}
-								return nil
-							}),
-					)
-					(xr.Object)[propertyName] = &propertyValue
-				} else if property.Items.Schema.Type == "object" {
-					propertyGroups := schemaXr.getFormGroupsByProps(property.Items.Schema, breadCrumbs)
-					mergeGroups(formGroups, propertyGroups)
-					(xr.Object)[propertyName] = &[]map[string]interface{}{schemaXr.Object}
-
-				}
-
-			} else {
-				propertyGroups := schemaXr.getFormGroupsByProps(&property, breadCrumbs)
-				mergeGroups(formGroups, propertyGroups)
-				groupsOptions = append(groupsOptions, huh.NewOption[string](propertyName, breadCrumbs))
-				(xr.Object)[propertyName] = &schemaXr.Object
-			}
-
-		} else if property.Type == "string" && !isStringInArray(apiFields, propertyName) {
-			propertyValue := ""
-			(xr.Object)[propertyName] = &propertyValue
-
-			if len(property.Enum) > 0 {
-				if property.Default != nil {
-					propertyValue = strings.Trim(string(property.Default.Raw), "\"")
-				}
-				options := []huh.Option[string]{}
-				for _, optionValue := range property.Enum {
-					timmedValue := strings.Trim(string(optionValue.Raw), "\"")
-					options = append(options, huh.NewOption(timmedValue, timmedValue))
-				}
-				formFields = append(formFields, huh.NewSelect[string]().
-					Options(options...).
-					Title(breadCrumbs).
-					Description(description).
-					Value(&propertyValue),
-				)
-			} else {
-				formFields = append(formFields, huh.NewInput().
-					Validate(func(s string) error {
-						if isRequired && s == "" {
-							return errors.New(propertyName + " is required")
-						} else {
-							return nil
-						}
-					}).
-					Title(breadCrumbs).
-					Value(&propertyValue),
-				)
-			}
-
-		} else if property.Type == "number" && !isStringInArray(apiFields, propertyName) {
-			propertyValue := json.Number("")
-			(xr.Object)[propertyName] = &propertyValue
-			formFields = append(formFields, huh.NewInput().
-				Validate(func(s string) error {
-
-					if s != "" && !regexp.MustCompile(`\d`).MatchString(s) {
-						return errors.New(propertyName + " shall be numeric")
-					}
-
-					if isRequired && s == "" {
-						return errors.New(propertyName + " is required")
-					}
-
-					propertyValue = json.Number(s)
-					return nil
-
-				}).
-				Title(breadCrumbs),
-			)
-		} else if property.Type == "boolean" && !isStringInArray(apiFields, propertyName) {
-			propertyValue := false
-			(xr.Object)[propertyName] = &propertyValue
-			formFields = append(formFields, huh.NewConfirm().
-				Title(breadCrumbs).
-				Value(&propertyValue),
-			)
-		} else if property.Type == "object" && isStringInArray(metadataFields, propertyName) {
-			propertyValue := metav1.ObjectMeta{
-				Name: "",
-				Labels: map[string]string{
-					"app.kubernetes.io/managed-by": "kndp",
-					"creation-date":                time.Now().String(),
-					"update-date":                  time.Now().String(),
-				},
-			}
-			(xr.Object)[propertyName] = &propertyValue
-
-			formFields = append(formFields, huh.NewInput().
-				Validate(func(s string) error {
-					if s == "" {
-						return errors.New("name is required")
-					} else {
-						return nil
-					}
-				}).
-				Title("Name of resource").
-				Value(&propertyValue.Name),
-			)
-		}
-	}
-
-	if len(groupsOptions) > 0 {
-		formFields = append(formFields, huh.NewSelect[string]().Options(groupsOptions...).Value(&path))
-	}
-
-	if len(formFields) > 0 {
-		group := huh.NewGroup(formFields...).Description(schema.Description)
-		formGroups[parent] = group
-	}
-
-	return formGroups
+	return &s
 }
 
-func parseSchema(v *v1.CompositeResourceValidation, logger *log.Logger) (*extv1.JSONSchemaProps, error) {
-	if v == nil {
-		return nil, nil
-	}
-
-	s := &extv1.JSONSchemaProps{}
-	if err := json.Unmarshal(v.OpenAPIV3Schema.Raw, s); err != nil {
-		logger.Error(err)
-	}
-	return s, nil
+// Init
+func (m ResourceModel) Init() tea.Cmd {
+	var cmds []tea.Cmd
+	return tea.Batch(cmds...)
 }
 
-func isStringInArray(a []string, s string) bool {
-	for _, e := range a {
-		if s == e {
-			return true
-		}
+// Update
+func (m ResourceModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
 	}
-	return false
+	return m, tea.Batch(cmds...)
 }
-func mergeGroups(a map[string]*huh.Group, b map[string]*huh.Group) {
-	for k, v := range b {
-		a[k] = v
-	}
+
+// View
+func (m ResourceModel) View() string {
+	return m.styles.AppStyle.Width(m.width).Render(
+		lipgloss.JoinHorizontal(lipgloss.Top, m.tree.View(), m.form.View()),
+	)
 }

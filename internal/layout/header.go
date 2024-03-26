@@ -1,4 +1,4 @@
-package tui
+package layout
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
@@ -22,6 +22,7 @@ type HeaderStyles struct {
 	HeaderText lipgloss.Style
 }
 
+// Model
 func CreateHeader() HeaderModel {
 	w, _ := appStyle.GetFrameSize()
 	m := HeaderModel{
@@ -33,6 +34,7 @@ func CreateHeader() HeaderModel {
 	return m
 }
 
+// Styles
 func (m HeaderModel) initStyles(lg *lipgloss.Renderer) *HeaderStyles {
 	s := HeaderStyles{}
 	s.HeaderNugget = lipgloss.NewStyle().
@@ -62,12 +64,14 @@ func (m HeaderModel) initStyles(lg *lipgloss.Renderer) *HeaderStyles {
 	return &s
 }
 
+// Init
 func (m HeaderModel) Init() tea.Cmd {
 	var cmds []tea.Cmd
 	return tea.Batch(cmds...)
 }
 
-func (m HeaderModel) Update(msg tea.Msg) (HeaderModel, tea.Cmd) {
+// Update
+func (m HeaderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -76,6 +80,7 @@ func (m HeaderModel) Update(msg tea.Msg) (HeaderModel, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
+// View
 func (m HeaderModel) View() string {
 	var bar string
 	{

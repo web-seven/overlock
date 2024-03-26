@@ -1,4 +1,4 @@
-package tui
+package layout
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
@@ -20,6 +20,7 @@ type StatusStyles struct {
 	StatusText lipgloss.Style
 }
 
+// Model
 func CreateStatusBar() StatusModel {
 	w, _ := appStyle.GetFrameSize()
 	m := StatusModel{
@@ -30,6 +31,7 @@ func CreateStatusBar() StatusModel {
 	return m
 }
 
+// Styles
 func (m StatusModel) initStyles(lg *lipgloss.Renderer) *StatusStyles {
 	s := StatusStyles{}
 	s.StatusNugget = lipgloss.NewStyle().
@@ -58,12 +60,14 @@ func (m StatusModel) initStyles(lg *lipgloss.Renderer) *StatusStyles {
 	return &s
 }
 
+// Init
 func (m StatusModel) Init() tea.Cmd {
 	var cmds []tea.Cmd
 	return tea.Batch(cmds...)
 }
 
-func (m StatusModel) Update(msg tea.Msg) (StatusModel, tea.Cmd) {
+// Update
+func (m StatusModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -72,6 +76,7 @@ func (m StatusModel) Update(msg tea.Msg) (StatusModel, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
+// View
 func (m StatusModel) View() string {
 	var bar string
 	{

@@ -1,4 +1,4 @@
-package tui
+package layout
 
 import (
 	"os"
@@ -50,21 +50,25 @@ var (
 		BorderRight(false)
 )
 
+// Model
 func CreateMenu() MenuModel {
 	m := MenuModel{}
 	return m
 }
 
+// Init
 func (m MenuModel) Init() tea.Cmd {
 	var cmds []tea.Cmd
 	return tea.Batch(cmds...)
 }
 
-func (m MenuModel) Update(msg tea.Msg) (MenuModel, tea.Cmd) {
+// Update
+func (m MenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	return m, tea.Batch(cmds...)
 }
 
+// View
 func (m MenuModel) View() string {
 
 	physicalWidth, _, _ := term.GetSize(int(os.Stdout.Fd()))
