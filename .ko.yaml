@@ -1,0 +1,11 @@
+builds:
+- id: kndp-cli
+  dir: . 
+  main: ./cmd/kndp
+  flags:
+  - -tags
+  - "{{.Env.VERSION}}"
+  ldflags:
+  - -s -w
+  - -extldflags "-static"
+  - -X main.Version={{.Env.VERSION}}
