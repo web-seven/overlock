@@ -32,6 +32,8 @@ jobs:
   oci-builds:
     name: build OCI images
     runs-on: ubuntu-latest
+    env:
+      REGISTRY: ghcr.io/kndpio/cli
     steps:
     - uses: actions/setup-go@v4
       with:
@@ -41,10 +43,13 @@ jobs:
       run: echo VERSION=$(echo ${GITHUB_REF} | rev | cut -d'/' -f 1 | rev ) >> ${GITHUB_ENV}
     - uses: ko-build/setup-ko@v0.6
       env:
-        KO_DOCKER_REPO: ghcr.io/kndpio/cli
+        KO_DOCKER_REPO: ${{ env.REGISTRY }}
+    - name: Log in to the Container registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     - name: build
-      env:
-        auth_token: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        echo "${auth_token}" | ko login ghcr.io --username KNDP --password-stdin
         ko build ./cmd/kndp/ --tags=${{ env.VERSION }} --bare
