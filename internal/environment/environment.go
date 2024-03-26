@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -25,8 +24,28 @@ import (
 func MoveKndpResources(ctx context.Context, logger *log.Logger, source string, destination string) error {
 
 	// Create a Kubernetes client
-	sourceContext := kube.Context(ctx, logger, source)
-	destinationContext := kube.Context(ctx, logger, destination)
+	sourceContext, err := kube.Context(ctx, logger, source)
+	if err != nil {
+		logger.Fatal(err)
+		return nil
+	}
+	destinationContext, err := kube.Context(ctx, logger, destination)
+	if err != nil {
+		logger.Fatal(err)
+		return nil
+	}
+
+	destConfig, err := kube.Config(destination)
+	if err != nil {
+		logger.Fatal(err)
+		return nil
+	}
+
+	err = InstallEngine(destConfig, logger)
+	if err != nil {
+		logger.Fatal(err)
+		return nil
+	}
 
 	//Apply configurations
 	paramsConfiguration := kube.ResourceParams{
@@ -40,14 +59,14 @@ func MoveKndpResources(ctx context.Context, logger *log.Logger, source string, d
 	}
 	configurations, err := configuration.GetConfiguration(ctx, logger, sourceContext, paramsConfiguration)
 	if err != nil {
-		logger.Error(err)
+		logger.Fatal(err)
 		return nil
 	}
 
 	//Check configuration health status and move configurations to destination cluster
 	err = configuration.MoveConfigurations(ctx, logger, destinationContext, configurations, paramsConfiguration)
 	if err != nil {
-		logger.Error(err)
+		logger.Fatal(err)
 		return nil
 	}
 
@@ -65,14 +84,17 @@ func MoveKndpResources(ctx context.Context, logger *log.Logger, source string, d
 		logger.Fatal(err)
 		return nil
 	}
+
 	err = resources.MoveCompositeResources(ctx, logger, sourceContext, destinationContext, XRDs)
+	if err != nil {
+		logger.Fatal(err)
+		return nil
+	}
 
 	//Delete source cluster after all resources are successfully created in destination cluster
-	if err == nil {
-		cmd := exec.Command("kind", "delete", "cluster", "--name", strings.TrimPrefix(source, "kind-"))
-		cmd.Run()
-		logger.Info("Successfully moved Kubernetes resources to the destination cluster.")
-	}
+	// cmd := exec.Command("kind", "delete", "cluster", "--name", strings.TrimPrefix(source, "kind-"))
+	// cmd.Run()
+	logger.Info("Successfully moved Kubernetes resources to the destination cluster.")
 
 	return nil
 }
@@ -91,7 +113,7 @@ func InstallEngine(configClient *rest.Config, logger *log.Logger) error {
 		logger.Errorf("error creating Helm manager: %v", err)
 	}
 
-	err = installer.Install("", nil)
+	err = installer.Upgrade("", nil)
 	if err != nil {
 		logger.Error(err)
 	}

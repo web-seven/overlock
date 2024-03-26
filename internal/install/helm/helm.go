@@ -313,6 +313,7 @@ func NewManager(config *rest.Config, chartName string, repoURL *url.URL, release
 	uc.Timeout = waitTimeout
 	uc.DisableHooks = h.noHooks
 	uc.ReuseValues = h.reuseValues
+	uc.Install = true
 	h.upgradeClient = uc
 
 	// Uninstall Client

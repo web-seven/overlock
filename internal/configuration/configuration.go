@@ -50,7 +50,7 @@ func MoveConfigurations(ctx context.Context, logger *log.Logger, destClientset d
 			}
 			_, err := destClientset.Resource(resourceId).Namespace(paramsConfiguration.Namespace).Create(ctx, &item, metav1.CreateOptions{})
 			if err != nil {
-				logger.Fatal(err)
+				return err
 			} else {
 				logger.Infof("Configuration created successfully %s", item.GetName())
 
@@ -91,7 +91,7 @@ func MoveConfigurations(ctx context.Context, logger *log.Logger, destClientset d
 			}
 		}
 	} else {
-		logger.Fatal("No Kubernetes resources to move !")
+		logger.Warn("Configuration resources not found")
 	}
 
 	return nil
