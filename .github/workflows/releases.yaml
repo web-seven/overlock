@@ -5,10 +5,6 @@ on:
     tags:
     - '*'
     
-permissions:
-    contents: write
-    packages: write
-
 jobs:
   release-linux-amd64:
     name: release linux/amd64
@@ -48,7 +44,7 @@ jobs:
         KO_DOCKER_REPO: ${{ env.REGISTRY }}
     - name: Run ko build
       env:
-        auth_token: ${{ secrets.WORKFLOW_TOKEN }}
+        auth_token: ${{ secrets.GITHUB_TOKEN }}
       run: |
         echo "${auth_token}" | ko login ${{ env.OCI_DOMAIN }} --username ${{ github.actor }} --password-stdin
         ko build ./cmd/kndp/ --tags=${{ env.VERSION }} --bare
