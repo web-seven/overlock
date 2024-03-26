@@ -41,15 +41,14 @@ jobs:
     - uses: actions/checkout@v4
     - name: Set VERSION env
       run: echo VERSION=$(echo ${GITHUB_REF} | rev | cut -d'/' -f 1 | rev ) >> ${GITHUB_ENV}
+    - name: Set OCI_DOMAIN env
+      run: echo OCI_DOMAIN=$(echo ${REGISTRY} | cut -d'/' -f 1 ) >> ${GITHUB_ENV}
     - uses: ko-build/setup-ko@v0.6
       env:
         KO_DOCKER_REPO: ${{ env.REGISTRY }}
-    - name: Log in to the Container registry
-      uses: docker/login-action@v3
-      with:
-        registry: ${{ env.REGISTRY }}
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
     - name: build
+      env:
+        auth_token: ${{ secrets.WORKFLOW_TOKEN }}
       run: |
+        echo "${auth_token}" | ko login ${{ env.OCI_DOMAIN }} --username ${{ github.actor }} --password-stdin
         ko build ./cmd/kndp/ --tags=${{ env.VERSION }} --bare
