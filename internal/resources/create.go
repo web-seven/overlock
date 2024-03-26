@@ -3,15 +3,15 @@ package resources
 import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	resources "github.com/kndpio/kndp/internal/resources/schema"
+	schema "github.com/kndpio/kndp/internal/resources/schema"
 )
 
 type ResourceModel struct {
 	styles   *ResourceStyles
 	width    int
 	renderer *lipgloss.Renderer
-	tree     resources.SchemaTreeModel
-	form     tea.Model
+	tree     schema.SchemaTreeModel
+	form     schema.SchemaFormModel
 }
 
 type ResourceStyles struct {
@@ -26,10 +26,12 @@ var ()
 func CreateResource() ResourceModel {
 
 	m := ResourceModel{}
-	w, _ := m.styles.AppStyle.GetFrameSize()
-	m.width = w
 	m.renderer = lipgloss.DefaultRenderer()
 	m.styles = m.initStyles(m.renderer)
+	w, _ := m.styles.AppStyle.GetFrameSize()
+	m.width = w
+	m.tree = schema.CreateSchemaTree()
+	m.form = schema.CreateSchemaForm()
 	return m
 }
 
@@ -71,6 +73,8 @@ func (m ResourceModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // View
 func (m ResourceModel) View() string {
 	return m.styles.AppStyle.Width(m.width).Render(
-		lipgloss.JoinHorizontal(lipgloss.Top, m.tree.View(), m.form.View()),
+		lipgloss.JoinHorizontal(lipgloss.Top),
+		m.tree.View(),
+		m.form.View(),
 	)
 }

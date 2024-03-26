@@ -3,7 +3,7 @@ package layout
 import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	la "github.com/kndpio/kndp/internal/layout"
+	"github.com/kndpio/kndp/internal/resources"
 )
 
 type LayoutModel struct {
@@ -37,10 +37,10 @@ func CreateLayoutModel() LayoutModel {
 	m := LayoutModel{width: maxWidth}
 	m.lg = lipgloss.DefaultRenderer()
 	m.styles = initStyles(m.lg)
-	m.header = la.CreateHeader()
-	m.menu = la.CreateMenu()
-	m.body = la.CreateSideBar().WidthMargin(minHeight)
-	m.status = la.CreateStatusBar()
+	m.header = CreateHeader()
+	m.menu = CreateMenu()
+	m.body = resources.CreateResource()
+	m.status = CreateStatusBar()
 	return m
 }
 

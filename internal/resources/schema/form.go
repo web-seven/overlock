@@ -8,7 +8,9 @@ import (
 	"strings"
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
 	crossv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
@@ -20,7 +22,7 @@ import (
 	"k8s.io/client-go/dynamic"
 )
 
-type XResource struct {
+type SchemaFormModel struct {
 	Resource string
 	XRD      *crossv1.CompositeResourceDefinition
 	groups   map[string]*huh.Group
@@ -28,6 +30,11 @@ type XResource struct {
 	client   *dynamic.DynamicClient
 	ctx      context.Context
 	unstructured.Unstructured
+	styles SchemaFormStyles
+}
+
+type SchemaFormStyles struct {
+	SchemaForm lipgloss.Style
 }
 
 var apiFields = []string{"apiVersion", "kind"}
@@ -35,7 +42,12 @@ var metadataFields = []string{"metadata"}
 
 var path = ""
 
-// func (m XResource) errorView() string {
+func CreateSchemaForm() SchemaFormModel {
+	m := SchemaFormModel{}
+	return m
+}
+
+// func (m SchemaFormModel) errorView() string {
 // 	var s string
 // 	for _, err := range m.form.Errors() {
 // 		s += err.Error()
@@ -43,11 +55,45 @@ var path = ""
 // 	return s
 // }
 
-func (xr *XResource) WithLogger(logger *log.Logger) {
+// Styles
+func (m SchemaFormModel) initStyles(lg *lipgloss.Renderer) *SchemaFormStyles {
+	s := SchemaFormStyles{}
+
+	return &s
+}
+
+// Init
+func (m SchemaFormModel) Init() tea.Cmd {
+	var cmds []tea.Cmd
+
+	return tea.Batch(cmds...)
+}
+
+// Update
+func (m SchemaFormModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+	case tea.KeyMsg:
+		switch keypress := msg.String(); keypress {
+
+		case "enter":
+		}
+	}
+
+	return m, tea.Batch(cmds...)
+}
+
+// View
+func (m SchemaFormModel) View() string {
+	return m.styles.SchemaForm.Render()
+}
+
+func (xr *SchemaFormModel) WithLogger(logger *log.Logger) {
 	xr.logger = logger
 }
 
-func (xr *XResource) GetSchemaFormFromXRDefinition() *XResource {
+func (xr *SchemaFormModel) GetSchemaFormFromXRDefinition() *SchemaFormModel {
 	xrd := xr.XRD
 	xrdInstance, err := xr.client.Resource(schema.GroupVersionResource{
 		Group:    xrd.GroupVersionKind().Group,
@@ -101,7 +147,7 @@ func (xr *XResource) GetSchemaFormFromXRDefinition() *XResource {
 	return xr
 }
 
-func (xr *XResource) getFormGroupsByProps(schema *extv1.JSONSchemaProps, parent string) map[string]*huh.Group {
+func (xr *SchemaFormModel) getFormGroupsByProps(schema *extv1.JSONSchemaProps, parent string) map[string]*huh.Group {
 	formGroups := map[string]*huh.Group{}
 	formFields := []huh.Field{}
 	groupsOptions := []huh.Option[string]{}
@@ -118,7 +164,7 @@ func (xr *XResource) getFormGroupsByProps(schema *extv1.JSONSchemaProps, parent 
 		isRequired := isStringInArray(schema.Required, propertyName)
 
 		if (property.Type == "object" || property.Type == "array") && (!isStringInArray(metadataFields, propertyName) || len(property.Properties) > 0) {
-			schemaXr := XResource{}
+			schemaXr := SchemaFormModel{}
 			(xr.Object)[propertyName] = &schemaXr.Object
 
 			if property.Type == "array" {
