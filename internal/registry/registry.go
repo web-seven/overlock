@@ -7,9 +7,14 @@ import (
 
 	"github.com/charmbracelet/log"
 	"github.com/go-playground/validator/v10"
-	"github.com/kndpio/kndp/internal/configuration"
+	"github.com/kndpio/kndp/internal/engine"
+	"github.com/kndpio/kndp/internal/kube"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	kv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
@@ -33,7 +38,7 @@ type Registry struct {
 
 func Registries(ctx context.Context, client *kubernetes.Clientset) (*corev1.SecretList, error) {
 	return secretClient(client).
-		List(ctx, v1.ListOptions{LabelSelector: "kndp-registry-auth-config=true"})
+		List(ctx, metav1.ListOptions{LabelSelector: "kndp-registry-auth-config=true"})
 }
 
 func (r *Registry) Validate() error {
@@ -73,11 +78,11 @@ func (r *Registry) Secret() corev1.Secret {
 	}
 
 	secretSpec := corev1.Secret{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "registry-server-auth-",
-			Labels: map[string]string{
+			Labels: engine.ManagedLabels(map[string]string{
 				"kndp-registry-auth-config": "true",
-			},
+			}),
 			Annotations: map[string]string{
 				"kndp-registry-server-url": strings.Join(servers, ","),
 			},
@@ -91,12 +96,16 @@ func (r *Registry) Secret() corev1.Secret {
 
 func (r *Registry) Create(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, logger *log.Logger) error {
 	secretSpec := r.Secret()
-	secret, err := secretClient(client).Create(ctx, &secretSpec, v1.CreateOptions{})
+	secret, err := secretClient(client).Create(ctx, &secretSpec, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
 
-	installer := configuration.GetManager(config, logger)
+	installer, err := engine.GetEngine(config)
+	if err != nil {
+		return err
+	}
+
 	release, _ := installer.GetRelease()
 
 	if release.Config == nil {
@@ -118,9 +127,52 @@ func (r *Registry) Create(ctx context.Context, client *kubernetes.Clientset, con
 }
 
 func (r *Registry) Delete(ctx context.Context, client *kubernetes.Clientset) error {
-	return secretClient(client).Delete(ctx, r.Name, v1.DeleteOptions{})
+	return secretClient(client).Delete(ctx, r.Name, metav1.DeleteOptions{})
+}
+
+func CopyRegistries(ctx context.Context, logger *log.Logger, sourceContext dynamic.Interface, destinationContext dynamic.Interface) error {
+
+	registries, err := kube.GetKubeResources(kube.ResourceParams{
+		Dynamic:   sourceContext,
+		Ctx:       ctx,
+		Group:     "",
+		Version:   "v1",
+		Resource:  "secrets",
+		Namespace: "",
+		ListOption: metav1.ListOptions{
+			LabelSelector: engine.ManagedSelector(nil),
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	if len(registries) > 0 {
+		for _, registry := range registries {
+			var secret unstructured.Unstructured
+			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(registry.UnstructuredContent(), &secret); err != nil {
+				logger.Printf("Failed to convert item %s: %v\n", registry.GetName(), err)
+				return nil
+			}
+
+			resourceId := schema.GroupVersionResource{
+				Group:    "",
+				Version:  "v1",
+				Resource: "secrets",
+			}
+			secret.SetResourceVersion("")
+			_, err = destinationContext.Resource(resourceId).Namespace(registry.GetNamespace()).Create(ctx, &secret, metav1.CreateOptions{})
+			if err != nil {
+				return err
+			}
+		}
+		logger.Info("Registries copied successfully.")
+	} else {
+		logger.Warn("Registries not found")
+	}
+	return nil
 }
 
 func secretClient(client *kubernetes.Clientset) kv1.SecretInterface {
-	return client.CoreV1().Secrets("default")
+	return client.CoreV1().Secrets(engine.Namespace)
 }

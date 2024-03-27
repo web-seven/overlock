@@ -305,7 +305,22 @@ func ApplyResources(ctx context.Context, client *dynamic.DynamicClient, logger *
 	return nil
 }
 
-func MoveCompositeResources(ctx context.Context, logger *log.Logger, sourceContext dynamic.Interface, destinationContext dynamic.Interface, XRDs []unstructured.Unstructured) error {
+func CopyComposites(ctx context.Context, logger *log.Logger, sourceContext dynamic.Interface, destinationContext dynamic.Interface) error {
+
+	//Get composite resources from XRDs definition and apply them
+	XRDs, err := kube.GetKubeResources(kube.ResourceParams{
+		Dynamic:    sourceContext,
+		Ctx:        ctx,
+		Group:      "apiextensions.crossplane.io",
+		Version:    "v1",
+		Resource:   "compositeresourcedefinitions",
+		Namespace:  "",
+		ListOption: metav1.ListOptions{},
+	})
+	if err != nil {
+		return err
+	}
+
 	if len(XRDs) > 0 {
 		for _, xrd := range XRDs {
 			var paramsXRs v1.CompositeResourceDefinition

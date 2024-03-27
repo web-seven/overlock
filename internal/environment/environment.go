@@ -2,126 +2,83 @@ package environment
 
 import (
 	"context"
-	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 
-	"github.com/kndpio/kndp/internal/configuration"
-	"github.com/kndpio/kndp/internal/install/helm"
+	"github.com/kndpio/kndp/internal/engine"
 	"github.com/kndpio/kndp/internal/kube"
+	"github.com/kndpio/kndp/internal/registry"
 	"github.com/kndpio/kndp/internal/resources"
 	"github.com/pterm/pterm"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	"github.com/charmbracelet/log"
 )
 
-func MoveKndpResources(ctx context.Context, logger *log.Logger, source string, destination string) error {
+// Copy Environment from source to destination contexts
+func CopyEnvironment(ctx context.Context, logger *log.Logger, source string, destination string) error {
 
-	// Create a Kubernetes client
+	// Create a Kubernetes clients
 	sourceContext, err := kube.Context(ctx, logger, source)
 	if err != nil {
-		logger.Fatal(err)
-		return nil
+		return err
 	}
 	destinationContext, err := kube.Context(ctx, logger, destination)
 	if err != nil {
-		logger.Fatal(err)
-		return nil
+		return err
+	}
+
+	// Create a Helm clients
+	sourceConfig, err := kube.Config(source)
+	if err != nil {
+		return err
 	}
 
 	destConfig, err := kube.Config(destination)
 	if err != nil {
-		logger.Fatal(err)
-		return nil
+		return err
 	}
 
-	err = InstallEngine(destConfig, logger)
+	// Copy registries
+	err = registry.CopyRegistries(ctx, logger, sourceContext, destinationContext)
 	if err != nil {
-		logger.Fatal(err)
-		return nil
+		return err
 	}
 
-	//Apply configurations
-	paramsConfiguration := kube.ResourceParams{
-		Dynamic:    sourceContext,
-		Ctx:        ctx,
-		Group:      "pkg.crossplane.io",
-		Version:    "v1",
-		Resource:   "configurations",
-		Namespace:  "",
-		ListOption: metav1.ListOptions{},
-	}
-	configurations, err := configuration.GetConfiguration(ctx, logger, sourceContext, paramsConfiguration)
+	// Copy engine
+	logger.Info("Start copy engine...")
+	sourceEngine, err := engine.GetEngine(sourceConfig)
 	if err != nil {
-		logger.Fatal(err)
-		return nil
+		return err
 	}
 
-	//Check configuration health status and move configurations to destination cluster
-	err = configuration.MoveConfigurations(ctx, logger, destinationContext, configurations, paramsConfiguration)
+	sourceRelease, err := sourceEngine.GetRelease()
 	if err != nil {
-		logger.Fatal(err)
-		return nil
+		return err
 	}
 
-	//Get composite resources from XRDs definition and apply them
-	XRDs, err := kube.GetKubeResources(kube.ResourceParams{
-		Dynamic:    sourceContext,
-		Ctx:        ctx,
-		Group:      "apiextensions.crossplane.io",
-		Version:    "v1",
-		Resource:   "compositeresourcedefinitions",
-		Namespace:  "",
-		ListOption: metav1.ListOptions{},
-	})
+	destEngine, err := engine.GetEngine(destConfig)
 	if err != nil {
-		logger.Fatal(err)
-		return nil
+		return err
 	}
+	destEngine.Upgrade("", sourceRelease.Config)
+	logger.Info("Engine copied successfully!")
 
-	err = resources.MoveCompositeResources(ctx, logger, sourceContext, destinationContext, XRDs)
+	// Copy composities
+	err = resources.CopyComposites(ctx, logger, sourceContext, destinationContext)
 	if err != nil {
-		logger.Fatal(err)
-		return nil
+		return err
 	}
 
-	//Delete source cluster after all resources are successfully created in destination cluster
-	// cmd := exec.Command("kind", "delete", "cluster", "--name", strings.TrimPrefix(source, "kind-"))
-	// cmd.Run()
-	logger.Info("Successfully moved Kubernetes resources to the destination cluster.")
+	logger.Info("Successfully Environment to destination context.")
 
 	return nil
 }
 
-func InstallEngine(configClient *rest.Config, logger *log.Logger) error {
-	logger.Info("Installing crossplane ...")
-
-	chartName := "crossplane"
-	repoURL, err := url.Parse("https://charts.crossplane.io/stable")
-	if err != nil {
-		logger.Errorf("error parsing repository URL: %v", err)
-	}
-	setWait := helm.InstallerModifierFn(helm.Wait())
-	installer, err := helm.NewManager(configClient, chartName, repoURL, configuration.ReleaseName, setWait)
-	if err != nil {
-		logger.Errorf("error creating Helm manager: %v", err)
-	}
-
-	err = installer.Upgrade("", nil)
-	if err != nil {
-		logger.Error(err)
-	}
-
-	logger.Info("Crossplane installation completed successfully!")
-	return nil
-}
-
+// List Environments in available contexts
 func ListEnvironments(logger *log.Logger, tableData pterm.TableData) pterm.TableData {
 	kubeconfig := os.Getenv("KUBECONFIG")
 	if kubeconfig == "" {
@@ -134,21 +91,10 @@ func ListEnvironments(logger *log.Logger, tableData pterm.TableData) pterm.Table
 		if err != nil {
 			logger.Fatal(err)
 		}
-		if IsHelmReleaseFound(configClient, logger, configuration.ReleaseName) {
+		if engine.IsHelmReleaseFound(configClient) {
 			types := regexp.MustCompile(`(\w+)`).FindStringSubmatch(name)
 			tableData = append(tableData, []string{name, strings.ToUpper(types[0])})
 		}
 	}
 	return tableData
-}
-
-func IsHelmReleaseFound(configClient *rest.Config, logger *log.Logger, chartName string) bool {
-
-	installer, err := helm.NewManager(configClient, chartName, &url.URL{}, configuration.ReleaseName)
-	if err != nil {
-		return false
-	}
-	_, err = installer.GetRelease()
-	return err == nil
-
 }

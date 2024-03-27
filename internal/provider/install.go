@@ -2,8 +2,8 @@ package provider
 
 import (
 	"github.com/charmbracelet/log"
+	"github.com/kndpio/kndp/internal/engine"
 
-	"github.com/kndpio/kndp/internal/configuration"
 	"k8s.io/client-go/rest"
 )
 
@@ -15,9 +15,12 @@ func InstallProvider(provider string, config *rest.Config, logger *log.Logger) {
 		},
 	}
 
-	installer := configuration.GetManager(config, logger)
+	installer, err := engine.GetEngine(config)
+	if err != nil {
+		logger.Errorf(" %v\n", err)
+	}
 
-	err := installer.Upgrade("", parameters)
+	err = installer.Upgrade("", parameters)
 	if err != nil {
 		logger.Errorf(" %v\n", err)
 	}

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/log"
+	"github.com/kndpio/kndp/internal/engine"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
@@ -35,6 +36,6 @@ func K3sEnvironment(context string, logger *log.Logger, name string) error {
 		logger.Fatal(err)
 	}
 
-	InstallEngine(configClient, logger)
+	engine.InstallEngine(configClient)
 	return nil
 }

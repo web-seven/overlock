@@ -90,6 +90,7 @@ type helmInstaller interface {
 
 type helmUpgrader interface {
 	Run(string, *chart.Chart, map[string]any) (*release.Release, error)
+	action.Upgrade
 }
 
 type helmRollbacker interface {
@@ -127,6 +128,8 @@ type Installer struct {
 	log             logging.Logger
 	oci             bool
 	reuseValues     bool
+	upgradeInstall  bool
+	createNamespace bool
 
 	// Auth
 	username string
@@ -136,7 +139,7 @@ type Installer struct {
 	pullClient      helmPuller
 	getClient       helmGetter
 	installClient   helmInstaller
-	upgradeClient   helmUpgrader
+	upgradeClient   *action.Upgrade
 	rollbackClient  helmRollbacker
 	uninstallClient helmUninstaller
 
@@ -232,6 +235,18 @@ func WithReuseValues(r bool) InstallerModifierFn {
 	}
 }
 
+func WithUpgradeInstall(r bool) InstallerModifierFn {
+	return func(h *Installer) {
+		h.upgradeInstall = r
+	}
+}
+
+func WithCreateNamespace(r bool) InstallerModifierFn {
+	return func(h *Installer) {
+		h.createNamespace = r
+	}
+}
+
 // NewManager builds a helm install manager for UXP.
 func NewManager(config *rest.Config, chartName string, repoURL *url.URL, releaseName string, modifiers ...InstallerModifierFn) (install.Manager, error) { // nolint:gocyclo
 	h := &Installer{
@@ -304,6 +319,7 @@ func NewManager(config *rest.Config, chartName string, repoURL *url.URL, release
 	ic.Wait = h.wait
 	ic.Timeout = waitTimeout
 	ic.DisableHooks = h.noHooks
+	ic.CreateNamespace = h.createNamespace
 	h.installClient = ic
 
 	// Upgrade Client
@@ -313,7 +329,7 @@ func NewManager(config *rest.Config, chartName string, repoURL *url.URL, release
 	uc.Timeout = waitTimeout
 	uc.DisableHooks = h.noHooks
 	uc.ReuseValues = h.reuseValues
-	uc.Install = true
+	uc.Install = h.upgradeInstall
 	h.upgradeClient = uc
 
 	// Uninstall Client
@@ -336,7 +352,7 @@ func NewManager(config *rest.Config, chartName string, repoURL *url.URL, release
 func (h *Installer) GetCurrentVersion() (string, error) {
 	var release *release.Release
 	var err error
-	release, err = h.getClient.Run(h.chartName)
+	release, err = h.getClient.Run(h.releaseName)
 	if err != nil && !errors.Is(err, driver.ErrReleaseNotFound) {
 		return "", err
 	}
@@ -358,7 +374,7 @@ func (h *Installer) GetCurrentVersion() (string, error) {
 }
 
 func (h *Installer) GetRelease() (*release.Release, error) {
-	return h.getClient.Run(h.chartName)
+	return h.getClient.Run(h.releaseName)
 }
 
 // Install installs in the cluster.
@@ -402,7 +418,9 @@ func (h *Installer) Upgrade(version string, parameters map[string]any, opts ...i
 	// check if version exists
 	current, err := h.GetCurrentVersion()
 	if err != nil {
-		return err
+		if h.upgradeClient.Install {
+			return h.Install(version, parameters)
+		}
 	}
 	if h.releaseName == h.alternateChart && !equivalentVersions(current, version) && !h.force {
 		return errors.Errorf(errUpgradeFromAlternateVersionFmt, h.alternateChart, h.chartName)
@@ -427,8 +445,8 @@ func (h *Installer) Upgrade(version string, parameters map[string]any, opts ...i
 			return err
 		}
 	}
-
 	_, upErr := h.upgradeClient.Run(h.releaseName, helmChart, parameters)
+
 	if upErr != nil && h.rollbackOnError {
 		if rErr := h.rollbackClient.Run(h.releaseName); rErr != nil {
 			return errors.Wrap(rErr, errFailedUpgradeFailedRollback)
