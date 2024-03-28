@@ -41,6 +41,6 @@ func ApplyConfiguration(Link string, config *rest.Config, logger *log.Logger) {
 		logger.Errorf(" %v\n", err)
 	}
 
-	logger.Info("KNDP configuration applied successfully.")
+	logger.Info("Configuration applied successfully.")
 
 }

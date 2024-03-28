@@ -177,7 +177,45 @@ func (r *Registry) ToSecret() *corev1.Secret {
 	json.Unmarshal(rJson, &sec)
 	return &sec
 }
-func (r *Registry) Delete(ctx context.Context, client *kubernetes.Clientset) error {
+func (r *Registry) Delete(ctx context.Context, config *rest.Config, logger *log.Logger) error {
+
+	installer, err := engine.GetEngine(config)
+	if err != nil {
+		logger.Errorf(" %v\n", err)
+	}
+
+	release, _ := installer.GetRelease()
+
+	if release.Config == nil || release.Config["imagePullSecrets"] == nil {
+		logger.Warn("Not found any registry in context.")
+	} else {
+		oldRegistries := release.Config["imagePullSecrets"].([]interface{})
+
+		newRegistries := []interface{}{}
+		for _, reg := range oldRegistries {
+			if reg != r.Name {
+				newRegistries = append(
+					newRegistries,
+					reg,
+				)
+			}
+		}
+		release.Config["imagePullSecrets"] = newRegistries
+		if len(oldRegistries) == len(newRegistries) {
+			logger.Warn("Configuration URL not found applied configurations.")
+			return nil
+		}
+
+		err = installer.Upgrade("", release.Config)
+		if err != nil {
+			return err
+		}
+	}
+
+	client, err := kube.Client(config)
+	if err != nil {
+		return err
+	}
 	return secretClient(client).Delete(ctx, r.Name, metav1.DeleteOptions{})
 }
 
