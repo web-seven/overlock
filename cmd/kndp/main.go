@@ -10,12 +10,12 @@ import (
 	"github.com/kndpio/kndp/cmd/kndp/configuration"
 	"github.com/kndpio/kndp/cmd/kndp/environment"
 	"github.com/kndpio/kndp/cmd/kndp/provider"
+	"github.com/kndpio/kndp/internal/kube"
 
 	"github.com/kndpio/kndp/cmd/kndp/registry"
 	"github.com/kndpio/kndp/cmd/kndp/resource"
 	"github.com/willabides/kongplete"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -47,7 +47,7 @@ func (c *cli) AfterApply(ctx *kong.Context) error { //nolint:unparam
 	if config != nil {
 		ctx.Bind(config)
 		dynamicClient, _ := dynamic.NewForConfig(config)
-		kubeClient, _ := kubernetes.NewForConfig(config)
+		kubeClient, _ := kube.Client(config)
 		ctx.Bind(dynamicClient)
 		ctx.Bind(kubeClient)
 	}

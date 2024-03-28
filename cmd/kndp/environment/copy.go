@@ -8,13 +8,11 @@ import (
 	"github.com/charmbracelet/log"
 )
 
-type moveCmd struct {
+type copyCmd struct {
 	Source      string `arg:"" required:"" help:"Name source of environment."`
 	Destination string `arg:"" required:"" help:"Name destination of environment."`
 }
 
-func (c *moveCmd) Run(ctx context.Context, logger *log.Logger) error {
-
-	environment.MoveKndpResources(ctx, logger, c.Source, c.Destination)
-	return nil
+func (c *copyCmd) Run(ctx context.Context, logger *log.Logger) error {
+	return environment.CopyEnvironment(ctx, logger, c.Source, c.Destination)
 }

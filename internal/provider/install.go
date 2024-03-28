@@ -2,26 +2,44 @@ package provider
 
 import (
 	"github.com/charmbracelet/log"
+	"github.com/kndpio/kndp/internal/engine"
 
-	"github.com/kndpio/kndp/internal/configuration"
 	"k8s.io/client-go/rest"
 )
 
-func InstallProvider(provider string, config *rest.Config, logger *log.Logger) {
+func InstallProvider(provider string, config *rest.Config, logger *log.Logger) error {
 
-	parameters := map[string]interface{}{
-		"provider": map[string]interface{}{
-			"packages": []string{provider},
-		},
+	installer, err := engine.GetEngine(config)
+	if err != nil {
+		return err
 	}
 
-	installer := configuration.GetManager(config, logger)
+	release, _ := installer.GetRelease()
 
-	err := installer.Upgrade("", parameters)
+	if release.Config == nil {
+		release.Config = map[string]interface{}{
+			"provider": map[string]interface{}{
+				"packages": []string{provider},
+			},
+		}
+	} else if release.Config["provider"] == nil {
+		release.Config["provider"] = map[string]interface{}{
+			"packages": []string{provider},
+		}
+	} else {
+		configs := release.Config["provider"].(map[string]interface{})
+		configs["packages"] = append(
+			configs["packages"].([]interface{}),
+			provider,
+		)
+		release.Config["provider"] = configs
+	}
+
+	err = installer.Upgrade("", release.Config)
 	if err != nil {
-		logger.Errorf(" %v\n", err)
+		return err
 	}
 
 	logger.Info("KNDP provider installed successfully.")
-
+	return nil
 }

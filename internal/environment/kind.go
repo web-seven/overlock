@@ -9,6 +9,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/charmbracelet/log"
+	"github.com/kndpio/kndp/internal/engine"
 )
 
 func KindEnvironment(context string, logger *log.Logger, name string, hostPort int, yamlTemplate string) {
@@ -51,5 +52,5 @@ func KindEnvironment(context string, logger *log.Logger, name string, hostPort i
 	if err != nil {
 		logger.Fatal(err)
 	}
-	InstallEngine(configClient, logger)
+	engine.InstallEngine(configClient)
 }

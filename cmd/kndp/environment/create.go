@@ -3,6 +3,7 @@ package environment
 import (
 	"context"
 
+	"github.com/kndpio/kndp/internal/engine"
 	"github.com/kndpio/kndp/internal/environment"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
@@ -75,7 +76,7 @@ func (c *createCmd) Run(ctx context.Context, logger *log.Logger) error {
 		if err != nil {
 			logger.Fatal(err)
 		}
-		environment.InstallEngine(configClient, logger)
+		engine.InstallEngine(configClient)
 	}
 
 	return nil

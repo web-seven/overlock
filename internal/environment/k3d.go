@@ -5,6 +5,7 @@ import (
 	"os/exec"
 
 	"github.com/charmbracelet/log"
+	"github.com/kndpio/kndp/internal/engine"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -26,6 +27,6 @@ func K3dEnvironment(context string, logger *log.Logger, name string) error {
 	}
 	logger.Info("k3d cluster created successfully")
 
-	InstallEngine(configClient, logger)
+	engine.InstallEngine(configClient)
 	return nil
 }
