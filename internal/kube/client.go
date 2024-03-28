@@ -21,7 +21,6 @@ import (
 	"path"
 	"strings"
 
-	logger "github.com/charmbracelet/log"
 	ctrl "sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	"k8s.io/client-go/dynamic"
@@ -45,12 +44,22 @@ const (
 	UpboundK8sResource = "k8s"
 )
 
-func Context(ctx context.Context, logger *logger.Logger, context string) (*dynamic.DynamicClient, error) {
+func Context(ctx context.Context, context string) (*dynamic.DynamicClient, error) {
 
 	config, err := Config(context)
 	if err != nil {
 		return nil, err
 	}
+
+	dynamicClient, err := dynamic.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
+	return dynamicClient, nil
+}
+
+func ConfigContext(ctx context.Context, config *rest.Config) (*dynamic.DynamicClient, error) {
 
 	dynamicClient, err := dynamic.NewForConfig(config)
 	if err != nil {
@@ -66,6 +75,14 @@ func Config(context string) (*rest.Config, error) {
 		return nil, err
 	}
 	return config, nil
+}
+
+func Client(config *rest.Config) (*kubernetes.Clientset, error) {
+	client, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	return client, nil
 }
 
 // GetKubeConfig constructs a Kubernetes REST config from the specified

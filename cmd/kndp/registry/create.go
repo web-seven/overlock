@@ -2,7 +2,6 @@ package registry
 
 import (
 	"context"
-	b64 "encoding/base64"
 
 	"github.com/charmbracelet/log"
 	"github.com/go-playground/validator/v10"
@@ -26,18 +25,8 @@ type createCmd struct {
 
 func (c *createCmd) Run(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, logger *log.Logger) error {
 
-	reg := registry.Registry{
-		Config: registry.RegistryConfig{
-			Auths: map[string]registry.RegistryAuth{
-				c.RegistryServer: {
-					Username: c.Username,
-					Password: c.Password,
-					Email:    c.Email,
-					Auth:     b64.StdEncoding.EncodeToString([]byte(c.Username + ":" + c.Password)),
-				},
-			},
-		},
-	}
+	reg := registry.New(c.RegistryServer, c.Username, c.Password, c.Email)
+
 	verr := reg.Validate()
 	if verr != nil {
 		errs := verr.(validator.ValidationErrors)
@@ -51,7 +40,7 @@ func (c *createCmd) Run(ctx context.Context, client *kubernetes.Clientset, confi
 		logger.Info("Secret for this registry server already exists.")
 		return nil
 	}
-	err := reg.Create(ctx, client, config, logger)
+	err := reg.Create(ctx, config, logger)
 	if err != nil {
 		logger.Error(err)
 	} else {

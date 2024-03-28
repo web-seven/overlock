@@ -22,7 +22,7 @@ func (c listCmd) Run(ctx context.Context, client *kubernetes.Clientset, logger *
 		{"NAME", "SERVER", "DATE"},
 	}
 
-	for _, reg := range registries.Items {
+	for _, reg := range registries {
 		tableRegs = append(tableRegs, []string{
 			reg.Name,
 			reg.Annotations["kndp-registry-server-url"],

@@ -2,6 +2,7 @@ package registry
 
 import (
 	"context"
+	b64 "encoding/base64"
 	"encoding/json"
 	"strings"
 
@@ -11,14 +12,12 @@ import (
 	"github.com/kndpio/kndp/internal/kube"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	kv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 )
+
+const RegistryServerLabel = "kndp-registry-server-url"
 
 type RegistryAuth struct {
 	Username string `json:"username" validate:"required"`
@@ -32,15 +31,43 @@ type RegistryConfig struct {
 }
 
 type Registry struct {
-	Name   string
 	Config RegistryConfig
+	corev1.Secret
 }
 
-func Registries(ctx context.Context, client *kubernetes.Clientset) (*corev1.SecretList, error) {
-	return secretClient(client).
+// Return regestires from requested context
+func Registries(ctx context.Context, client *kubernetes.Clientset) ([]*Registry, error) {
+	secrets, err := secretClient(client).
 		List(ctx, metav1.ListOptions{LabelSelector: "kndp-registry-auth-config=true"})
+	if err != nil {
+		return nil, err
+	}
+	registries := []*Registry{}
+	for _, secret := range secrets.Items {
+		registry := Registry{}
+		registries = append(registries, registry.FromSecret(secret))
+	}
+	return registries, nil
 }
 
+// Creates new Registry by required parameters
+func New(server string, username string, password string, email string) Registry {
+	registry := Registry{
+		Config: RegistryConfig{
+			Auths: map[string]RegistryAuth{
+				server: {
+					Username: username,
+					Password: password,
+					Email:    email,
+					Auth:     b64.StdEncoding.EncodeToString([]byte(username + ":" + password)),
+				},
+			},
+		},
+	}
+	return registry
+}
+
+// Validate data in Registry object
 func (r *Registry) Validate() error {
 	validate := validator.New(validator.WithRequiredStructEnabled())
 	for serverUrl, auth := range r.Config.Auths {
@@ -58,22 +85,27 @@ func (r *Registry) Validate() error {
 	return nil
 }
 
+// Check if registry in provided context exists
 func (r *Registry) Exists(ctx context.Context, client *kubernetes.Clientset) bool {
-	secrets, _ := Registries(ctx, client)
-	for _, existsSecret := range secrets.Items {
-		for authServer, _ := range r.Config.Auths {
-			if existsUrl := existsSecret.Annotations["kndp-registry-server-url"]; existsUrl != "" && strings.Contains(existsUrl, authServer) {
+	registries, _ := Registries(ctx, client)
+	for _, registry := range registries {
+		for authServer := range r.Config.Auths {
+			if existsUrl := registry.Annotations[RegistryServerLabel]; existsUrl != "" && strings.Contains(existsUrl, authServer) {
 				return true
 			}
+		}
+		if existsUrl := registry.Annotations[RegistryServerLabel]; existsUrl != "" && strings.Contains(existsUrl, r.Annotations[RegistryServerLabel]) {
+			return true
 		}
 	}
 	return false
 }
 
-func (r *Registry) Secret() corev1.Secret {
+// Creates specs of Secret base on Registry data
+func (r *Registry) SecretSpec() corev1.Secret {
 	regConf, _ := json.Marshal(r.Config)
 	servers := []string{}
-	for authServer, _ := range r.Config.Auths {
+	for authServer := range r.Config.Auths {
 		servers = append(servers, authServer)
 	}
 
@@ -84,7 +116,7 @@ func (r *Registry) Secret() corev1.Secret {
 				"kndp-registry-auth-config": "true",
 			}),
 			Annotations: map[string]string{
-				"kndp-registry-server-url": strings.Join(servers, ","),
+				RegistryServerLabel: strings.Join(servers, ","),
 			},
 		},
 		Data: map[string][]byte{".dockerconfigjson": regConf},
@@ -94,8 +126,15 @@ func (r *Registry) Secret() corev1.Secret {
 	return secretSpec
 }
 
-func (r *Registry) Create(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, logger *log.Logger) error {
-	secretSpec := r.Secret()
+// Creates registry in requested context and assign it to engine
+func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *log.Logger) error {
+
+	client, err := kube.Client(config)
+	if err != nil {
+		return err
+	}
+
+	secretSpec := r.SecretSpec()
 	secret, err := secretClient(client).Create(ctx, &secretSpec, metav1.CreateOptions{})
 	if err != nil {
 		return err
@@ -126,45 +165,52 @@ func (r *Registry) Create(ctx context.Context, client *kubernetes.Clientset, con
 	return installer.Upgrade("", release.Config)
 }
 
+func (r *Registry) FromSecret(sec corev1.Secret) *Registry {
+	secJson, _ := json.Marshal(sec)
+	json.Unmarshal(secJson, r)
+	return r
+}
+
+func (r *Registry) ToSecret() *corev1.Secret {
+	sec := corev1.Secret{}
+	rJson, _ := json.Marshal(r)
+	json.Unmarshal(rJson, &sec)
+	return &sec
+}
 func (r *Registry) Delete(ctx context.Context, client *kubernetes.Clientset) error {
 	return secretClient(client).Delete(ctx, r.Name, metav1.DeleteOptions{})
 }
 
-func CopyRegistries(ctx context.Context, logger *log.Logger, sourceContext dynamic.Interface, destinationContext dynamic.Interface) error {
+// Copy registries from source to destination contexts
+func CopyRegistries(ctx context.Context, logger *log.Logger, sourceConfig *rest.Config, destinationConfig *rest.Config) error {
 
-	registries, err := kube.GetKubeResources(kube.ResourceParams{
-		Dynamic:   sourceContext,
-		Ctx:       ctx,
-		Group:     "",
-		Version:   "v1",
-		Resource:  "secrets",
-		Namespace: "",
-		ListOption: metav1.ListOptions{
-			LabelSelector: engine.ManagedSelector(nil),
-		},
-	})
+	destClient, err := kube.Client(destinationConfig)
+	if err != nil {
+		return err
+	}
+
+	sourceClient, err := kube.Client(sourceConfig)
+	if err != nil {
+		return err
+	}
+
+	registries, err := Registries(ctx, sourceClient)
 	if err != nil {
 		return err
 	}
 
 	if len(registries) > 0 {
 		for _, registry := range registries {
-			var secret unstructured.Unstructured
-			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(registry.UnstructuredContent(), &secret); err != nil {
-				logger.Printf("Failed to convert item %s: %v\n", registry.GetName(), err)
-				return nil
+			if !registry.Exists(ctx, destClient) {
+				registry.SetResourceVersion("")
+				_, err = destClient.CoreV1().Secrets(engine.Namespace).Create(ctx, registry.ToSecret(), metav1.CreateOptions{})
+				if err != nil {
+					return err
+				}
+			} else {
+				logger.Warn("Registry for " + registry.Annotations[RegistryServerLabel] + "already exist inside of destination context.")
 			}
 
-			resourceId := schema.GroupVersionResource{
-				Group:    "",
-				Version:  "v1",
-				Resource: "secrets",
-			}
-			secret.SetResourceVersion("")
-			_, err = destinationContext.Resource(resourceId).Namespace(registry.GetNamespace()).Create(ctx, &secret, metav1.CreateOptions{})
-			if err != nil {
-				return err
-			}
 		}
 		logger.Info("Registries copied successfully.")
 	} else {

@@ -21,17 +21,7 @@ import (
 // Copy Environment from source to destination contexts
 func CopyEnvironment(ctx context.Context, logger *log.Logger, source string, destination string) error {
 
-	// Create a Kubernetes clients
-	sourceContext, err := kube.Context(ctx, logger, source)
-	if err != nil {
-		return err
-	}
-	destinationContext, err := kube.Context(ctx, logger, destination)
-	if err != nil {
-		return err
-	}
-
-	// Create a Helm clients
+	// Create a REST clients
 	sourceConfig, err := kube.Config(source)
 	if err != nil {
 		return err
@@ -42,8 +32,18 @@ func CopyEnvironment(ctx context.Context, logger *log.Logger, source string, des
 		return err
 	}
 
+	// Create a Kubernetes contexts
+	sourceContext, err := kube.ConfigContext(ctx, sourceConfig)
+	if err != nil {
+		return err
+	}
+	destinationContext, err := kube.ConfigContext(ctx, destConfig)
+	if err != nil {
+		return err
+	}
+
 	// Copy registries
-	err = registry.CopyRegistries(ctx, logger, sourceContext, destinationContext)
+	err = registry.CopyRegistries(ctx, logger, sourceConfig, destConfig)
 	if err != nil {
 		return err
 	}

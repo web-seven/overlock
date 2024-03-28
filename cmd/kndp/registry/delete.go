@@ -13,7 +13,8 @@ type deleteCmd struct {
 }
 
 func (c deleteCmd) Run(ctx context.Context, client *kubernetes.Clientset, logger *log.Logger) error {
-	reg := registry.Registry{Name: c.Name}
+	reg := registry.Registry{}
+	reg.Name = c.Name
 	err := reg.Delete(ctx, client)
 	if err != nil {
 		logger.Error(err)
