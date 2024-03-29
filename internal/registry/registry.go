@@ -4,6 +4,7 @@ import (
 	"context"
 	b64 "encoding/base64"
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/log"
@@ -64,6 +65,9 @@ func New(server string, username string, password string, email string) Registry
 			},
 		},
 	}
+	registry.Annotations = map[string]string{
+		RegistryServerLabel: server,
+	}
 	return registry
 }
 
@@ -95,6 +99,8 @@ func (r *Registry) Exists(ctx context.Context, client *kubernetes.Clientset) boo
 			}
 		}
 		if existsUrl := registry.Annotations[RegistryServerLabel]; existsUrl != "" && strings.Contains(existsUrl, r.Annotations[RegistryServerLabel]) {
+			fmt.Println(r.Annotations[RegistryServerLabel])
+
 			return true
 		}
 	}
@@ -104,20 +110,13 @@ func (r *Registry) Exists(ctx context.Context, client *kubernetes.Clientset) boo
 // Creates specs of Secret base on Registry data
 func (r *Registry) SecretSpec() corev1.Secret {
 	regConf, _ := json.Marshal(r.Config)
-	servers := []string{}
-	for authServer := range r.Config.Auths {
-		servers = append(servers, authServer)
-	}
-
 	secretSpec := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "registry-server-auth-",
 			Labels: engine.ManagedLabels(map[string]string{
 				"kndp-registry-auth-config": "true",
 			}),
-			Annotations: map[string]string{
-				RegistryServerLabel: strings.Join(servers, ","),
-			},
+			Annotations: r.Annotations,
 		},
 		Data: map[string][]byte{".dockerconfigjson": regConf},
 		Type: "kubernetes.io/dockerconfigjson",
