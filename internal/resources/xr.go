@@ -349,6 +349,7 @@ func CopyComposites(ctx context.Context, logger *log.Logger, sourceContext dynam
 
 				for _, xr := range XRs {
 					xr.SetResourceVersion("")
+					xr.SetFinalizers(nil)
 					resourceId := schema.GroupVersionResource{
 						Group:    paramsXRs.Spec.Group,
 						Version:  version.Name,
