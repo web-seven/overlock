@@ -4,7 +4,6 @@ import (
 	"context"
 	b64 "encoding/base64"
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/log"
@@ -99,8 +98,6 @@ func (r *Registry) Exists(ctx context.Context, client *kubernetes.Clientset) boo
 			}
 		}
 		if existsUrl := registry.Annotations[RegistryServerLabel]; existsUrl != "" && strings.Contains(existsUrl, r.Annotations[RegistryServerLabel]) {
-			fmt.Println(r.Annotations[RegistryServerLabel])
-
 			return true
 		}
 	}

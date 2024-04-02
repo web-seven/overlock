@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/log"
+	"github.com/kndpio/kndp/internal/engine"
 	"github.com/kndpio/kndp/internal/kube"
 
 	"github.com/charmbracelet/huh"
@@ -294,6 +295,7 @@ func ApplyResources(ctx context.Context, client *dynamic.DynamicClient, logger *
 			Version:  apiAndVersion[1],
 			Resource: strings.ToLower(resource.GetKind()) + "s",
 		}
+		resource.SetLabels(engine.ManagedLabels(nil))
 		res, err := client.Resource(resourceId).Create(ctx, &resource, metav1.CreateOptions{})
 
 		if err != nil {
