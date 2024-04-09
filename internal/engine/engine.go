@@ -7,7 +7,10 @@ import (
 
 	"github.com/kndpio/kndp/internal/install"
 	"github.com/kndpio/kndp/internal/install/helm"
+	ser "k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/client-go/rest"
+	"k8s.io/kubectl/pkg/scheme"
+	"k8s.io/kubernetes/pkg/apis/rbac"
 )
 
 const RepoUrl = "https://charts.crossplane.io/stable"
@@ -21,6 +24,26 @@ const Namespace = "kndp-system"
 var managedLabels = map[string]string{
 	"app.kubernetes.io/managed-by": "kndp",
 }
+
+var extraObjects = `
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: "{{ include \"crossplane.name\" . }}:aggregate-providers"
+  labels:
+    app: crossplane
+    rbac.crossplane.io/aggregate-to-allowed-provider-permissions: "true"
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - create
+  - update
+  - patch
+  - delete 
+`
 
 // Get engine Helm manager
 func GetEngine(configClient *rest.Config) (install.Manager, error) {
@@ -56,7 +79,20 @@ func InstallEngine(configClient *rest.Config) error {
 	if err != nil {
 		return err
 	}
-	err = engine.Upgrade("", nil)
+
+	rbac.AddToScheme(scheme.Scheme)
+	extra, _, _ := ser.NewYAMLSerializer(ser.DefaultMetaFactory, scheme.Scheme,
+		scheme.Scheme).Decode([]byte(extraObjects), nil, nil)
+
+	var initParameters = map[string]any{
+		"extraObjects": []any{
+			extra,
+		},
+	}
+
+	err = engine.Upgrade("", initParameters)
+	fmt.Println(err)
+
 	if err != nil {
 		return err
 	}

@@ -15,8 +15,53 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
+	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/log"
 )
+
+// Create environment
+func Create(context string, engineName string, name string, port int, logger *log.Logger) error {
+	if context == "" {
+		if !(len(name) > 0) {
+			form := huh.NewForm(
+				huh.NewGroup(
+					huh.NewInput().
+						Title("Enter a name for environment: ").
+						Value(&name),
+				),
+			)
+			form.Run()
+		}
+		switch engineName {
+		case "kind":
+			logger.Infof("Creating environment with Kubernetes engine 'kind'")
+			KindEnvironment(context, logger, name, port)
+		case "k3s":
+			logger.Infof("Creating environment with Kubernetes engine 'k3s'")
+			err := K3sEnvironment(context, logger, name)
+			if err != nil {
+				logger.Fatal(err)
+			}
+		case "k3d":
+			logger.Infof("Creating environment with Kubernetes engine 'k3d'")
+			err := K3dEnvironment(context, logger, name)
+			if err != nil {
+				logger.Fatal(err)
+			}
+		default:
+			logger.Fatalf("Kubernetes engine '%s' not supported", engineName)
+		}
+
+	} else {
+		configClient, err := config.GetConfigWithContext(context)
+		if err != nil {
+			logger.Fatal(err)
+		}
+
+		engine.InstallEngine(configClient)
+	}
+	return nil
+}
 
 // Copy Environment from source to destination contexts
 func CopyEnvironment(ctx context.Context, logger *log.Logger, source string, destination string) error {

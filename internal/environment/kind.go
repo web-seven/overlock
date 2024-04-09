@@ -12,11 +12,32 @@ import (
 	"github.com/kndpio/kndp/internal/engine"
 )
 
-func KindEnvironment(context string, logger *log.Logger, name string, hostPort int, yamlTemplate string) {
+var yamlTemplate = `
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: worker
+  extraMounts:
+  - hostPath: ./
+    containerPath: /storage
+- role: control-plane
+  kubeadmConfigPatches:
+  - |
+    kind: InitConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        node-labels: "ingress-ready=true"
+  extraPortMappings:
+  - containerPort: 80
+    hostPort: %d
+    protocol: TCP
+`
+
+func KindEnvironment(context string, logger *log.Logger, name string, hostPort int) {
 
 	clusterYaml := fmt.Sprintf(yamlTemplate, hostPort)
 
-	cmd := exec.Command("kind", "create", "cluster", "--name", name, "--config", "-")
+	cmd := exec.Command("kind", "create", "cluster", "-q", "--name", name, "--config", "-")
 	cmd.Stdin = strings.NewReader(clusterYaml)
 
 	stderr, err := cmd.StderrPipe()
