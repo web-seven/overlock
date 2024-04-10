@@ -1,6 +1,7 @@
 package environment
 
 import (
+	"context"
 	"os"
 	"os/exec"
 
@@ -9,7 +10,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func K3dEnvironment(context string, logger *log.Logger, name string) error {
+func K3dEnvironment(ctx context.Context, context string, logger *log.Logger, name string) error {
 
 	cmd := exec.Command("k3d", "cluster", "create", name)
 
@@ -27,6 +28,6 @@ func K3dEnvironment(context string, logger *log.Logger, name string) error {
 	}
 	logger.Info("k3d cluster created successfully")
 
-	engine.InstallEngine(configClient)
+	engine.InstallEngine(ctx, configClient)
 	return nil
 }

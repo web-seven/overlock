@@ -20,7 +20,7 @@ import (
 )
 
 // Create environment
-func Create(context string, engineName string, name string, port int, logger *log.Logger) error {
+func Create(ctx context.Context, context string, engineName string, name string, port int, logger *log.Logger) error {
 	if context == "" {
 		if !(len(name) > 0) {
 			form := huh.NewForm(
@@ -35,16 +35,19 @@ func Create(context string, engineName string, name string, port int, logger *lo
 		switch engineName {
 		case "kind":
 			logger.Infof("Creating environment with Kubernetes engine 'kind'")
-			KindEnvironment(context, logger, name, port)
+			err := KindEnvironment(ctx, context, logger, name, port)
+			if err != nil {
+				logger.Fatal(err)
+			}
 		case "k3s":
 			logger.Infof("Creating environment with Kubernetes engine 'k3s'")
-			err := K3sEnvironment(context, logger, name)
+			err := K3sEnvironment(ctx, context, logger, name)
 			if err != nil {
 				logger.Fatal(err)
 			}
 		case "k3d":
 			logger.Infof("Creating environment with Kubernetes engine 'k3d'")
-			err := K3dEnvironment(context, logger, name)
+			err := K3dEnvironment(ctx, context, logger, name)
 			if err != nil {
 				logger.Fatal(err)
 			}
@@ -58,7 +61,7 @@ func Create(context string, engineName string, name string, port int, logger *lo
 			logger.Fatal(err)
 		}
 
-		engine.InstallEngine(configClient)
+		return engine.InstallEngine(ctx, configClient)
 	}
 	return nil
 }

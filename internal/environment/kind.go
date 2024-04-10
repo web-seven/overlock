@@ -2,6 +2,7 @@ package environment
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -33,7 +34,7 @@ nodes:
     protocol: TCP
 `
 
-func KindEnvironment(context string, logger *log.Logger, name string, hostPort int) {
+func KindEnvironment(ctx context.Context, context string, logger *log.Logger, name string, hostPort int) error {
 
 	clusterYaml := fmt.Sprintf(yamlTemplate, hostPort)
 
@@ -73,5 +74,5 @@ func KindEnvironment(context string, logger *log.Logger, name string, hostPort i
 	if err != nil {
 		logger.Fatal(err)
 	}
-	engine.InstallEngine(configClient)
+	return engine.InstallEngine(ctx, configClient)
 }

@@ -1,6 +1,7 @@
 package environment
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"time"
@@ -10,7 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
-func K3sEnvironment(context string, logger *log.Logger, name string) error {
+func K3sEnvironment(ctx context.Context, context string, logger *log.Logger, name string) error {
 	cmd := exec.Command("sudo", "k3s", "server",
 		"--write-kubeconfig-mode", "0644",
 		"--node-name", name,
@@ -36,6 +37,6 @@ func K3sEnvironment(context string, logger *log.Logger, name string) error {
 		logger.Fatal(err)
 	}
 
-	engine.InstallEngine(configClient)
+	engine.InstallEngine(ctx, configClient)
 	return nil
 }

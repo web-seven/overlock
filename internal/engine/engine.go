@@ -1,16 +1,18 @@
 package engine
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"strings"
 
 	"github.com/kndpio/kndp/internal/install"
 	"github.com/kndpio/kndp/internal/install/helm"
-	ser "k8s.io/apimachinery/pkg/runtime/serializer/json"
+	rbacv1 "k8s.io/api/rbac/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
-	"k8s.io/kubectl/pkg/scheme"
-	"k8s.io/kubernetes/pkg/apis/rbac"
+	ctrl "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const RepoUrl = "https://charts.crossplane.io/stable"
@@ -25,25 +27,25 @@ var managedLabels = map[string]string{
 	"app.kubernetes.io/managed-by": "kndp",
 }
 
-var extraObjects = `
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: "{{ include \"crossplane.name\" . }}:aggregate-providers"
-  labels:
-    app: crossplane
-    rbac.crossplane.io/aggregate-to-allowed-provider-permissions: "true"
-rules:
-- apiGroups:
-  - ""
-  resources:
-  - namespaces
-  verbs:
-  - create
-  - update
-  - patch
-  - delete 
-`
+var initialResources = []ctrl.Object{
+	&rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "TEST",
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      rbacv1.ServiceAccountKind,
+				Namespace: Namespace,
+				Name:      "provider-kubernetes",
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: rbacv1.GroupName,
+			Kind:     "ClusterRole",
+			Name:     "cluster-admin",
+		},
+	},
+}
 
 // Get engine Helm manager
 func GetEngine(configClient *rest.Config) (install.Manager, error) {
@@ -66,6 +68,7 @@ func GetEngine(configClient *rest.Config) (install.Manager, error) {
 		setUpInstall,
 		setCreateNs,
 	)
+
 	if err != nil {
 		return nil, fmt.Errorf("error creating Helm manager: %v", err)
 	}
@@ -74,29 +77,18 @@ func GetEngine(configClient *rest.Config) (install.Manager, error) {
 }
 
 // Install engine Helm release
-func InstallEngine(configClient *rest.Config) error {
+func InstallEngine(ctx context.Context, configClient *rest.Config) error {
 	engine, err := GetEngine(configClient)
 	if err != nil {
 		return err
 	}
 
-	rbac.AddToScheme(scheme.Scheme)
-	extra, _, _ := ser.NewYAMLSerializer(ser.DefaultMetaFactory, scheme.Scheme,
-		scheme.Scheme).Decode([]byte(extraObjects), nil, nil)
-
-	var initParameters = map[string]any{
-		"extraObjects": []any{
-			extra,
-		},
-	}
-
-	err = engine.Upgrade("", initParameters)
-	fmt.Println(err)
-
+	err = engine.Upgrade("", nil)
 	if err != nil {
 		return err
 	}
-	return nil
+
+	return injectKubernetesProvider(ctx, configClient)
 }
 
 // Check if engine release exists
@@ -133,4 +125,17 @@ func ManagedSelector(m map[string]string) string {
 		selectors = append(selectors, key+"="+value)
 	}
 	return strings.Join(selectors, ",")
+}
+
+func injectKubernetesProvider(ctx context.Context, configClient *rest.Config) error {
+	scheme := runtime.NewScheme()
+	rbacv1.AddToScheme(scheme)
+	client, _ := ctrl.New(configClient, ctrl.Options{Scheme: scheme})
+	for _, res := range initialResources {
+		err := client.Create(ctx, res)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
