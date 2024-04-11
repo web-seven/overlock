@@ -296,7 +296,7 @@ func ApplyResources(ctx context.Context, client *dynamic.DynamicClient, logger *
 			Resource: strings.ToLower(resource.GetKind()) + "s",
 		}
 		resource.SetLabels(engine.ManagedLabels(nil))
-		res, err := client.Resource(resourceId).Create(ctx, &resource, metav1.CreateOptions{})
+		res, err := client.Resource(resourceId).Apply(ctx, resource.GetName(), &resource, metav1.ApplyOptions{FieldManager: "kndp"})
 
 		if err != nil {
 			return err
