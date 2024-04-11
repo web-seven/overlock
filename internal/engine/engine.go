@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/kndpio/kndp/internal/install"
 	"github.com/kndpio/kndp/internal/install/helm"
@@ -16,19 +17,32 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctrl "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+type SecretReconciler struct {
+	client.Client
+	context.CancelFunc
+}
+
 const (
-	RepoUrl            = "https://charts.crossplane.io/stable"
-	ChartName          = "crossplane"
-	ReleaseName        = "kndp-crossplane"
-	Namespace          = "kndp-system"
-	kindClusterRole    = "ClusterRole"
-	clusterAdminRole   = "cluster-admin"
-	providerConfigName = "kndp-kubernetes-provider-config"
-	aggregateToAdmin   = "rbac.crossplane.io/aggregate-to-admin"
-	trueVal            = "true"
+	RepoUrl             = "https://charts.crossplane.io/stable"
+	ChartName           = "crossplane"
+	ReleaseName         = "kndp-crossplane"
+	Namespace           = "kndp-system"
+	kindClusterRole     = "ClusterRole"
+	clusterAdminRole    = "cluster-admin"
+	providerConfigName  = "kndp-kubernetes-provider-config"
+	providerConfigSec   = providerConfigName + "-secret"
+	svcAccSecretLabel   = providerConfigName + "/account"
+	providerSecretLabel = providerConfigName + "/provider"
+	aggregateToAdmin    = "rbac.crossplane.io/aggregate-to-admin"
+	trueVal             = "true"
 )
 
 var (
@@ -136,15 +150,29 @@ func SetupPrivilegedKubernetesProvider(ctx context.Context, configClient *rest.C
 		},
 	}
 
-	sec := &corev1.Secret{
+	saSec := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pcn,
 			Namespace: Namespace,
 			Annotations: map[string]string{
 				"kubernetes.io/service-account.name": sa.Name,
 			},
+			Labels: map[string]string{
+				svcAccSecretLabel: sa.Name,
+			},
 		},
 		Type: corev1.SecretTypeServiceAccountToken,
+	}
+
+	pcSec := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      providerConfigSec,
+			Namespace: Namespace,
+			Labels: map[string]string{
+				providerSecretLabel: sa.Name,
+			},
+		},
+		Type: corev1.SecretTypeOpaque,
 	}
 
 	cr := &rbacv1.ClusterRole{
@@ -164,7 +192,8 @@ func SetupPrivilegedKubernetesProvider(ctx context.Context, configClient *rest.C
 
 	crb := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: pcn,
+			Name:      pcn,
+			Namespace: Namespace,
 		},
 		Subjects: []rbacv1.Subject{
 			{
@@ -185,13 +214,14 @@ func SetupPrivilegedKubernetesProvider(ctx context.Context, configClient *rest.C
 			"apiVersion": "kubernetes.crossplane.io/v1alpha1",
 			"kind":       "ProviderConfig",
 			"metadata": map[string]interface{}{
-				"name": pcn,
+				"name":      pcn,
+				"namespace": Namespace,
 			},
 			"spec": map[string]interface{}{
 				"credentials": map[string]interface{}{
 					"secretRef": map[string]interface{}{
 						"key":       "token",
-						"name":      sec.Name,
+						"name":      pcSec.Name,
 						"namespace": Namespace,
 					},
 					"source": "Secret",
@@ -200,17 +230,60 @@ func SetupPrivilegedKubernetesProvider(ctx context.Context, configClient *rest.C
 		},
 	}
 
-	kpr := []ctrl.Object{pc, sa, sec, cr, crb}
+	kpr := []ctrl.Object{pc, sa, saSec, pcSec, cr, crb}
 
 	scheme := runtime.NewScheme()
 	rbacv1.AddToScheme(scheme)
 	corev1.AddToScheme(scheme)
 	client, _ := ctrl.New(configClient, ctrl.Options{Scheme: scheme})
 	for _, res := range kpr {
-		err := client.Create(ctx, res, &ctrl.CreateOptions{})
-		if err != nil {
-			return err
-		}
+		controllerutil.CreateOrUpdate(ctx, client, res, func() error {
+			return nil
+		})
 	}
+
+	mgr, err := manager.New(configClient, manager.Options{})
+	if err != nil {
+		return err
+	}
+	mgrContext, cancel := context.WithCancel(context.Background())
+	if err = builder.
+		ControllerManagedBy(mgr).
+		For(pcSec).
+		Owns(saSec).
+		Complete(&SecretReconciler{
+			Client:     mgr.GetClient(),
+			CancelFunc: cancel,
+		}); err != nil {
+		return err
+	}
+	mgr.Start(mgrContext)
 	return nil
+}
+
+func (a *SecretReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
+	fmt.Println("reconcile", time.Now())
+
+	pcSec := &corev1.Secret{}
+	err := a.Get(ctx, req.NamespacedName, pcSec)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	saSecList := &corev1.SecretList{}
+	matchSaLabels := map[string]string{
+		svcAccSecretLabel: pcSec.Labels[providerSecretLabel],
+	}
+	err = a.List(ctx, saSecList, client.InNamespace(req.Namespace), client.MatchingLabels(matchSaLabels))
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	for _, saSec := range saSecList.Items {
+		pcSec.Data = saSec.Data
+		a.Update(ctx, pcSec, &ctrl.UpdateOptions{})
+		a.CancelFunc()
+	}
+
+	return reconcile.Result{}, nil
 }
