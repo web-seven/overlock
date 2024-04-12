@@ -2,13 +2,14 @@ package engine
 
 import (
 	"context"
-	"encoding/json"
+	b64 "encoding/base64"
 	"fmt"
 	"net/url"
 	"strings"
 
 	"github.com/kndpio/kndp/internal/install"
 	"github.com/kndpio/kndp/internal/install/helm"
+	"gopkg.in/yaml.v3"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -29,6 +30,7 @@ import (
 )
 
 type SecretReconciler struct {
+	serverIP string
 	client.Client
 	context.CancelFunc
 }
@@ -178,8 +180,7 @@ func SetupPrivilegedKubernetesProvider(ctx context.Context, configClient *rest.C
 
 	crb := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      pcn,
-			Namespace: Namespace,
+			Name: pcn,
 		},
 		Subjects: []rbacv1.Subject{
 			{
@@ -188,10 +189,26 @@ func SetupPrivilegedKubernetesProvider(ctx context.Context, configClient *rest.C
 				Namespace: Namespace,
 			},
 		},
-		RoleRef: rbacv1.RoleRef{
-			APIGroup: rbacv1.GroupName,
-			Kind:     kindClusterRole,
-			Name:     cr.Name,
+		RoleRef: rbacv1.RoleRef{},
+	}
+
+	pc := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "kubernetes.crossplane.io/v1alpha1",
+			"kind":       "ProviderConfig",
+			"metadata": map[string]interface{}{
+				"name": providerConfigName,
+			},
+			"spec": map[string]interface{}{
+				"credentials": map[string]interface{}{
+					"secretRef": map[string]interface{}{
+						"key":       "kubeconfig",
+						"name":      providerConfigName,
+						"namespace": Namespace,
+					},
+					"source": "Secret",
+				},
+			},
 		},
 	}
 
@@ -199,10 +216,19 @@ func SetupPrivilegedKubernetesProvider(ctx context.Context, configClient *rest.C
 	rbacv1.AddToScheme(scheme)
 	corev1.AddToScheme(scheme)
 	client, _ := ctrl.New(configClient, ctrl.Options{Scheme: scheme})
-	for _, res := range []ctrl.Object{sa, saSec, cr, crb} {
-		controllerutil.CreateOrUpdate(ctx, client, res, func() error {
+	for _, res := range []ctrl.Object{sa, saSec, cr, crb, pc} {
+		_, err := controllerutil.CreateOrUpdate(ctx, client, res, func() error {
 			return nil
 		})
+		if err != nil {
+			return err
+		}
+	}
+
+	svc := &corev1.Service{}
+	err := client.Get(ctx, types.NamespacedName{Namespace: "default", Name: "kubernetes"}, svc)
+	if err != nil {
+		return err
 	}
 
 	mgr, err := manager.New(configClient, manager.Options{})
@@ -215,7 +241,6 @@ func SetupPrivilegedKubernetesProvider(ctx context.Context, configClient *rest.C
 		For(&corev1.ServiceAccount{}).
 		WithEventFilter(predicate.Funcs{
 			UpdateFunc: func(e event.UpdateEvent) bool {
-				fmt.Println(e.ObjectNew.GetName())
 				return e.ObjectNew.GetName() == providerConfigName
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
@@ -232,6 +257,7 @@ func SetupPrivilegedKubernetesProvider(ctx context.Context, configClient *rest.C
 		Complete(&SecretReconciler{
 			Client:     client,
 			CancelFunc: cancel,
+			serverIP:   "https://" + svc.Spec.ClusterIP + ":443",
 		}); err != nil {
 		return err
 	}
@@ -242,50 +268,51 @@ func SetupPrivilegedKubernetesProvider(ctx context.Context, configClient *rest.C
 // Reconcile SvcAcc secret for make kubeconfig
 func (a *SecretReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 
-	sa := &corev1.ServiceAccount{}
-	err := a.Get(ctx, req.NamespacedName, sa)
+	sec := &corev1.Secret{}
+	err := a.Get(ctx, req.NamespacedName, sec)
 	if err != nil {
 		return reconcile.Result{}, err
-	} else if sa.GetName() != providerConfigName {
+	} else if sec.GetName() != providerConfigName {
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	sec := &corev1.Secret{}
-	err = a.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: providerConfigName}, sec)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	svc := &corev1.Service{}
-	err = a.Get(ctx, types.NamespacedName{Namespace: "default", Name: "kubernetes"}, svc)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	fmt.Println(svc.Spec.ClusterIP)
-
-	pc := &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "kubernetes.crossplane.io/v1alpha1",
-			"kind":       "ProviderConfig",
-			"metadata": map[string]interface{}{
-				"name":      providerConfigName,
-				"namespace": Namespace,
-			},
-			"spec": map[string]interface{}{
-				"credentials": map[string]interface{}{
-					"secretRef": map[string]interface{}{
-						"key":       "kubeconfig",
-						"name":      providerConfigName,
-						"namespace": Namespace,
+	if _, err = controllerutil.CreateOrUpdate(ctx, a.Client, sec, func() error {
+		kubeconfig, _ := yaml.Marshal(&map[string]interface{}{
+			"apiVersion":      "v1",
+			"kind":            "Config",
+			"current-context": "in-cluster",
+			"clusters": []map[string]interface{}{
+				{
+					"cluster": map[string]interface{}{
+						"certificate-authority-data": b64.StdEncoding.EncodeToString(sec.Data["ca.crt"]),
+						"server":                     a.serverIP,
 					},
-					"source": "Secret",
+					"name": "in-cluster",
 				},
 			},
-		},
-	}
+			"contexts": []map[string]interface{}{
+				{
+					"context": map[string]interface{}{
+						"cluster": "in-cluster",
+						"user":    "in-cluster",
+					},
+					"name": "in-cluster",
+				},
+			},
+			"preferences": map[string]interface{}{},
+			"users": []map[string]interface{}{
+				{
+					"name": "in-cluster",
+					"user": map[string]interface{}{},
+				},
+			},
+		})
 
-	sec.Data["kubeconfig"] = []byte("sdfsd")
+		sec.Data["kubeconfig"] = []byte(kubeconfig)
+		return nil
+	}); err != nil {
+		return reconcile.Result{}, err
+	}
 
 	// apiVersion: v1
 	// kind: Config
@@ -305,19 +332,6 @@ func (a *SecretReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 	//   user:
 	//     client-certificate-data: ""
 
-	for _, res := range []ctrl.Object{pc, sec} {
-		_, err := controllerutil.CreateOrUpdate(ctx, a.Client, res, func() error {
-			return nil
-		})
-		if err != nil {
-
-			res2print, _ := json.MarshalIndent(sec, "", "  ")
-			fmt.Println(string(res2print))
-
-			fmt.Println(err)
-
-		}
-	}
 	a.CancelFunc()
 
 	return reconcile.Result{}, nil
