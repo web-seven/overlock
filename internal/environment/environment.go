@@ -63,6 +63,7 @@ func Create(ctx context.Context, context string, engineName string, name string,
 
 		return engine.InstallEngine(ctx, configClient)
 	}
+	logger.Info("Environment created successfully.")
 	return nil
 }
 
