@@ -44,7 +44,6 @@ const (
 	ReleaseName        = "kndp-crossplane"
 	Namespace          = "kndp-system"
 	kindClusterRole    = "ClusterRole"
-	clusterAdminRole   = "cluster-admin"
 	providerConfigName = "kndp-kubernetes-provider-config"
 	aggregateToAdmin   = "rbac.crossplane.io/aggregate-to-admin"
 	trueVal            = "true"
