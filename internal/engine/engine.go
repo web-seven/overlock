@@ -1,26 +1,66 @@
 package engine
 
 import (
+	"context"
+	b64 "encoding/base64"
 	"fmt"
+	"io"
 	"net/url"
 	"strings"
 
 	"github.com/kndpio/kndp/internal/install"
 	"github.com/kndpio/kndp/internal/install/helm"
+	"gopkg.in/yaml.v3"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
+
+	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-const RepoUrl = "https://charts.crossplane.io/stable"
-
-const ChartName = "crossplane"
-
-const ReleaseName = "kndp-crossplane"
-
-const Namespace = "kndp-system"
-
-var managedLabels = map[string]string{
-	"app.kubernetes.io/managed-by": "kndp",
+type SecretReconciler struct {
+	serverIP string
+	client.Client
+	context.CancelFunc
 }
+
+const (
+	RepoUrl            = "https://charts.crossplane.io/stable"
+	ChartName          = "crossplane"
+	ReleaseName        = "kndp-crossplane"
+	Namespace          = "kndp-system"
+	kindClusterRole    = "ClusterRole"
+	providerConfigName = "kndp-kubernetes-provider-config"
+	aggregateToAdmin   = "rbac.crossplane.io/aggregate-to-admin"
+	trueVal            = "true"
+)
+
+var (
+	managedLabels = map[string]string{
+		"app.kubernetes.io/managed-by": "kndp",
+	}
+	initParameters = map[string]any{
+		"provider": map[string]any{
+			"packages": []string{
+				"xpkg.upbound.io/crossplane-contrib/provider-kubernetes:v0.13.0",
+			},
+		},
+	}
+)
 
 // Get engine Helm manager
 func GetEngine(configClient *rest.Config) (install.Manager, error) {
@@ -32,6 +72,7 @@ func GetEngine(configClient *rest.Config) (install.Manager, error) {
 	setNamespace := helm.InstallerModifierFn(helm.WithNamespace(Namespace))
 	setUpInstall := helm.InstallerModifierFn(helm.WithUpgradeInstall(true))
 	setCreateNs := helm.InstallerModifierFn(helm.WithCreateNamespace(true))
+	setReuseValues := helm.InstallerModifierFn(helm.WithReuseValues(true))
 
 	installer, err := helm.NewManager(
 		configClient,
@@ -42,7 +83,9 @@ func GetEngine(configClient *rest.Config) (install.Manager, error) {
 		setNamespace,
 		setUpInstall,
 		setCreateNs,
+		setReuseValues,
 	)
+
 	if err != nil {
 		return nil, fmt.Errorf("error creating Helm manager: %v", err)
 	}
@@ -51,16 +94,18 @@ func GetEngine(configClient *rest.Config) (install.Manager, error) {
 }
 
 // Install engine Helm release
-func InstallEngine(configClient *rest.Config) error {
+func InstallEngine(ctx context.Context, configClient *rest.Config) error {
 	engine, err := GetEngine(configClient)
 	if err != nil {
 		return err
 	}
-	err = engine.Upgrade("", nil)
+
+	err = engine.Upgrade("", initParameters)
 	if err != nil {
 		return err
 	}
-	return nil
+
+	return SetupPrivilegedKubernetesProvider(ctx, configClient)
 }
 
 // Check if engine release exists
@@ -97,4 +142,204 @@ func ManagedSelector(m map[string]string) string {
 		selectors = append(selectors, key+"="+value)
 	}
 	return strings.Join(selectors, ",")
+}
+
+// Setup Kubernetes provider which has crossplane admin aggregation role assigned
+func SetupPrivilegedKubernetesProvider(ctx context.Context, configClient *rest.Config) error {
+
+	pcn := providerConfigName
+
+	sa := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pcn,
+			Namespace: Namespace,
+		},
+	}
+
+	saSec := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pcn,
+			Namespace: Namespace,
+			Annotations: map[string]string{
+				"kubernetes.io/service-account.name": sa.Name,
+			},
+		},
+		Type: corev1.SecretTypeServiceAccountToken,
+	}
+
+	cr := &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: pcn,
+		},
+		AggregationRule: &rbacv1.AggregationRule{
+			ClusterRoleSelectors: []metav1.LabelSelector{
+				{
+					MatchLabels: map[string]string{
+						aggregateToAdmin: trueVal,
+					},
+				},
+			},
+		},
+	}
+
+	crb := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: pcn,
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      rbacv1.ServiceAccountKind,
+				Name:      sa.Name,
+				Namespace: Namespace,
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: rbacv1.GroupName,
+			Kind:     kindClusterRole,
+			Name:     cr.Name,
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	rbacv1.AddToScheme(scheme)
+	corev1.AddToScheme(scheme)
+	extv1.AddToScheme(scheme)
+	log.SetLogger(zap.New(zap.WriteTo(io.Discard)))
+	ctrl, _ := client.New(configClient, client.Options{Scheme: scheme})
+	for _, res := range []client.Object{sa, saSec, cr, crb} {
+		_, err := controllerutil.CreateOrUpdate(ctx, ctrl, res, func() error {
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	svc := &corev1.Service{}
+	err := ctrl.Get(ctx, types.NamespacedName{Namespace: "default", Name: "kubernetes"}, svc)
+	if err != nil {
+		return err
+	}
+
+	mgr, err := manager.New(configClient, manager.Options{})
+	if err != nil {
+		return err
+	}
+	mgrContext, cancel := context.WithCancel(context.Background())
+	if err = builder.
+		ControllerManagedBy(mgr).
+		For(&corev1.ServiceAccount{}).
+		WithEventFilter(predicate.Funcs{
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				return e.ObjectNew.GetName() == providerConfigName
+			},
+			DeleteFunc: func(e event.DeleteEvent) bool {
+				return e.Object.GetName() == providerConfigName
+			},
+			CreateFunc: func(e event.CreateEvent) bool {
+				return e.Object.GetName() == providerConfigName
+			},
+			GenericFunc: func(e event.GenericEvent) bool {
+				return e.Object.GetName() == providerConfigName
+			},
+		},
+		).
+		Complete(&SecretReconciler{
+			Client:     ctrl,
+			CancelFunc: cancel,
+			serverIP:   "https://" + svc.Spec.ClusterIP + ":443",
+		}); err != nil {
+		return err
+	}
+	mgr.Start(mgrContext)
+	return nil
+}
+
+// Reconcile SvcAcc secret for make kubeconfig
+func (a *SecretReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
+
+	sec := &corev1.Secret{}
+	err := a.Get(ctx, req.NamespacedName, sec)
+	if err != nil {
+		return reconcile.Result{}, err
+	} else if sec.GetName() != providerConfigName {
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	if _, err = controllerutil.CreateOrUpdate(ctx, a.Client, sec, func() error {
+		kubeconfig, _ := yaml.Marshal(&map[string]interface{}{
+			"apiVersion":      "v1",
+			"kind":            "Config",
+			"current-context": "in-cluster",
+			"clusters": []map[string]interface{}{
+				{
+					"cluster": map[string]interface{}{
+						"certificate-authority-data": b64.StdEncoding.EncodeToString(sec.Data["ca.crt"]),
+						"server":                     a.serverIP,
+					},
+					"name": "in-cluster",
+				},
+			},
+			"contexts": []map[string]interface{}{
+				{
+					"context": map[string]interface{}{
+						"cluster":   "in-cluster",
+						"user":      "in-cluster",
+						"namespace": "kndp-system",
+					},
+					"name": "in-cluster",
+				},
+			},
+			"preferences": map[string]interface{}{},
+			"users": []map[string]interface{}{
+				{
+					"name": "in-cluster",
+					"user": map[string]interface{}{
+						"token": string(sec.Data["token"]),
+					},
+				},
+			},
+		})
+
+		sec.Data["kubeconfig"] = []byte(kubeconfig)
+		return nil
+	}); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	crd := &extv1.CustomResourceDefinition{}
+	err = a.Get(ctx, types.NamespacedName{Name: "providerconfigs.kubernetes.crossplane.io"}, crd)
+	if err != nil {
+		return reconcile.Result{Requeue: true}, err
+	}
+
+	pc := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "kubernetes.crossplane.io/v1alpha1",
+			"kind":       "ProviderConfig",
+			"metadata": map[string]interface{}{
+				"name": providerConfigName,
+			},
+		},
+	}
+
+	if _, err = controllerutil.CreateOrUpdate(ctx, a.Client, pc, func() error {
+		pc.Object["spec"] = map[string]interface{}{
+			"credentials": map[string]interface{}{
+				"secretRef": map[string]interface{}{
+					"key":       "kubeconfig",
+					"name":      providerConfigName,
+					"namespace": Namespace,
+				},
+				"source": "Secret",
+			},
+		}
+		return nil
+	}); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	a.CancelFunc()
+
+	return reconcile.Result{}, nil
 }
