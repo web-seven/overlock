@@ -75,6 +75,8 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/btree v1.0.1 // indirect
 	github.com/google/gnostic-models v0.6.8 // indirect
+	github.com/google/go-github v17.0.0+incompatible // indirect
+	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/google/uuid v1.4.0 // indirect
@@ -186,6 +188,7 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-playground/validator/v10 v10.18.0
 	github.com/google/go-containerregistry v0.19.0
+	github.com/google/go-github/v61 v61.0.0
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/pterm/pterm v0.12.79
 	github.com/rivo/uniseg v0.4.4 // indirect
