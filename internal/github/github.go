@@ -1,20 +1,25 @@
-package registry
+package github
 
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	"github.com/charmbracelet/log"
+	"github.com/kndpio/kndp/internal/registry"
+	"github.com/pterm/pterm"
 
 	"github.com/google/go-github/v61/github"
 )
 
 // GetGithubPackages list packages and their versions from GitHub Container Registry
-func GetGithubPackages(ctx context.Context, query string, version bool, r *Registry, registryUrl string, org string, logger *log.Logger) ([]*github.Package, map[string][]*github.PackageVersion, error) {
-	auth := RegistryConfig{}
+func GetGithubPackages(ctx context.Context, query string, version bool, r *registry.Registry, registryUrl string, org string, logger *log.Logger) ([]*github.Package, map[string][]*github.PackageVersion, error) {
+	auth := registry.RegistryConfig{}
 	json.Unmarshal([]byte(r.Data[".dockerconfigjson"]), &auth)
 	clientgh := github.NewClient(nil).WithAuthToken(auth.Auths[registryUrl].Password)
-
+	tableRegs := pterm.TableData{
+		{"URL", "VERSION"},
+	}
 	pkgType := "container"
 
 	pkgs, _, err := clientgh.Organizations.ListPackages(ctx, org, &github.PackageListOptions{PackageType: &pkgType})
@@ -38,5 +43,27 @@ func GetGithubPackages(ctx context.Context, query string, version bool, r *Regis
 			pkgVersions[*pkg.Name] = versions
 		}
 	}
+
+	for _, pkg := range pkgs {
+		if !strings.Contains(*pkg.Name, query) {
+			continue
+		}
+		versions := pkgVersions[*pkg.Name]
+		for _, v := range versions {
+			tags := v.GetMetadata().Container.Tags
+			if len(tags) > 0 {
+				tableRegs = append(tableRegs, []string{
+					"ghcr.io/" + org + "/" + *pkg.Name,
+					tags[0],
+				})
+			}
+		}
+	}
+	if len(tableRegs) <= 1 {
+		logger.Info("No packages found")
+	} else {
+		pterm.DefaultTable.WithHasHeader().WithData(tableRegs).Render()
+	}
+
 	return pkgs, pkgVersions, nil
 }
