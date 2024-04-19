@@ -10,7 +10,6 @@ import (
 	"github.com/kndpio/kndp/cmd/kndp/configuration"
 	"github.com/kndpio/kndp/cmd/kndp/environment"
 	"github.com/kndpio/kndp/cmd/kndp/provider"
-	"github.com/kndpio/kndp/cmd/kndp/search"
 	"github.com/kndpio/kndp/internal/kube"
 
 	"github.com/kndpio/kndp/cmd/kndp/registry"
@@ -72,7 +71,7 @@ type cli struct {
 	Registry           registry.Cmd                 `cmd:"" name:"registry" aliases:"reg" help:"Packages registy commands"`
 	InstallCompletions kongplete.InstallCompletions `cmd:"" help:"Install shell completions"`
 	Provider           provider.Cmd                 `cmd:"" name:"provider" help:"KNDP Provider commands"`
-	Search             search.SearchCmd             `cmd:"" help:"Search for packages"`
+	Search             registry.SearchCmd           `cmd:"" help:"Search for packages"`
 }
 
 type helpCmd struct{}

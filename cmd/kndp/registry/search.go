@@ -1,4 +1,4 @@
-package search
+package registry
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 
 	"github.com/charmbracelet/log"
 	"github.com/kndpio/kndp/internal/registry"
-	"github.com/kndpio/kndp/internal/search"
+	"github.com/pterm/pterm"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -26,6 +26,9 @@ func (c *SearchCmd) Run(ctx context.Context, client *kubernetes.Clientset, confi
 		logger.Error("Cannot get registries")
 		return err
 	}
+	tableRegs := pterm.TableData{
+		{"URL", "VERSION"},
+	}
 	for _, r := range registries {
 		registryUrl := r.Annotations["kndp-registry-server-url"]
 		u, _ := url.Parse(registryUrl)
@@ -33,12 +36,36 @@ func (c *SearchCmd) Run(ctx context.Context, client *kubernetes.Clientset, confi
 		// Switch statement to handle different registry types
 		switch {
 		case strings.Contains(registryUrl, "ghcr.io"):
-			err := search.GitHubreg(ctx, c.Query, c.Versions, r, registryUrl, org, logger)
+			pkgs, pkgVersions, err := registry.GetGithubPackages(ctx, c.Query, c.Versions, r, registryUrl, org, logger)
 			if err != nil {
 				return err
 			}
+			for _, pkg := range pkgs {
+				if !strings.Contains(*pkg.Name, c.Query) {
+					continue
+				}
+				versions := pkgVersions[*pkg.Name]
+				for _, v := range versions {
+					tags := v.GetMetadata().Container.Tags
+					if len(tags) > 0 {
+						tableRegs = append(tableRegs, []string{
+							"ghcr.io/" + org + "/" + *pkg.Name,
+							tags[0],
+						})
+					}
+				}
+			}
+			if len(tableRegs) <= 1 {
+				logger.Info("No packages found")
+			} else {
+				pterm.DefaultTable.WithHasHeader().WithData(tableRegs).Render()
+			}
+
 		default:
-			search.GitHubreg(ctx, c.Query, c.Versions, r, registryUrl, org, logger)
+			_, _, err := registry.GetGithubPackages(ctx, c.Query, c.Versions, r, registryUrl, org, logger)
+			if err != nil {
+				return err
+			}
 		}
 
 	}
