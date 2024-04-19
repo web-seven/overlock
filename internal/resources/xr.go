@@ -355,12 +355,17 @@ func CopyComposites(ctx context.Context, logger *log.Logger, sourceContext dynam
 						Version:  version.Name,
 						Resource: paramsXRs.Spec.Names.Plural,
 					}
-					_, err = destinationContext.Resource(resourceId).Namespace("").Create(ctx, &xr, metav1.CreateOptions{})
+
+					_, err = destinationContext.Resource(resourceId).Namespace("").Get(ctx, xr.GetName(), metav1.GetOptions{})
 					if err != nil {
-						logger.Fatal(err)
-						return nil
+						_, err = destinationContext.Resource(resourceId).Namespace("").Create(ctx, &xr, metav1.CreateOptions{})
+						if err != nil {
+							logger.Warn(err)
+						} else {
+							logger.Infof("Resource created successfully %s", xr.GetName())
+						}
 					} else {
-						logger.Infof("Resource created successfully %s", xr.GetName())
+						logger.Warnf("Resource %s with type %s already exists, skipping.", xr.GetName(), resourceId.GroupResource().String())
 					}
 				}
 			}

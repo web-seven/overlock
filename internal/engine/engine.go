@@ -10,6 +10,7 @@ import (
 
 	"github.com/kndpio/kndp/internal/install"
 	"github.com/kndpio/kndp/internal/install/helm"
+	"github.com/kndpio/kndp/internal/namespace"
 	"gopkg.in/yaml.v3"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,7 +43,6 @@ const (
 	RepoUrl            = "https://charts.crossplane.io/stable"
 	ChartName          = "crossplane"
 	ReleaseName        = "kndp-crossplane"
-	Namespace          = "kndp-system"
 	kindClusterRole    = "ClusterRole"
 	providerConfigName = "kndp-kubernetes-provider-config"
 	aggregateToAdmin   = "rbac.crossplane.io/aggregate-to-admin"
@@ -69,7 +69,7 @@ func GetEngine(configClient *rest.Config) (install.Manager, error) {
 		return nil, fmt.Errorf("error parsing repository URL: %v", err)
 	}
 	setWait := helm.InstallerModifierFn(helm.Wait())
-	setNamespace := helm.InstallerModifierFn(helm.WithNamespace(Namespace))
+	setNamespace := helm.InstallerModifierFn(helm.WithNamespace(namespace.Namespace))
 	setUpInstall := helm.InstallerModifierFn(helm.WithUpgradeInstall(true))
 	setCreateNs := helm.InstallerModifierFn(helm.WithCreateNamespace(true))
 	setReuseValues := helm.InstallerModifierFn(helm.WithReuseValues(true))
@@ -94,13 +94,17 @@ func GetEngine(configClient *rest.Config) (install.Manager, error) {
 }
 
 // Install engine Helm release
-func InstallEngine(ctx context.Context, configClient *rest.Config) error {
+func InstallEngine(ctx context.Context, configClient *rest.Config, params map[string]any) error {
 	engine, err := GetEngine(configClient)
 	if err != nil {
 		return err
 	}
 
-	err = engine.Upgrade("", initParameters)
+	if params == nil {
+		params = initParameters
+	}
+
+	err = engine.Upgrade("", params)
 	if err != nil {
 		return err
 	}
@@ -152,14 +156,14 @@ func SetupPrivilegedKubernetesProvider(ctx context.Context, configClient *rest.C
 	sa := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pcn,
-			Namespace: Namespace,
+			Namespace: namespace.Namespace,
 		},
 	}
 
 	saSec := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pcn,
-			Namespace: Namespace,
+			Namespace: namespace.Namespace,
 			Annotations: map[string]string{
 				"kubernetes.io/service-account.name": sa.Name,
 			},
@@ -190,7 +194,7 @@ func SetupPrivilegedKubernetesProvider(ctx context.Context, configClient *rest.C
 			{
 				Kind:      rbacv1.ServiceAccountKind,
 				Name:      sa.Name,
-				Namespace: Namespace,
+				Namespace: namespace.Namespace,
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -329,7 +333,7 @@ func (a *SecretReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 				"secretRef": map[string]interface{}{
 					"key":       "kubeconfig",
 					"name":      providerConfigName,
-					"namespace": Namespace,
+					"namespace": namespace.Namespace,
 				},
 				"source": "Secret",
 			},

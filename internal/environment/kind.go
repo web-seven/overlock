@@ -74,5 +74,5 @@ func KindEnvironment(ctx context.Context, context string, logger *log.Logger, na
 	if err != nil {
 		logger.Fatal(err)
 	}
-	return engine.InstallEngine(ctx, configClient)
+	return engine.InstallEngine(ctx, configClient, nil)
 }

@@ -28,6 +28,6 @@ func K3dEnvironment(ctx context.Context, context string, logger *log.Logger, nam
 	}
 	logger.Info("k3d cluster created successfully")
 
-	engine.InstallEngine(ctx, configClient)
+	engine.InstallEngine(ctx, configClient, nil)
 	return nil
 }
