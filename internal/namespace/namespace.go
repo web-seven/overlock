@@ -1,0 +1,34 @@
+package namespace
+
+import (
+	"context"
+
+	"github.com/kndpio/kndp/internal/kube"
+	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/rest"
+)
+
+const Namespace = "kndp-system"
+
+// Creates system namespace
+func CreateNamespace(ctx context.Context, config *rest.Config) error {
+	client, err := kube.Client(config)
+	if err != nil {
+		return err
+	}
+
+	_, err = client.CoreV1().Namespaces().Get(ctx, Namespace, v1.GetOptions{})
+	if err != nil {
+		ns := corev1.Namespace{ObjectMeta: v1.ObjectMeta{
+			Name: Namespace,
+		}}
+
+		ns.SetResourceVersion("")
+		_, err := client.CoreV1().Namespaces().Create(ctx, &ns, v1.CreateOptions{})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}

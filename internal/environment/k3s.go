@@ -37,6 +37,6 @@ func K3sEnvironment(ctx context.Context, context string, logger *log.Logger, nam
 		logger.Fatal(err)
 	}
 
-	engine.InstallEngine(ctx, configClient)
+	engine.InstallEngine(ctx, configClient, nil)
 	return nil
 }

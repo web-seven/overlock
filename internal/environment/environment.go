@@ -9,6 +9,7 @@ import (
 
 	"github.com/kndpio/kndp/internal/engine"
 	"github.com/kndpio/kndp/internal/kube"
+	"github.com/kndpio/kndp/internal/namespace"
 	"github.com/kndpio/kndp/internal/registry"
 	"github.com/kndpio/kndp/internal/resources"
 	"github.com/pterm/pterm"
@@ -61,7 +62,7 @@ func Create(ctx context.Context, context string, engineName string, name string,
 			logger.Fatal(err)
 		}
 
-		return engine.InstallEngine(ctx, configClient)
+		return engine.InstallEngine(ctx, configClient, nil)
 	}
 	logger.Info("Environment created successfully.")
 	return nil
@@ -91,6 +92,12 @@ func CopyEnvironment(ctx context.Context, logger *log.Logger, source string, des
 		return err
 	}
 
+	// Create namespace on destination
+	err = namespace.CreateNamespace(ctx, destConfig)
+	if err != nil {
+		return err
+	}
+
 	// Copy registries
 	err = registry.CopyRegistries(ctx, logger, sourceConfig, destConfig)
 	if err != nil {
@@ -109,11 +116,7 @@ func CopyEnvironment(ctx context.Context, logger *log.Logger, source string, des
 		return err
 	}
 
-	destEngine, err := engine.GetEngine(destConfig)
-	if err != nil {
-		return err
-	}
-	destEngine.Upgrade("", sourceRelease.Config)
+	engine.InstallEngine(ctx, destConfig, sourceRelease.Config)
 	logger.Info("Engine copied successfully!")
 
 	// Copy composities
@@ -122,7 +125,7 @@ func CopyEnvironment(ctx context.Context, logger *log.Logger, source string, des
 		return err
 	}
 
-	logger.Info("Successfully Environment to destination context.")
+	logger.Info("Successfully copied Environment to destination context.")
 
 	return nil
 }

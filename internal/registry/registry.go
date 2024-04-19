@@ -10,6 +10,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/kndpio/kndp/internal/engine"
 	"github.com/kndpio/kndp/internal/kube"
+	"github.com/kndpio/kndp/internal/namespace"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -237,12 +238,12 @@ func CopyRegistries(ctx context.Context, logger *log.Logger, sourceConfig *rest.
 		for _, registry := range registries {
 			if !registry.Exists(ctx, destClient) {
 				registry.SetResourceVersion("")
-				_, err = destClient.CoreV1().Secrets(engine.Namespace).Create(ctx, registry.ToSecret(), metav1.CreateOptions{})
+				_, err = destClient.CoreV1().Secrets(namespace.Namespace).Create(ctx, registry.ToSecret(), metav1.CreateOptions{})
 				if err != nil {
 					return err
 				}
 			} else {
-				logger.Warn("Registry for " + registry.Annotations[RegistryServerLabel] + "already exist inside of destination context.")
+				logger.Warn("Registry for " + registry.Annotations[RegistryServerLabel] + " already exist inside of destination context.")
 			}
 
 		}
@@ -254,5 +255,5 @@ func CopyRegistries(ctx context.Context, logger *log.Logger, sourceConfig *rest.
 }
 
 func secretClient(client *kubernetes.Clientset) kv1.SecretInterface {
-	return client.CoreV1().Secrets(engine.Namespace)
+	return client.CoreV1().Secrets(namespace.Namespace)
 }
