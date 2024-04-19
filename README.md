@@ -12,6 +12,7 @@ The @kndpio CLI
 - [X] Command for Install Providers package from Upbound registry. [https://github.com/kndpio/kndp/issues/48]
 - [X] k3s Environment engine. [https://github.com/kndpio/kndp/issues/54]
 - [X] k3d Environment engine. [https://github.com/kndpio/kndp/issues/54]
+- [ ] Generate Go types from configuration and provider resources.
 - [ ] Add Trace ID data to resource events.
 - [ ] XRD of Environment.
 - [ ] Environment engine selection.
