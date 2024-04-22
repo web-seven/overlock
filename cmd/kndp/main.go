@@ -71,6 +71,7 @@ type cli struct {
 	Registry           registry.Cmd                 `cmd:"" name:"registry" aliases:"reg" help:"Packages registy commands"`
 	InstallCompletions kongplete.InstallCompletions `cmd:"" help:"Install shell completions"`
 	Provider           provider.Cmd                 `cmd:"" name:"provider" help:"KNDP Provider commands"`
+	Search             registry.SearchCmd           `cmd:"" help:"Search for packages"`
 }
 
 type helpCmd struct{}
