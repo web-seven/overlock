@@ -3,12 +3,8 @@ package registry
 import (
 	"context"
 
-	"net/url"
-	"strings"
-
 	"github.com/charmbracelet/log"
-	"github.com/kndpio/kndp/internal/github"
-	"github.com/kndpio/kndp/internal/registry"
+	"github.com/kndpio/kndp/internal/search"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -21,32 +17,9 @@ type SearchCmd struct {
 }
 
 func (c *SearchCmd) Run(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, logger *log.Logger) error {
-	registries, err := registry.Registries(ctx, client)
+	err := search.SearchCmd(ctx, client, config, c.Query, c.Versions, logger)
 	if err != nil {
-		logger.Error("Cannot get registries")
 		return err
 	}
-
-	for _, r := range registries {
-		registryUrl := r.Annotations["kndp-registry-server-url"]
-		u, _ := url.Parse(registryUrl)
-		org := strings.TrimPrefix(u.Path, "/")
-		// Switch statement to handle different registry types
-		switch {
-		case strings.Contains(registryUrl, "ghcr.io"):
-			_, _, err := github.GetGithubPackages(ctx, c.Query, c.Versions, r, registryUrl, org, logger)
-			if err != nil {
-				return err
-			}
-
-		default:
-			_, _, err := github.GetGithubPackages(ctx, c.Query, c.Versions, r, registryUrl, org, logger)
-			if err != nil {
-				return err
-			}
-		}
-
-	}
-
 	return nil
 }
