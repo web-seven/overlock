@@ -12,8 +12,8 @@ import (
 	"github.com/google/go-github/v61/github"
 )
 
-// GetGithubPackages list packages and their versions from GitHub Container Registry
-func GetGithubPackages(ctx context.Context, query string, version bool, r *registry.Registry, registryUrl string, org string, logger *log.Logger) ([]*github.Package, map[string][]*github.PackageVersion, error) {
+// GetPackages list packages and their versions from Container Registry
+func GetPackages(ctx context.Context, query string, version bool, r *registry.Registry, registryUrl string, org string, logger *log.Logger) (pterm.TableData, error) {
 	auth := registry.RegistryConfig{}
 	json.Unmarshal([]byte(r.Data[".dockerconfigjson"]), &auth)
 	clientgh := github.NewClient(nil).WithAuthToken(auth.Auths[registryUrl].Password)
@@ -25,7 +25,7 @@ func GetGithubPackages(ctx context.Context, query string, version bool, r *regis
 	pkgs, _, err := clientgh.Organizations.ListPackages(ctx, org, &github.PackageListOptions{PackageType: &pkgType})
 	if err != nil {
 		logger.Errorf("Cannot get packages from %s", registryUrl)
-		return nil, nil, err
+		return nil, err
 	}
 
 	pkgVersions := make(map[string][]*github.PackageVersion)
@@ -33,7 +33,7 @@ func GetGithubPackages(ctx context.Context, query string, version bool, r *regis
 		versions, _, err := clientgh.Organizations.PackageGetAllVersions(ctx, org, pkgType, pkg.GetName(), nil)
 		if err != nil {
 			logger.Errorf("Cannot get package versions for %s/%s", org, *pkg.Name)
-			return nil, nil, err
+			return nil, err
 		}
 		if !version {
 			if len(versions) > 0 {
@@ -59,11 +59,6 @@ func GetGithubPackages(ctx context.Context, query string, version bool, r *regis
 			}
 		}
 	}
-	if len(tableRegs) <= 1 {
-		logger.Info("No packages found")
-	} else {
-		pterm.DefaultTable.WithHasHeader().WithData(tableRegs).Render()
-	}
 
-	return pkgs, pkgVersions, nil
+	return tableRegs, nil
 }

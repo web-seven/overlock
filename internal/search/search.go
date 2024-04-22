@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/log"
+	"github.com/pterm/pterm"
 
 	"github.com/kndpio/kndp/internal/github"
 	"github.com/kndpio/kndp/internal/registry"
@@ -13,11 +14,11 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-func SearchCmd(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, query string, versions bool, logger *log.Logger) error {
+func SearchPackages(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, query string, versions bool, logger *log.Logger) (pterm.TableData, error) {
 	registries, err := registry.Registries(ctx, client)
 	if err != nil {
 		logger.Error("Cannot get registries")
-		return err
+		return nil, err
 	}
 
 	for _, r := range registries {
@@ -27,15 +28,15 @@ func SearchCmd(ctx context.Context, client *kubernetes.Clientset, config *rest.C
 		// Switch statement to handle different registry types
 		switch {
 		case strings.Contains(registryUrl, "ghcr.io"):
-			_, _, err := github.GetGithubPackages(ctx, query, versions, r, registryUrl, org, logger)
+			tableRegs, err := github.GetPackages(ctx, query, versions, r, registryUrl, org, logger)
 			if err != nil {
-				return err
+				return nil, err
 			}
-
+			return tableRegs, nil
 		default:
 			logger.Errorf("Registry %s is not supported", registryUrl)
 		}
 
 	}
-	return nil
+	return nil, err
 }
