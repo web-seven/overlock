@@ -21,15 +21,27 @@ func GetPackages(ctx context.Context, query string, version bool, r *registry.Re
 		{"URL", "VERSION"},
 	}
 	pkgType := "container"
+	var allPkgs []*github.Package
+	opts := &github.PackageListOptions{
+		PackageType: &pkgType,
+	}
 
-	pkgs, _, err := clientgh.Organizations.ListPackages(ctx, org, &github.PackageListOptions{PackageType: &pkgType})
-	if err != nil {
-		logger.Errorf("Cannot get packages from %s", registryUrl)
-		return nil, err
+	for {
+		pkgs, resp, err := clientgh.Organizations.ListPackages(ctx, org, opts)
+		if err != nil {
+			logger.Errorf("Cannot get packages from %s", registryUrl)
+			return nil, err
+		}
+		allPkgs = append(allPkgs, pkgs...)
+
+		if resp.NextPage == 0 {
+			break
+		}
+		opts.Page = resp.NextPage
 	}
 
 	pkgVersions := make(map[string][]*github.PackageVersion)
-	for _, pkg := range pkgs {
+	for _, pkg := range allPkgs {
 		versions, _, err := clientgh.Organizations.PackageGetAllVersions(ctx, org, pkgType, pkg.GetName(), nil)
 		if err != nil {
 			logger.Errorf("Cannot get package versions for %s/%s", org, *pkg.Name)
@@ -44,7 +56,7 @@ func GetPackages(ctx context.Context, query string, version bool, r *registry.Re
 		}
 	}
 
-	for _, pkg := range pkgs {
+	for _, pkg := range allPkgs {
 		if !strings.Contains(*pkg.Name, query) {
 			continue
 		}
