@@ -12,6 +12,21 @@ import (
 	"github.com/google/go-github/v61/github"
 )
 
+func getAllPackages(ctx context.Context, client *github.Client, org string, opts *github.PackageListOptions, allPkgs []*github.Package) ([]*github.Package, error) {
+	pkgs, resp, err := client.Organizations.ListPackages(ctx, org, opts)
+	if err != nil {
+		return nil, err
+	}
+	allPkgs = append(allPkgs, pkgs...)
+
+	if resp.NextPage == 0 {
+		return allPkgs, nil
+	}
+
+	opts.Page = resp.NextPage
+	return getAllPackages(ctx, client, org, opts, allPkgs)
+}
+
 // GetPackages list packages and their versions from Container Registry
 func GetPackages(ctx context.Context, query string, version bool, r *registry.Registry, registryUrl string, org string, logger *log.Logger) (pterm.TableData, error) {
 	auth := registry.RegistryConfig{}
@@ -21,15 +36,19 @@ func GetPackages(ctx context.Context, query string, version bool, r *registry.Re
 		{"URL", "VERSION"},
 	}
 	pkgType := "container"
+	var allPkgs []*github.Package
+	opts := &github.PackageListOptions{
+		PackageType: &pkgType,
+	}
 
-	pkgs, _, err := clientgh.Organizations.ListPackages(ctx, org, &github.PackageListOptions{PackageType: &pkgType})
+	allPkgs, err := getAllPackages(ctx, clientgh, org, opts, allPkgs)
 	if err != nil {
 		logger.Errorf("Cannot get packages from %s", registryUrl)
 		return nil, err
 	}
 
 	pkgVersions := make(map[string][]*github.PackageVersion)
-	for _, pkg := range pkgs {
+	for _, pkg := range allPkgs {
 		versions, _, err := clientgh.Organizations.PackageGetAllVersions(ctx, org, pkgType, pkg.GetName(), nil)
 		if err != nil {
 			logger.Errorf("Cannot get package versions for %s/%s", org, *pkg.Name)
@@ -44,7 +63,7 @@ func GetPackages(ctx context.Context, query string, version bool, r *registry.Re
 		}
 	}
 
-	for _, pkg := range pkgs {
+	for _, pkg := range allPkgs {
 		if !strings.Contains(*pkg.Name, query) {
 			continue
 		}
