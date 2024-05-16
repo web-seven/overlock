@@ -35,7 +35,7 @@ func InstallProvider(provider string, config *rest.Config, logger *log.Logger) e
 		release.Config["provider"] = configs
 	}
 
-	err = installer.Upgrade("", release.Config)
+	err = installer.Upgrade(engine.Version, release.Config)
 	if err != nil {
 		return err
 	}

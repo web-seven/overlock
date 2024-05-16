@@ -43,6 +43,7 @@ const (
 	RepoUrl            = "https://charts.crossplane.io/stable"
 	ChartName          = "crossplane"
 	ReleaseName        = "kndp-crossplane"
+	Version            = "1.15.2"
 	kindClusterRole    = "ClusterRole"
 	providerConfigName = "kndp-kubernetes-provider-config"
 	aggregateToAdmin   = "rbac.crossplane.io/aggregate-to-admin"
@@ -104,7 +105,7 @@ func InstallEngine(ctx context.Context, configClient *rest.Config, params map[st
 		params = initParameters
 	}
 
-	err = engine.Upgrade("", params)
+	err = engine.Upgrade(Version, params)
 	if err != nil {
 		return err
 	}
