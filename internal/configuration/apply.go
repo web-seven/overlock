@@ -1,6 +1,8 @@
 package configuration
 
 import (
+	"strings"
+
 	"github.com/charmbracelet/log"
 
 	"k8s.io/client-go/rest"
@@ -29,8 +31,18 @@ func ApplyConfiguration(Link string, config *rest.Config, logger *log.Logger) {
 		}
 	} else {
 		configs := release.Config["configuration"].(map[string]interface{})
+		filteredConfigs := []string{}
+		linkName, _, _ := strings.Cut(Link, ":")
+
+		for _, packageLink := range configs["packages"].([]interface{}) {
+			packageName, _, _ := strings.Cut(packageLink.(string), ":")
+			if packageName != linkName {
+				filteredConfigs = append(filteredConfigs, packageLink.(string))
+			}
+		}
+
 		configs["packages"] = append(
-			configs["packages"].([]interface{}),
+			filteredConfigs,
 			Link,
 		)
 		release.Config["configuration"] = configs
@@ -40,6 +52,6 @@ func ApplyConfiguration(Link string, config *rest.Config, logger *log.Logger) {
 	if err != nil {
 		logger.Errorf(" %v\n", err)
 	} else {
-		logger.Info("Configuration applied successfully.")
+		logger.Infof("Configuration %s applied successfully.", Link)
 	}
 }
