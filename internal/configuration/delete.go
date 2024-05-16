@@ -41,7 +41,7 @@ func DeleteConfiguration(url string, config *rest.Config, logger *log.Logger) er
 		}
 	}
 
-	err = installer.Upgrade("", release.Config)
+	err = installer.Upgrade(engine.Version, release.Config)
 	if err != nil {
 		return err
 	}

@@ -159,7 +159,7 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *log.
 
 	logger.Debug("Upgrade Corssplane chart", "Values", release.Config)
 
-	return installer.Upgrade("", release.Config)
+	return installer.Upgrade(engine.Version, release.Config)
 }
 
 func (r *Registry) FromSecret(sec corev1.Secret) *Registry {
@@ -203,7 +203,7 @@ func (r *Registry) Delete(ctx context.Context, config *rest.Config, logger *log.
 			return nil
 		}
 
-		err = installer.Upgrade("", release.Config)
+		err = installer.Upgrade(engine.Version, release.Config)
 		if err != nil {
 			return err
 		}

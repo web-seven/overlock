@@ -36,11 +36,10 @@ func ApplyConfiguration(Link string, config *rest.Config, logger *log.Logger) {
 		release.Config["configuration"] = configs
 	}
 
-	err = installer.Upgrade("", release.Config)
+	err = installer.Upgrade(engine.Version, release.Config)
 	if err != nil {
 		logger.Errorf(" %v\n", err)
+	} else {
+		logger.Info("Configuration applied successfully.")
 	}
-
-	logger.Info("Configuration applied successfully.")
-
 }
