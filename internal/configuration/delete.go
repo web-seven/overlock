@@ -2,6 +2,7 @@ package configuration
 
 import (
 	"context"
+	"strings"
 
 	"github.com/charmbracelet/log"
 	crossv1 "github.com/crossplane/crossplane/apis/pkg/v1"
@@ -10,16 +11,18 @@ import (
 	"k8s.io/client-go/dynamic"
 )
 
-func DeleteConfiguration(ctx context.Context, url string, dynamicClient *dynamic.DynamicClient, logger *log.Logger) error {
+func DeleteConfiguration(ctx context.Context, urls string, dynamicClient *dynamic.DynamicClient, logger *log.Logger) error {
 
-	cfg := crossv1.Configuration{}
-	engine.BuildPack(&cfg, url, map[string]string{})
+	for _, url := range strings.Split(urls, ",") {
+		cfg := crossv1.Configuration{}
+		engine.BuildPack(&cfg, url, map[string]string{})
 
-	err := dynamicClient.Resource(ResourceId()).Namespace("").Delete(ctx, cfg.GetName(), metav1.DeleteOptions{})
-	if err != nil {
-		return err
+		err := dynamicClient.Resource(ResourceId()).Namespace("").Delete(ctx, cfg.GetName(), metav1.DeleteOptions{})
+		if err != nil {
+			return err
+		}
 	}
 
-	logger.Info("Configuration removed successfully.")
+	logger.Info("Configuration(s) removed successfully.")
 	return nil
 }
