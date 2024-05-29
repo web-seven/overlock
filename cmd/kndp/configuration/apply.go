@@ -12,7 +12,7 @@ import (
 )
 
 type applyCmd struct {
-	Link string `arg:"" required:"" help:"Link URL to Crossplane configuration to be applied to Environment."`
+	Link string `arg:"" required:"" help:"Link URL (or multiple comma separated) to Crossplane configuration to be applied to Environment."`
 }
 
 func (c *applyCmd) Run(ctx context.Context, config *rest.Config, dynamicClient *dynamic.DynamicClient, logger *log.Logger) error {

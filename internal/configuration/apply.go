@@ -2,6 +2,7 @@ package configuration
 
 import (
 	"context"
+	"strings"
 
 	"github.com/charmbracelet/log"
 	"github.com/pkg/errors"
@@ -16,20 +17,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func ApplyConfiguration(ctx context.Context, link string, config *rest.Config, logger *log.Logger) error {
+func ApplyConfiguration(ctx context.Context, links string, config *rest.Config, logger *log.Logger) error {
 	scheme := runtime.NewScheme()
 	crossv1.AddToScheme(scheme)
 	if kube, err := client.New(config, client.Options{Scheme: scheme}); err == nil {
-		cfg := &crossv1.Configuration{}
-		engine.BuildPack(cfg, link, map[string]string{})
-		pa := resource.NewAPIPatchingApplicator(kube)
+		for _, link := range strings.Split(links, ",") {
+			cfg := &crossv1.Configuration{}
+			engine.BuildPack(cfg, link, map[string]string{})
+			pa := resource.NewAPIPatchingApplicator(kube)
 
-		if err := pa.Apply(ctx, cfg); err != nil {
-			return errors.Wrap(err, "Error apply configuration.")
+			if err := pa.Apply(ctx, cfg); err != nil {
+				return errors.Wrap(err, "Error apply configuration(s).")
+			}
 		}
 	} else {
 		return err
 	}
-	logger.Info("Configuration applied successfully.")
+	logger.Info("Configuration(s) applied successfully.")
 	return nil
 }
