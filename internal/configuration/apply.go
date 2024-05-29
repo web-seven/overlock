@@ -1,57 +1,35 @@
 package configuration
 
 import (
-	"strings"
+	"context"
 
 	"github.com/charmbracelet/log"
+	"github.com/pkg/errors"
 
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 
 	"github.com/kndpio/kndp/internal/engine"
+
+	"github.com/crossplane/crossplane-runtime/pkg/resource"
+	crossv1 "github.com/crossplane/crossplane/apis/pkg/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func ApplyConfiguration(Link string, config *rest.Config, logger *log.Logger) {
+func ApplyConfiguration(ctx context.Context, link string, config *rest.Config, logger *log.Logger) error {
+	scheme := runtime.NewScheme()
+	crossv1.AddToScheme(scheme)
+	if kube, err := client.New(config, client.Options{Scheme: scheme}); err == nil {
+		cfg := &crossv1.Configuration{}
+		engine.BuildPack(cfg, link, map[string]string{})
+		pa := resource.NewAPIPatchingApplicator(kube)
 
-	installer, err := engine.GetEngine(config)
-	if err != nil {
-		logger.Errorf(" %v\n", err)
-	}
-
-	release, _ := installer.GetRelease()
-
-	if release.Config == nil {
-		release.Config = map[string]interface{}{
-			"configuration": map[string]interface{}{
-				"packages": []string{Link},
-			},
-		}
-	} else if release.Config["configuration"] == nil {
-		release.Config["configuration"] = map[string]interface{}{
-			"packages": []string{Link},
+		if err := pa.Apply(ctx, cfg); err != nil {
+			return errors.Wrap(err, "Error apply configuration.")
 		}
 	} else {
-		configs := release.Config["configuration"].(map[string]interface{})
-		filteredConfigs := []string{}
-		linkName, _, _ := strings.Cut(Link, ":")
-
-		for _, packageLink := range configs["packages"].([]interface{}) {
-			packageName, _, _ := strings.Cut(packageLink.(string), ":")
-			if packageName != linkName {
-				filteredConfigs = append(filteredConfigs, packageLink.(string))
-			}
-		}
-
-		configs["packages"] = append(
-			filteredConfigs,
-			Link,
-		)
-		release.Config["configuration"] = configs
+		return err
 	}
-
-	err = installer.Upgrade(engine.Version, release.Config)
-	if err != nil {
-		logger.Errorf(" %v\n", err)
-	} else {
-		logger.Infof("Configuration %s applied successfully.", Link)
-	}
+	logger.Info("Configuration applied successfully.")
+	return nil
 }
