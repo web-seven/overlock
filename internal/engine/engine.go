@@ -8,9 +8,12 @@ import (
 	"net/url"
 	"strings"
 
+	v1 "github.com/crossplane/crossplane/apis/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/kndpio/kndp/internal/install"
 	"github.com/kndpio/kndp/internal/install/helm"
 	"github.com/kndpio/kndp/internal/namespace"
+	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,14 +43,15 @@ type SecretReconciler struct {
 }
 
 const (
-	RepoUrl            = "https://charts.crossplane.io/stable"
-	ChartName          = "crossplane"
-	ReleaseName        = "kndp-crossplane"
-	Version            = "1.15.2"
-	kindClusterRole    = "ClusterRole"
-	providerConfigName = "kndp-kubernetes-provider-config"
-	aggregateToAdmin   = "rbac.crossplane.io/aggregate-to-admin"
-	trueVal            = "true"
+	RepoUrl             = "https://charts.crossplane.io/stable"
+	ChartName           = "crossplane"
+	ReleaseName         = "kndp-crossplane"
+	Version             = "1.15.2"
+	kindClusterRole     = "ClusterRole"
+	providerConfigName  = "kndp-kubernetes-provider-config"
+	aggregateToAdmin    = "rbac.crossplane.io/aggregate-to-admin"
+	trueVal             = "true"
+	errParsePackageName = "package name is not valid"
 )
 
 var (
@@ -347,4 +351,36 @@ func (a *SecretReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 	a.CancelFunc()
 
 	return reconcile.Result{}, nil
+}
+
+func BuildPack(pack v1.Package, img string, pkgMap map[string]string) error {
+	ref, err := name.ParseReference(img, name.WithDefaultRegistry(""))
+	if err != nil {
+		return errors.Wrap(err, errParsePackageName)
+	}
+	objName := ToDNSLabel(ref.Context().RepositoryStr())
+	if existing, ok := pkgMap[ref.Context().RepositoryStr()]; ok {
+		objName = existing
+	}
+	pack.SetName(objName)
+	pack.SetSource(ref.String())
+	return nil
+}
+
+// ToDNSLabel converts the string to a valid DNS label.
+func ToDNSLabel(s string) string {
+	var cut strings.Builder
+	for i := range s {
+		b := s[i]
+		if ('a' <= b && b <= 'z') || ('0' <= b && b <= '9') {
+			cut.WriteByte(b)
+		}
+		if (b == '.' || b == '/' || b == ':' || b == '-') && (i != 0 && i != 62 && i != len(s)-1) {
+			cut.WriteByte('-')
+		}
+		if i == 62 {
+			break
+		}
+	}
+	return strings.Trim(cut.String(), "-")
 }

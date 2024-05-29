@@ -16,6 +16,5 @@ type applyCmd struct {
 }
 
 func (c *applyCmd) Run(ctx context.Context, config *rest.Config, dynamicClient *dynamic.DynamicClient, logger *log.Logger) error {
-	configuration.ApplyConfiguration(c.Link, config, logger)
-	return nil
+	return configuration.ApplyConfiguration(ctx, c.Link, config, logger)
 }

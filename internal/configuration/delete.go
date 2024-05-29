@@ -1,47 +1,21 @@
 package configuration
 
 import (
+	"context"
+
 	"github.com/charmbracelet/log"
-
-	"k8s.io/client-go/rest"
-
+	crossv1 "github.com/crossplane/crossplane/apis/pkg/v1"
 	"github.com/kndpio/kndp/internal/engine"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/dynamic"
 )
 
-func DeleteConfiguration(url string, config *rest.Config, logger *log.Logger) error {
+func DeleteConfiguration(ctx context.Context, url string, dynamicClient *dynamic.DynamicClient, logger *log.Logger) error {
 
-	installer, err := engine.GetEngine(config)
-	if err != nil {
-		logger.Errorf(" %v\n", err)
-	}
+	cfg := crossv1.Configuration{}
+	engine.BuildPack(&cfg, url, map[string]string{})
 
-	release, _ := installer.GetRelease()
-
-	if release.Config == nil || release.Config["configuration"] == nil {
-		logger.Warn("Not found any applied configuration.")
-	} else {
-		configs := release.Config["configuration"].(map[string]interface{})
-		oldPackages := configs["packages"].([]interface{})
-
-		newPackages := []interface{}{}
-		for _, config := range oldPackages {
-			if config != url {
-				newPackages = append(
-					newPackages,
-					config,
-				)
-			}
-		}
-		release.Config["configuration"] = map[string]interface{}{
-			"packages": newPackages,
-		}
-		if len(oldPackages) == len(newPackages) {
-			logger.Warn("Configuration URL not found applied configurations.")
-			return nil
-		}
-	}
-
-	err = installer.Upgrade(engine.Version, release.Config)
+	err := dynamicClient.Resource(ResourceId()).Namespace("").Delete(ctx, cfg.GetName(), metav1.DeleteOptions{})
 	if err != nil {
 		return err
 	}

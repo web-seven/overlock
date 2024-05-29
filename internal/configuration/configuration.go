@@ -16,6 +16,12 @@ import (
 	"k8s.io/client-go/dynamic"
 )
 
+const (
+	apiGroup   = "pkg.crossplane.io"
+	apiVersion = "v1"
+	apiPlural  = "configurations"
+)
+
 func CheckHealthStatus(status []condition.Condition) bool {
 	healthStatus := false
 	for _, condition := range status {
@@ -95,4 +101,12 @@ func MoveConfigurations(ctx context.Context, logger *log.Logger, destClientset d
 	}
 
 	return nil
+}
+
+func ResourceId() schema.GroupVersionResource {
+	return schema.GroupVersionResource{
+		Group:    apiGroup,
+		Version:  apiVersion,
+		Resource: apiPlural,
+	}
 }
