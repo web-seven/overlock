@@ -7,6 +7,9 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
+	docker "github.com/docker/docker/client"
 	"github.com/kndpio/kndp/internal/engine"
 	"github.com/kndpio/kndp/internal/kube"
 	"github.com/kndpio/kndp/internal/namespace"
@@ -149,4 +152,50 @@ func ListEnvironments(logger *log.Logger, tableData pterm.TableData) pterm.Table
 		}
 	}
 	return tableData
+}
+
+// Stop Environment
+func Stop(ctx context.Context, name string, logger *log.Logger) error {
+	dockerClient, err := docker.NewClientWithOpts(docker.FromEnv)
+	if err != nil {
+		return err
+	}
+	containers, err := dockerClient.ContainerList(ctx, types.ContainerListOptions{All: true})
+	if err != nil {
+		return err
+	}
+	for _, c := range containers {
+		if strings.Contains(c.Names[0], name) {
+			containerID := c.ID
+			err := dockerClient.ContainerStop(ctx, containerID, container.StopOptions{})
+			if err != nil {
+				return err
+			}
+		}
+	}
+	logger.Info("Environment stopped successfully.")
+	return nil
+}
+
+// Start Environment
+func Start(ctx context.Context, name string, logger *log.Logger) error {
+	dockerClient, err := docker.NewClientWithOpts(docker.FromEnv)
+	if err != nil {
+		return err
+	}
+	containers, err := dockerClient.ContainerList(ctx, types.ContainerListOptions{All: true})
+	if err != nil {
+		return err
+	}
+	for _, c := range containers {
+		if strings.Contains(c.Names[0], name) {
+			containerID := c.ID
+			err := dockerClient.ContainerStart(ctx, containerID, types.ContainerStartOptions{})
+			if err != nil {
+				return err
+			}
+		}
+	}
+	logger.Info("Environment started successfully.")
+	return nil
 }
