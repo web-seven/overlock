@@ -57,7 +57,7 @@ func KindEnvironment(ctx context.Context, context string, logger *log.Logger, na
 	for stderrScanner.Scan() {
 		line := stderrScanner.Text()
 		if strings.Contains(line, "ERROR") {
-			logger.Fatalf("%s: host port %d already in use", line, hostPort)
+			logger.Fatal(line)
 		}
 	}
 
