@@ -38,7 +38,7 @@ func KindEnvironment(ctx context.Context, context string, logger *log.Logger, na
 
 	clusterYaml := fmt.Sprintf(yamlTemplate, hostPort)
 
-	cmd := exec.Command("kind", "create", "cluster", "-q", "--name", name, "--config", "-")
+	cmd := exec.Command("kind", "create", "cluster", "--name", name, "--config", "-")
 	cmd.Stdin = strings.NewReader(clusterYaml)
 
 	stderr, err := cmd.StderrPipe()
@@ -56,8 +56,8 @@ func KindEnvironment(ctx context.Context, context string, logger *log.Logger, na
 	stderrScanner := bufio.NewScanner(stderr)
 	for stderrScanner.Scan() {
 		line := stderrScanner.Text()
-		if !strings.Contains(line, " • ") {
-			logger.Print(line)
+		if strings.Contains(line, "ERROR") {
+			logger.Fatalf("%s: host port %d already in use", line, hostPort)
 		}
 	}
 
