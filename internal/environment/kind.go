@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"strings"
 
-	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	"github.com/charmbracelet/log"
 	"github.com/kndpio/kndp/internal/engine"
@@ -70,7 +70,7 @@ func KindEnvironment(ctx context.Context, context string, logger *log.Logger, na
 	}
 
 	cmd.Wait()
-	configClient, err := ctrl.GetConfig()
+	configClient, err := config.GetConfigWithContext("kind-" + name)
 	if err != nil {
 		logger.Fatal(err)
 	}
