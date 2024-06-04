@@ -32,7 +32,8 @@ type RegistryConfig struct {
 }
 
 type Registry struct {
-	Config RegistryConfig
+	Config  RegistryConfig
+	Default bool
 	corev1.Secret
 }
 
@@ -54,6 +55,7 @@ func Registries(ctx context.Context, client *kubernetes.Clientset) ([]*Registry,
 // Creates new Registry by required parameters
 func New(server string, username string, password string, email string) Registry {
 	registry := Registry{
+		Default: false,
 		Config: RegistryConfig{
 			Auths: map[string]RegistryAuth{
 				server: {
@@ -157,6 +159,27 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *log.
 		secret.ObjectMeta.Name,
 	)
 
+	if r.Default {
+		if release.Config["args"] == nil {
+			release.Config["args"] = []interface{}{}
+		}
+		args := []string{}
+		for _, arg := range release.Config["args"].([]interface{}) {
+			if !strings.Contains(arg.(string), "--registry") {
+				args = append(args, arg.(string))
+			}
+		}
+
+		for server := range r.Config.Auths {
+			urlParts := strings.Split(server, "/")
+			release.Config["args"] = append(
+				args,
+				"--registry="+urlParts[2],
+			)
+			break
+		}
+	}
+
 	logger.Debug("Upgrade Corssplane chart", "Values", release.Config)
 
 	return installer.Upgrade(engine.Version, release.Config)
@@ -252,6 +275,11 @@ func CopyRegistries(ctx context.Context, logger *log.Logger, sourceConfig *rest.
 		logger.Warn("Registries not found")
 	}
 	return nil
+}
+
+// Make registry default
+func (r *Registry) SetDefault(d bool) {
+	r.Default = d
 }
 
 func secretClient(client *kubernetes.Clientset) kv1.SecretInterface {

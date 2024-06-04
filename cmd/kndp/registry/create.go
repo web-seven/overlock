@@ -21,12 +21,13 @@ type createCmd struct {
 	Username       string `required:"" help:"is your Username."`
 	Password       string `required:"" help:"is your Password."`
 	Email          string `required:"" help:"is your Email."`
+	Default        bool   `help:"Set registry as default."`
 }
 
 func (c *createCmd) Run(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, logger *log.Logger) error {
 
 	reg := registry.New(c.RegistryServer, c.Username, c.Password, c.Email)
-
+	reg.SetDefault(c.Default)
 	verr := reg.Validate()
 	if verr != nil {
 		errs := verr.(validator.ValidationErrors)
