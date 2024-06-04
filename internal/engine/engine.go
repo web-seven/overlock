@@ -54,6 +54,42 @@ const (
 	errParsePackageName = "package name is not valid"
 )
 
+var pvcTemplate = `
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: crossplane-cache-pvc
+  labels:
+    app: crossplane-cache-pvc
+spec:
+  storageClassName: manual
+  accessModes:
+  - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  selector:
+    matchLabels:
+      app: crossplane-cache-pv
+`
+
+var pvTemplate = `
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: crossplane-cache-pv
+  labels:
+    app: crossplane-cache-pv
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteMany
+  storageClassName: manual
+  hostPath:
+    path: /sources/crossplane-cache
+`
+
 var (
 	managedLabels = map[string]string{
 		"app.kubernetes.io/managed-by": "kndp",
@@ -64,6 +100,10 @@ var (
 				"xpkg.upbound.io/crossplane-contrib/provider-kubernetes:v0.13.0",
 			},
 		},
+		"packageCache": map[string]string{
+			"pvc": "crossplane-cache-pvc",
+		},
+		"extraObjects": []any{},
 	}
 )
 
@@ -108,6 +148,14 @@ func InstallEngine(ctx context.Context, configClient *rest.Config, params map[st
 	if params == nil {
 		params = initParameters
 	}
+	extraObjects := []any{}
+	pv := map[string]any{}
+	yaml.Unmarshal([]byte(pvTemplate), pv)
+
+	pvc := map[string]any{}
+	yaml.Unmarshal([]byte(pvcTemplate), pvc)
+
+	params["extraObjects"] = append(extraObjects, pv, pvc)
 
 	err = engine.Upgrade(Version, params)
 	if err != nil {
