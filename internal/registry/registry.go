@@ -34,6 +34,7 @@ type RegistryConfig struct {
 type Registry struct {
 	Config  RegistryConfig
 	Default bool
+	Local   bool
 	corev1.Secret
 }
 
@@ -280,6 +281,11 @@ func CopyRegistries(ctx context.Context, logger *log.Logger, sourceConfig *rest.
 // Make registry default
 func (r *Registry) SetDefault(d bool) {
 	r.Default = d
+}
+
+// Make local registry
+func (r *Registry) SetLocal(l bool) {
+	r.Local = l
 }
 
 func secretClient(client *kubernetes.Clientset) kv1.SecretInterface {
