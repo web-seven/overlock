@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"strings"
 
-	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	"github.com/charmbracelet/log"
 	"github.com/kndpio/kndp/internal/engine"
@@ -38,7 +38,7 @@ func KindEnvironment(ctx context.Context, context string, logger *log.Logger, na
 
 	clusterYaml := fmt.Sprintf(yamlTemplate, hostPort)
 
-	cmd := exec.Command("kind", "create", "cluster", "-q", "--name", name, "--config", "-")
+	cmd := exec.Command("kind", "create", "cluster", "--name", name, "--config", "-")
 	cmd.Stdin = strings.NewReader(clusterYaml)
 
 	stderr, err := cmd.StderrPipe()
@@ -56,8 +56,8 @@ func KindEnvironment(ctx context.Context, context string, logger *log.Logger, na
 	stderrScanner := bufio.NewScanner(stderr)
 	for stderrScanner.Scan() {
 		line := stderrScanner.Text()
-		if !strings.Contains(line, " • ") {
-			logger.Print(line)
+		if strings.Contains(line, "ERROR") {
+			logger.Fatal(line)
 		}
 	}
 
@@ -70,7 +70,7 @@ func KindEnvironment(ctx context.Context, context string, logger *log.Logger, na
 	}
 
 	cmd.Wait()
-	configClient, err := ctrl.GetConfig()
+	configClient, err := config.GetConfigWithContext("kind-" + name)
 	if err != nil {
 		logger.Fatal(err)
 	}
