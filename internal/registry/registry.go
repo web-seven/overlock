@@ -4,7 +4,6 @@ import (
 	"context"
 	b64 "encoding/base64"
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/log"
@@ -91,7 +90,7 @@ func (r *Registry) Validate(logger *log.Logger) error {
 				return err
 			}
 		} else {
-			logger.Warn("Custom domains for local repositories do not supported yet, set default")
+			logger.Warn("Custom domains for local repositories do not supported yet, set default: " + DefaultLocalDomain)
 		}
 
 		err := validate.Struct(auth)
@@ -145,14 +144,10 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *log.
 	}
 
 	if r.Local {
-		fmt.Println("LOCAL")
-
 		err := r.CreateLocal(ctx, client)
 		if err != nil {
 			return err
 		}
-		return nil
-
 	}
 
 	secretSpec := r.SecretSpec()
@@ -215,6 +210,8 @@ func (r *Registry) ToSecret() *corev1.Secret {
 	json.Unmarshal(rJson, &sec)
 	return &sec
 }
+
+// Delete registry
 func (r *Registry) Delete(ctx context.Context, config *rest.Config, logger *log.Logger) error {
 
 	installer, err := engine.GetEngine(config)
@@ -244,6 +241,19 @@ func (r *Registry) Delete(ctx context.Context, config *rest.Config, logger *log.
 			return nil
 		}
 
+		if r.Default {
+			if release.Config["args"] != nil {
+				args := []string{}
+				for _, arg := range release.Config["args"].([]interface{}) {
+					if !strings.Contains(arg.(string), "--registry") {
+						args = append(args, arg.(string))
+					}
+				}
+
+				release.Config["args"] = args
+			}
+		}
+
 		err = installer.Upgrade(engine.Version, release.Config)
 		if err != nil {
 			return err
@@ -254,6 +264,11 @@ func (r *Registry) Delete(ctx context.Context, config *rest.Config, logger *log.
 	if err != nil {
 		return err
 	}
+
+	if r.Local {
+		r.DeleteLocal(ctx, client, logger)
+	}
+
 	return secretClient(client).Delete(ctx, r.Name, metav1.DeleteOptions{})
 }
 
@@ -307,6 +322,9 @@ func (r *Registry) SetLocal(l bool) {
 
 // Domain of primary registry
 func (r *Registry) Domain() string {
+	if r.Local {
+		return DefaultLocalDomain
+	}
 	domain := DefaultRemoteDomain
 	for server := range r.Config.Auths {
 		domain = strings.Split(server, "/")[2]

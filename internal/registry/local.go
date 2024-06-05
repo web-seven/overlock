@@ -3,6 +3,7 @@ package registry
 import (
 	"context"
 
+	"github.com/charmbracelet/log"
 	"github.com/kndpio/kndp/internal/namespace"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -11,23 +12,28 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+const (
+	deployName = "kndp-registry"
+	svcName    = "registry"
+)
+
 // Create in cluster registry
 func (r *Registry) CreateLocal(ctx context.Context, client *kubernetes.Clientset) error {
 
 	deploy := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
-			Name: "kndp-registry",
+			Name: deployName,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &v1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app": "kndp-registry",
+					"app": deployName,
 				},
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					Labels: map[string]string{
-						"app": "kndp-registry",
+						"app": deployName,
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -50,8 +56,9 @@ func (r *Registry) CreateLocal(ctx context.Context, client *kubernetes.Clientset
 	}
 	deployments := client.AppsV1().Deployments(namespace.Namespace)
 
-	eDeploy, _ := deployments.Get(ctx, deploy.GetName(), v1.GetOptions{})
-	if eDeploy != nil {
+	_, err := deployments.Get(ctx, deploy.GetName(), v1.GetOptions{})
+
+	if err == nil {
 		_, err := deployments.Update(ctx, deploy, v1.UpdateOptions{})
 		if err != nil {
 			return err
@@ -65,7 +72,7 @@ func (r *Registry) CreateLocal(ctx context.Context, client *kubernetes.Clientset
 
 	svc := &corev1.Service{
 		ObjectMeta: v1.ObjectMeta{
-			Name: "registry",
+			Name: svcName,
 		},
 		Spec: corev1.ServiceSpec{
 			Type:     "ClusterIP",
@@ -82,9 +89,8 @@ func (r *Registry) CreateLocal(ctx context.Context, client *kubernetes.Clientset
 	}
 
 	svcs := client.CoreV1().Services(namespace.Namespace)
-
-	eSvc, _ := svcs.Get(ctx, svc.GetName(), v1.GetOptions{})
-	if eSvc != nil {
+	_, err = svcs.Get(ctx, svc.GetName(), v1.GetOptions{})
+	if err == nil {
 		_, err := svcs.Update(ctx, svc, v1.UpdateOptions{})
 		if err != nil {
 			return err
@@ -95,11 +101,31 @@ func (r *Registry) CreateLocal(ctx context.Context, client *kubernetes.Clientset
 			return err
 		}
 	}
+
 	return nil
 }
 
 // Delete in cluster registry
-func (r *Registry) DeleteLocal() {
-	// TODO: Delete deployment with docker registry
-	// TODO: Delete service with local name
+func (r *Registry) DeleteLocal(ctx context.Context, client *kubernetes.Clientset, logger *log.Logger) error {
+	svcs := client.CoreV1().Services(namespace.Namespace)
+	eSvc, _ := svcs.Get(ctx, svcName, v1.GetOptions{})
+	if eSvc != nil {
+		err := svcs.Delete(ctx, svcName, v1.DeleteOptions{})
+		if err != nil {
+			return err
+		}
+	} else {
+		logger.Warnf("Service %s not found", svcName)
+	}
+	deployments := client.AppsV1().Deployments(namespace.Namespace)
+	eDeploy, _ := deployments.Get(ctx, deployName, v1.GetOptions{})
+	if eDeploy != nil {
+		err := deployments.Delete(ctx, deployName, v1.DeleteOptions{})
+		if err != nil {
+			return err
+		}
+	} else {
+		logger.Warnf("Deployment %s not found", deployName)
+	}
+	return nil
 }
