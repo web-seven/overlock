@@ -4,6 +4,7 @@ import (
 	"context"
 	b64 "encoding/base64"
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/log"
@@ -18,7 +19,12 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-const RegistryServerLabel = "kndp-registry-server-url"
+const (
+	RegistryServerLabel = "kndp-registry-server-url"
+	DefaultRemoteDomain = "xpkg.upbound.io"
+	LocalServiceName    = "registry"
+	DefaultLocalDomain  = LocalServiceName + "." + namespace.Namespace + ".local"
+)
 
 type RegistryAuth struct {
 	Username string `json:"username" validate:"required"`
@@ -75,16 +81,20 @@ func New(server string, username string, password string, email string) Registry
 }
 
 // Validate data in Registry object
-func (r *Registry) Validate() error {
+func (r *Registry) Validate(logger *log.Logger) error {
 	validate := validator.New(validator.WithRequiredStructEnabled())
 	for serverUrl, auth := range r.Config.Auths {
 
-		err := validate.Var(serverUrl, "required,http_url")
-		if err != nil {
-			return err
+		if !r.Local {
+			err := validate.Var(serverUrl, "required,http_url")
+			if err != nil {
+				return err
+			}
+		} else {
+			logger.Warn("Custom domains for local repositories do not supported yet, set default")
 		}
 
-		err = validate.Struct(auth)
+		err := validate.Struct(auth)
 		if err != nil {
 			return err
 		}
@@ -134,6 +144,17 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *log.
 		return err
 	}
 
+	if r.Local {
+		fmt.Println("LOCAL")
+
+		err := r.CreateLocal(ctx, client)
+		if err != nil {
+			return err
+		}
+		return nil
+
+	}
+
 	secretSpec := r.SecretSpec()
 	secret, err := secretClient(client).Create(ctx, &secretSpec, metav1.CreateOptions{})
 	if err != nil {
@@ -171,14 +192,10 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *log.
 			}
 		}
 
-		for server := range r.Config.Auths {
-			urlParts := strings.Split(server, "/")
-			release.Config["args"] = append(
-				args,
-				"--registry="+urlParts[2],
-			)
-			break
-		}
+		release.Config["args"] = append(
+			args,
+			"--registry="+r.Domain(),
+		)
 	}
 
 	logger.Debug("Upgrade Corssplane chart", "Values", release.Config)
@@ -286,6 +303,16 @@ func (r *Registry) SetDefault(d bool) {
 // Make local registry
 func (r *Registry) SetLocal(l bool) {
 	r.Local = l
+}
+
+// Domain of primary registry
+func (r *Registry) Domain() string {
+	domain := DefaultRemoteDomain
+	for server := range r.Config.Auths {
+		domain = strings.Split(server, "/")[2]
+		break
+	}
+	return domain
 }
 
 func secretClient(client *kubernetes.Clientset) kv1.SecretInterface {

@@ -30,7 +30,7 @@ func (c *createCmd) Run(ctx context.Context, client *kubernetes.Clientset, confi
 	reg := registry.New(c.RegistryServer, c.Username, c.Password, c.Email)
 	reg.SetDefault(c.Default)
 	reg.SetLocal(c.Local)
-	verr := reg.Validate()
+	verr := reg.Validate(logger)
 	if verr != nil {
 		errs := verr.(validator.ValidationErrors)
 		for _, err := range errs {
