@@ -35,14 +35,22 @@ func (c *loadCmd) Run(ctx context.Context, config *rest.Config, logger *log.Logg
 	logger.Debugf("Loading image to: %s", cfg.Name)
 	if c.Path != "" {
 		logger.Debugf("Loading from path: %s", c.Path)
-		cfg.LoadPathArchive(c.Path, logger)
+		err = cfg.LoadPathArchive(c.Path)
+		if err != nil {
+			return err
+		}
 	} else if c.Stdin {
+		logger.Debug("Loading from STDIN")
 		reader := bufio.NewReader(os.Stdin)
-		cfg.LoadStdinArchive(reader)
+		err = cfg.LoadStdinArchive(reader)
+		if err != nil {
+			return err
+		}
 	} else {
 		logger.Warn("Archive path or STDIN required for load configuration.")
 		return nil
 	}
+	logger.Debug("Pushing to local registry")
 	err = registry.PushLocalRegistry(ctx, cfg.Name, cfg.Image, config, logger)
 	if err != nil {
 		return err
