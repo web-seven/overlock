@@ -8,6 +8,7 @@ import (
 
 	"github.com/charmbracelet/log"
 	configuration "github.com/crossplane/crossplane/apis/pkg/v1"
+	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/kndpio/kndp/internal/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -21,6 +22,11 @@ const (
 	apiVersion = "v1"
 	apiPlural  = "configurations"
 )
+
+type Configuration struct {
+	Name  string
+	Image regv1.Image
+}
 
 func CheckHealthStatus(status []condition.Condition) bool {
 	healthStatus := false

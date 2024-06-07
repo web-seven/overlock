@@ -22,7 +22,7 @@ const (
 	RegistryServerLabel = "kndp-registry-server-url"
 	DefaultRemoteDomain = "xpkg.upbound.io"
 	LocalServiceName    = "registry"
-	DefaultLocalDomain  = LocalServiceName + "." + namespace.Namespace + ".local"
+	DefaultLocalDomain  = LocalServiceName + "." + namespace.Namespace + ".svc.cluster.local"
 )
 
 type RegistryAuth struct {

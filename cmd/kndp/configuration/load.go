@@ -1,17 +1,52 @@
 package configuration
 
 import (
+	"bufio"
 	"context"
-
-	"k8s.io/client-go/rest"
+	"os"
 
 	"github.com/charmbracelet/log"
+	cfg "github.com/kndpio/kndp/internal/configuration"
+	"github.com/kndpio/kndp/internal/kube"
+	"github.com/kndpio/kndp/internal/registry"
+	"k8s.io/client-go/rest"
 )
 
 type loadCmd struct {
-	Link string `arg:"" required:"" help:"Link URL (or multiple comma separated) to Crossplane configuration to be loaded from Docker to Environment."`
+	Name  string `arg:"" help:"Name of configuration."`
+	Path  string `help:"Path to configuration package archive."`
+	Stdin bool   `help:"Load configuration package from STDIN."`
 }
 
 func (c *loadCmd) Run(ctx context.Context, config *rest.Config, logger *log.Logger) error {
+
+	client, err := kube.Client(config)
+	if err != nil {
+		return err
+	}
+
+	if !registry.IsLocalRegistry(ctx, client) {
+		logger.Warn("Local registry is not installed.")
+		return nil
+	}
+
+	cfg := cfg.Configuration{}
+	cfg.Name = c.Name
+	logger.Debugf("Loading image to: %s", cfg.Name)
+	if c.Path != "" {
+		logger.Debugf("Loading from path: %s", c.Path)
+		cfg.LoadPathArchive(c.Path, logger)
+	} else if c.Stdin {
+		reader := bufio.NewReader(os.Stdin)
+		cfg.LoadStdinArchive(reader)
+	} else {
+		logger.Warn("Archive path or STDIN required for load configuration.")
+		return nil
+	}
+	err = registry.PushLocalRegistry(ctx, cfg.Name, cfg.Image, config, logger)
+	if err != nil {
+		return err
+	}
+	logger.Infof("Image archive %s loaded to local registry.", cfg.Name)
 	return nil
 }

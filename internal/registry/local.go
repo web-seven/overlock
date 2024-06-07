@@ -1,20 +1,40 @@
 package registry
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/charmbracelet/log"
+	"github.com/google/go-containerregistry/pkg/name"
+	regv1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/kndpio/kndp/internal/kube"
 	"github.com/kndpio/kndp/internal/namespace"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/portforward"
+	"k8s.io/client-go/transport/spdy"
 )
 
 const (
 	deployName = "kndp-registry"
 	svcName    = "registry"
+	deployPort = 5000
+	svcPort    = 80
+)
+
+var (
+	matchLabels = map[string]string{
+		"app": deployName,
+	}
 )
 
 // Create in cluster registry
@@ -26,15 +46,11 @@ func (r *Registry) CreateLocal(ctx context.Context, client *kubernetes.Clientset
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{
-					"app": deployName,
-				},
+				MatchLabels: matchLabels,
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Labels: map[string]string{
-						"app": deployName,
-					},
+					Labels: matchLabels,
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
@@ -45,7 +61,7 @@ func (r *Registry) CreateLocal(ctx context.Context, client *kubernetes.Clientset
 								{
 									Name:          "oci",
 									Protocol:      corev1.ProtocolTCP,
-									ContainerPort: 5000,
+									ContainerPort: deployPort,
 								},
 							},
 						},
@@ -81,8 +97,8 @@ func (r *Registry) CreateLocal(ctx context.Context, client *kubernetes.Clientset
 				{
 					Name:       "oci",
 					Protocol:   corev1.ProtocolTCP,
-					Port:       5000,
-					TargetPort: intstr.FromInt(5000),
+					Port:       svcPort,
+					TargetPort: intstr.FromInt(deployPort),
 				},
 			},
 		},
@@ -126,6 +142,72 @@ func (r *Registry) DeleteLocal(ctx context.Context, client *kubernetes.Clientset
 		}
 	} else {
 		logger.Warnf("Deployment %s not found", deployName)
+	}
+	return nil
+}
+
+func IsLocalRegistry(ctx context.Context, client *kubernetes.Clientset) bool {
+	return true
+}
+
+func PushLocalRegistry(ctx context.Context, imageName string, image regv1.Image, config *rest.Config, logger *log.Logger) error {
+
+	client, err := kube.Client(config)
+	if err != nil {
+		return err
+	}
+
+	pods := client.CoreV1().Pods(namespace.Namespace)
+	regs, err := pods.List(ctx, v1.ListOptions{Limit: 1, LabelSelector: "app=" + deployName})
+	if err != nil {
+		return err
+	}
+
+	roundTripper, upgrader, err := spdy.RoundTripperFor(config)
+	if err != nil {
+		panic(err)
+	}
+
+	logger.Debugf("Found local registry with name: %s", regs.Items[0].GetName())
+
+	path := fmt.Sprintf("/api/v1/namespaces/%s/pods/%s/portforward", namespace.Namespace, regs.Items[0].GetName())
+	hostIP := strings.TrimLeft(config.Host, "htps:/")
+	serverURL := url.URL{Scheme: "https", Path: path, Host: hostIP}
+
+	logger.Debugf("Dialer server URL: %s", serverURL.String())
+
+	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: roundTripper}, http.MethodPost, &serverURL)
+	stopChan, readyChan := make(chan struct{}, 1), make(chan struct{}, 1)
+	out, errOut := new(bytes.Buffer), new(bytes.Buffer)
+	forwarder, err := portforward.New(dialer, []string{fmt.Sprint(deployPort)}, stopChan, readyChan, out, errOut)
+	if err != nil {
+		panic(err)
+	}
+
+	go func() {
+		for range readyChan {
+		}
+		if len(errOut.String()) != 0 {
+			close(stopChan)
+		} else if len(out.String()) != 0 {
+			logger.Debug(out.String())
+		}
+		refName := "localhost:" + fmt.Sprint(deployPort) + "/" + imageName
+		logger.Debugf("Try to push to reference: %s", refName)
+		ref, err := name.ParseReference(refName)
+		if err != nil {
+			close(stopChan)
+		}
+		err = remote.Write(ref, image)
+		if err != nil {
+			close(stopChan)
+		}
+		logger.Debug("Pushed to remote registry.")
+		close(stopChan)
+	}()
+
+	if err = forwarder.ForwardPorts(); err != nil {
+		panic(err)
 	}
 	return nil
 }
