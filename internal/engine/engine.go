@@ -64,6 +64,7 @@ var (
 				"xpkg.upbound.io/crossplane-contrib/provider-kubernetes:v0.13.0",
 			},
 		},
+		"args": []string{},
 	}
 )
 

@@ -18,7 +18,12 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-const RegistryServerLabel = "kndp-registry-server-url"
+const (
+	RegistryServerLabel = "kndp-registry-server-url"
+	DefaultRemoteDomain = "xpkg.upbound.io"
+	LocalServiceName    = "registry"
+	DefaultLocalDomain  = LocalServiceName + "." + namespace.Namespace + ".svc.cluster.local"
+)
 
 type RegistryAuth struct {
 	Username string `json:"username" validate:"required"`
@@ -32,7 +37,9 @@ type RegistryConfig struct {
 }
 
 type Registry struct {
-	Config RegistryConfig
+	Config  RegistryConfig
+	Default bool
+	Local   bool
 	corev1.Secret
 }
 
@@ -54,6 +61,7 @@ func Registries(ctx context.Context, client *kubernetes.Clientset) ([]*Registry,
 // Creates new Registry by required parameters
 func New(server string, username string, password string, email string) Registry {
 	registry := Registry{
+		Default: false,
 		Config: RegistryConfig{
 			Auths: map[string]RegistryAuth{
 				server: {
@@ -72,16 +80,20 @@ func New(server string, username string, password string, email string) Registry
 }
 
 // Validate data in Registry object
-func (r *Registry) Validate() error {
+func (r *Registry) Validate(logger *log.Logger) error {
 	validate := validator.New(validator.WithRequiredStructEnabled())
 	for serverUrl, auth := range r.Config.Auths {
 
-		err := validate.Var(serverUrl, "required,http_url")
-		if err != nil {
-			return err
+		if !r.Local {
+			err := validate.Var(serverUrl, "required,http_url")
+			if err != nil {
+				return err
+			}
+		} else {
+			logger.Warn("Custom domains for local repositories do not supported yet, set default: " + DefaultLocalDomain)
 		}
 
-		err = validate.Struct(auth)
+		err := validate.Struct(auth)
 		if err != nil {
 			return err
 		}
@@ -131,6 +143,13 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *log.
 		return err
 	}
 
+	if r.Local {
+		err := r.CreateLocal(ctx, client)
+		if err != nil {
+			return err
+		}
+	}
+
 	secretSpec := r.SecretSpec()
 	secret, err := secretClient(client).Create(ctx, &secretSpec, metav1.CreateOptions{})
 	if err != nil {
@@ -157,6 +176,23 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *log.
 		secret.ObjectMeta.Name,
 	)
 
+	if r.Default {
+		if release.Config["args"] == nil {
+			release.Config["args"] = []interface{}{}
+		}
+		args := []string{}
+		for _, arg := range release.Config["args"].([]interface{}) {
+			if !strings.Contains(arg.(string), "--registry") {
+				args = append(args, arg.(string))
+			}
+		}
+
+		release.Config["args"] = append(
+			args,
+			"--registry="+r.Domain(),
+		)
+	}
+
 	logger.Debug("Upgrade Corssplane chart", "Values", release.Config)
 
 	return installer.Upgrade(engine.Version, release.Config)
@@ -174,6 +210,8 @@ func (r *Registry) ToSecret() *corev1.Secret {
 	json.Unmarshal(rJson, &sec)
 	return &sec
 }
+
+// Delete registry
 func (r *Registry) Delete(ctx context.Context, config *rest.Config, logger *log.Logger) error {
 
 	installer, err := engine.GetEngine(config)
@@ -203,6 +241,19 @@ func (r *Registry) Delete(ctx context.Context, config *rest.Config, logger *log.
 			return nil
 		}
 
+		if r.Default {
+			if release.Config["args"] != nil {
+				args := []string{}
+				for _, arg := range release.Config["args"].([]interface{}) {
+					if !strings.Contains(arg.(string), "--registry") {
+						args = append(args, arg.(string))
+					}
+				}
+
+				release.Config["args"] = args
+			}
+		}
+
 		err = installer.Upgrade(engine.Version, release.Config)
 		if err != nil {
 			return err
@@ -213,6 +264,11 @@ func (r *Registry) Delete(ctx context.Context, config *rest.Config, logger *log.
 	if err != nil {
 		return err
 	}
+
+	if r.Local {
+		r.DeleteLocal(ctx, client, logger)
+	}
+
 	return secretClient(client).Delete(ctx, r.Name, metav1.DeleteOptions{})
 }
 
@@ -252,6 +308,29 @@ func CopyRegistries(ctx context.Context, logger *log.Logger, sourceConfig *rest.
 		logger.Warn("Registries not found")
 	}
 	return nil
+}
+
+// Make registry default
+func (r *Registry) SetDefault(d bool) {
+	r.Default = d
+}
+
+// Make local registry
+func (r *Registry) SetLocal(l bool) {
+	r.Local = l
+}
+
+// Domain of primary registry
+func (r *Registry) Domain() string {
+	if r.Local {
+		return DefaultLocalDomain
+	}
+	domain := DefaultRemoteDomain
+	for server := range r.Config.Auths {
+		domain = strings.Split(server, "/")[2]
+		break
+	}
+	return domain
 }
 
 func secretClient(client *kubernetes.Clientset) kv1.SecretInterface {
