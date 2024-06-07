@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -165,7 +166,12 @@ func PushLocalRegistry(ctx context.Context, imageName string, image regv1.Image,
 
 	roundTripper, upgrader, err := spdy.RoundTripperFor(config)
 	if err != nil {
-		panic(err)
+		return err
+	}
+
+	lPort, err := getFreePort()
+	if err != nil {
+		return err
 	}
 
 	logger.Debugf("Found local registry with name: %s", regs.Items[0].GetName())
@@ -179,9 +185,9 @@ func PushLocalRegistry(ctx context.Context, imageName string, image regv1.Image,
 	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: roundTripper}, http.MethodPost, &serverURL)
 	stopChan, readyChan := make(chan struct{}, 1), make(chan struct{}, 1)
 	out, errOut := new(bytes.Buffer), new(bytes.Buffer)
-	forwarder, err := portforward.New(dialer, []string{fmt.Sprint(deployPort)}, stopChan, readyChan, out, errOut)
+	forwarder, err := portforward.New(dialer, []string{fmt.Sprint(lPort) + ":" + fmt.Sprint(deployPort)}, stopChan, readyChan, out, errOut)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	go func() {
@@ -192,7 +198,7 @@ func PushLocalRegistry(ctx context.Context, imageName string, image regv1.Image,
 		} else if len(out.String()) != 0 {
 			logger.Debug(out.String())
 		}
-		refName := "localhost:" + fmt.Sprint(deployPort) + "/" + imageName
+		refName := "localhost:" + fmt.Sprint(lPort) + "/" + imageName
 		logger.Debugf("Try to push to reference: %s", refName)
 		ref, err := name.ParseReference(refName)
 		if err != nil {
@@ -207,7 +213,19 @@ func PushLocalRegistry(ctx context.Context, imageName string, image regv1.Image,
 	}()
 
 	if err = forwarder.ForwardPorts(); err != nil {
-		panic(err)
+		return err
 	}
 	return nil
+}
+
+func getFreePort() (port int, err error) {
+	var a *net.TCPAddr
+	if a, err = net.ResolveTCPAddr("tcp", "localhost:0"); err == nil {
+		var l *net.TCPListener
+		if l, err = net.ListenTCP("tcp", a); err == nil {
+			defer l.Close()
+			return l.Addr().(*net.TCPAddr).Port, nil
+		}
+	}
+	return
 }
