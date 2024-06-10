@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/charmbracelet/log"
+	"github.com/kndpio/kndp/internal/configuration"
 	cfg "github.com/kndpio/kndp/internal/configuration"
 	"github.com/kndpio/kndp/internal/kube"
 	"github.com/kndpio/kndp/internal/registry"
@@ -16,6 +17,7 @@ type loadCmd struct {
 	Name  string `arg:"" help:"Name of configuration."`
 	Path  string `help:"Path to configuration package archive."`
 	Stdin bool   `help:"Load configuration package from STDIN."`
+	Apply bool   `help:"Apply configuration after load."`
 }
 
 func (c *loadCmd) Run(ctx context.Context, config *rest.Config, logger *log.Logger) error {
@@ -56,5 +58,9 @@ func (c *loadCmd) Run(ctx context.Context, config *rest.Config, logger *log.Logg
 		return err
 	}
 	logger.Infof("Image archive %s loaded to local registry.", cfg.Name)
+
+	if c.Apply {
+		return configuration.ApplyConfiguration(ctx, cfg.Name, config, logger)
+	}
 	return nil
 }
