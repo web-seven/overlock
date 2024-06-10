@@ -4,6 +4,7 @@ import (
 	"context"
 	b64 "encoding/base64"
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/log"
@@ -30,6 +31,7 @@ type RegistryAuth struct {
 	Password string `json:"password" validate:"required"`
 	Email    string `json:"email" validate:"required,email"`
 	Auth     string `json:"auth"`
+	Server   string `json:"server" validate:"required,http_url"`
 }
 
 type RegistryConfig struct {
@@ -69,6 +71,7 @@ func New(server string, username string, password string, email string) Registry
 					Password: password,
 					Email:    email,
 					Auth:     b64.StdEncoding.EncodeToString([]byte(username + ":" + password)),
+					Server:   server,
 				},
 			},
 		},
@@ -80,23 +83,19 @@ func New(server string, username string, password string, email string) Registry
 }
 
 // Validate data in Registry object
-func (r *Registry) Validate(logger *log.Logger) error {
+func (r *Registry) Validate(ctx context.Context, client *kubernetes.Clientset, logger *log.Logger) error {
+	if r.Local {
+		return nil
+	}
 	validate := validator.New(validator.WithRequiredStructEnabled())
-	for serverUrl, auth := range r.Config.Auths {
-
-		if !r.Local {
-			err := validate.Var(serverUrl, "required,http_url")
-			if err != nil {
-				return err
-			}
-		} else {
-			logger.Warn("Custom domains for local repositories do not supported yet, set default: " + DefaultLocalDomain)
-		}
-
+	for _, auth := range r.Config.Auths {
 		err := validate.Struct(auth)
 		if err != nil {
-			return err
+			return fmt.Errorf(err.Error())
 		}
+	}
+	if r.Exists(ctx, client) {
+		return fmt.Errorf("secret for this registry server already exists")
 	}
 	return nil
 }
@@ -142,20 +141,6 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *log.
 	if err != nil {
 		return err
 	}
-
-	if r.Local {
-		err := r.CreateLocal(ctx, client)
-		if err != nil {
-			return err
-		}
-	}
-
-	secretSpec := r.SecretSpec()
-	secret, err := secretClient(client).Create(ctx, &secretSpec, metav1.CreateOptions{})
-	if err != nil {
-		return err
-	}
-
 	installer, err := engine.GetEngine(config)
 	if err != nil {
 		return err
@@ -163,18 +148,31 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *log.
 
 	release, _ := installer.GetRelease()
 
-	if release.Config == nil {
-		release.Config = map[string]interface{}{
-			"imagePullSecrets": []interface{}{},
+	if r.Local {
+		err := r.CreateLocal(ctx, client)
+		if err != nil {
+			return err
 		}
+	} else {
+		secretSpec := r.SecretSpec()
+		secret, err := secretClient(client).Create(ctx, &secretSpec, metav1.CreateOptions{})
+		if err != nil {
+			return err
+		}
+
+		if release.Config == nil {
+			release.Config = map[string]interface{}{
+				"imagePullSecrets": []interface{}{},
+			}
+		}
+		if release.Config["imagePullSecrets"] == nil {
+			release.Config["imagePullSecrets"] = []interface{}{}
+		}
+		release.Config["imagePullSecrets"] = append(
+			release.Config["imagePullSecrets"].([]interface{}),
+			secret.ObjectMeta.Name,
+		)
 	}
-	if release.Config["imagePullSecrets"] == nil {
-		release.Config["imagePullSecrets"] = []interface{}{}
-	}
-	release.Config["imagePullSecrets"] = append(
-		release.Config["imagePullSecrets"].([]interface{}),
-		secret.ObjectMeta.Name,
-	)
 
 	if r.Default {
 		if release.Config["args"] == nil {
