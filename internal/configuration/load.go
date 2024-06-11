@@ -2,10 +2,20 @@ package configuration
 
 import (
 	"bufio"
+	"context"
 	"io"
 	"os"
+	"strings"
 
+	semver "github.com/Masterminds/semver/v3"
+	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
+	"k8s.io/client-go/dynamic"
+)
+
+const (
+	tagDelim         = ":"
+	regRepoDelimiter = "/"
 )
 
 // Load configuration package from TAR archive path
@@ -34,4 +44,27 @@ func (c *Configuration) LoadStdinArchive(stream *bufio.Reader) error {
 	}
 
 	return c.LoadPathArchive(tmpFile.Name())
+}
+
+// Upgrade patch part of configuration version based on deployd configuration
+// Details: https://github.com/kndpio/cli/issues/131
+func (c *Configuration) UpgradeVersion(ctx context.Context, dc dynamic.Interface) error {
+
+	cRef, _ := name.ParseReference(c.Name, name.WithDefaultRegistry(""))
+	eCfgs := GetConfigurations(ctx, dc)
+
+	for _, eCfg := range eCfgs {
+		ecRef, _ := name.ParseReference(eCfg.Spec.Package, name.WithDefaultRegistry(""))
+		if ecRef.Context().Name() == cRef.Context().Name() {
+			cRef = ecRef
+		}
+	}
+
+	version, err := semver.NewVersion(cRef.Identifier())
+	if err != nil {
+		return err
+	}
+
+	c.Name = strings.Join([]string{cRef.Context().Name(), version.IncPatch().String()}, tagDelim)
+	return nil
 }

@@ -10,17 +10,19 @@ import (
 	cfg "github.com/kndpio/kndp/internal/configuration"
 	"github.com/kndpio/kndp/internal/kube"
 	"github.com/kndpio/kndp/internal/registry"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 )
 
 type loadCmd struct {
-	Name  string `arg:"" help:"Name of configuration."`
-	Path  string `help:"Path to configuration package archive."`
-	Stdin bool   `help:"Load configuration package from STDIN."`
-	Apply bool   `help:"Apply configuration after load."`
+	Name    string `arg:"" help:"Name of configuration."`
+	Path    string `help:"Path to configuration package archive."`
+	Stdin   bool   `help:"Load configuration package from STDIN."`
+	Apply   bool   `help:"Apply configuration after load."`
+	Upgrade bool   `help:"Upgrade existing configuration."`
 }
 
-func (c *loadCmd) Run(ctx context.Context, config *rest.Config, logger *log.Logger) error {
+func (c *loadCmd) Run(ctx context.Context, config *rest.Config, dc *dynamic.DynamicClient, logger *log.Logger) error {
 
 	client, err := kube.Client(config)
 	if err != nil {
@@ -34,6 +36,11 @@ func (c *loadCmd) Run(ctx context.Context, config *rest.Config, logger *log.Logg
 
 	cfg := cfg.Configuration{}
 	cfg.Name = c.Name
+
+	if c.Upgrade {
+		cfg.UpgradeVersion(ctx, dc)
+	}
+
 	logger.Debugf("Loading image to: %s", cfg.Name)
 	if c.Path != "" {
 		logger.Debugf("Loading from path: %s", c.Path)
@@ -52,6 +59,7 @@ func (c *loadCmd) Run(ctx context.Context, config *rest.Config, logger *log.Logg
 		logger.Warn("Archive path or STDIN required for load configuration.")
 		return nil
 	}
+
 	logger.Debug("Pushing to local registry")
 	err = registry.PushLocalRegistry(ctx, cfg.Name, cfg.Image, config, logger)
 	if err != nil {
