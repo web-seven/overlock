@@ -178,7 +178,7 @@ func Stop(ctx context.Context, name string, logger *log.Logger) error {
 }
 
 // Start Environment
-func Start(ctx context.Context, name string, logger *log.Logger) error {
+func Start(ctx context.Context, name string, switcher bool, logger *log.Logger) error {
 	dockerClient, err := docker.NewClientWithOpts(docker.FromEnv)
 	if err != nil {
 		return err
@@ -196,6 +196,18 @@ func Start(ctx context.Context, name string, logger *log.Logger) error {
 			}
 		}
 	}
+
+	if switcher {
+		SwitchContext("kind-" + name)
+	}
+
 	logger.Info("Environment started successfully.")
 	return nil
+}
+
+func SwitchContext(name string) (err error) {
+	newConfig := clientcmd.GetConfigFromFileOrDie(clientcmd.RecommendedHomeFile)
+	newConfig.CurrentContext = name
+	err = clientcmd.ModifyConfig(clientcmd.NewDefaultPathOptions(), *newConfig, true)
+	return
 }
