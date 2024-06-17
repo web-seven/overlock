@@ -68,7 +68,7 @@ func (c *loadCmd) Run(ctx context.Context, config *rest.Config, dc *dynamic.Dyna
 	logger.Infof("Image archive %s loaded to local registry.", cfg.Name)
 
 	if c.Apply {
-		return configuration.ApplyConfiguration(ctx, cfg.Name, config, logger)
+		return configuration.ApplyConfiguration(ctx, cfg.Name, config, nil, false, "", logger)
 	}
 	return nil
 }

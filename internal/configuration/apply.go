@@ -3,11 +3,13 @@ package configuration
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/log"
 	"github.com/pkg/errors"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 
 	"github.com/kndpio/kndp/internal/engine"
@@ -17,7 +19,36 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func ApplyConfiguration(ctx context.Context, links string, config *rest.Config, logger *log.Logger) error {
+// RunConfigurationHealthCheck performs a health check on configurations defined by the links string.
+func RunConfigurationHealthCheck(ctx context.Context, dc dynamic.Interface, links string, logger *log.Logger) error {
+	// Split links once and convert to a set for quick lookup
+	linkSet := make(map[string]struct{})
+	for _, link := range strings.Split(links, ",") {
+		linkSet[link] = struct{}{}
+	}
+	cfgs := GetConfigurations(ctx, dc)
+	for {
+		allHealthy := true
+		for _, cfg := range cfgs {
+			if _, linkMatched := linkSet[cfg.Spec.Package]; linkMatched {
+				condition := cfg.Status.Conditions
+				isHealthy := CheckHealthStatus(condition)
+				if !isHealthy {
+					allHealthy = false
+					break
+				}
+			}
+		}
+		if allHealthy {
+			break
+		}
+		time.Sleep(5 * time.Second)
+	}
+
+	return nil
+}
+
+func ApplyConfiguration(ctx context.Context, links string, config *rest.Config, dc dynamic.Interface, wait bool, timer string, logger *log.Logger) error {
 	scheme := runtime.NewScheme()
 	crossv1.AddToScheme(scheme)
 	if kube, err := client.New(config, client.Options{Scheme: scheme}); err == nil {
@@ -33,6 +64,25 @@ func ApplyConfiguration(ctx context.Context, links string, config *rest.Config, 
 	} else {
 		return err
 	}
+	if wait {
+		if timer != "" {
+			timeout, err := time.ParseDuration(timer)
+			if err != nil {
+				return err
+			}
+			timeoutChan := time.After(timeout)
+			select {
+			case <-timeoutChan:
+				logger.Error("Timeout reached.")
+				return nil
+			default:
+				RunConfigurationHealthCheck(ctx, dc, links, logger)
+			}
+		} else {
+			RunConfigurationHealthCheck(ctx, dc, links, logger)
+		}
+	}
+
 	logger.Info("Configuration(s) applied successfully.")
 	return nil
 }
