@@ -43,15 +43,16 @@ type SecretReconciler struct {
 }
 
 const (
-	RepoUrl             = "https://charts.crossplane.io/stable"
-	ChartName           = "crossplane"
-	ReleaseName         = "kndp-crossplane"
-	Version             = "1.15.2"
-	kindClusterRole     = "ClusterRole"
-	providerConfigName  = "kndp-kubernetes-provider-config"
-	aggregateToAdmin    = "rbac.crossplane.io/aggregate-to-admin"
-	trueVal             = "true"
-	errParsePackageName = "package name is not valid"
+	RepoUrl                = "https://charts.crossplane.io/stable"
+	ChartName              = "crossplane"
+	ReleaseName            = "kndp-crossplane"
+	Version                = "1.15.2"
+	kindClusterRole        = "ClusterRole"
+	providerConfigName     = "kndp-kubernetes-provider-config"
+	helmProviderConfigName = "kndp-helm-provider-config"
+	aggregateToAdmin       = "rbac.crossplane.io/aggregate-to-admin"
+	trueVal                = "true"
+	errParsePackageName    = "package name is not valid"
 )
 
 var (
@@ -62,6 +63,7 @@ var (
 		"provider": map[string]any{
 			"packages": []string{
 				"xpkg.upbound.io/crossplane-contrib/provider-kubernetes:v0.13.0",
+				"xpkg.upbound.io/crossplane-contrib/provider-helm:v0.19.0",
 			},
 		},
 		"args": []string{},
@@ -333,8 +335,34 @@ func (a *SecretReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 		},
 	}
 
+	hpc := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "helm.crossplane.io/v1beta1",
+			"kind":       "ProviderConfig",
+			"metadata": map[string]interface{}{
+				"name": helmProviderConfigName,
+			},
+		},
+	}
+
 	if _, err = controllerutil.CreateOrUpdate(ctx, a.Client, pc, func() error {
 		pc.Object["spec"] = map[string]interface{}{
+			"credentials": map[string]interface{}{
+				"secretRef": map[string]interface{}{
+					"key":       "kubeconfig",
+					"name":      providerConfigName,
+					"namespace": namespace.Namespace,
+				},
+				"source": "Secret",
+			},
+		}
+		return nil
+	}); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	if _, err = controllerutil.CreateOrUpdate(ctx, a.Client, hpc, func() error {
+		hpc.Object["spec"] = map[string]interface{}{
 			"credentials": map[string]interface{}{
 				"secretRef": map[string]interface{}{
 					"key":       "kubeconfig",
