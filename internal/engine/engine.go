@@ -48,7 +48,6 @@ const (
 	ReleaseName            = "kndp-crossplane"
 	Version                = "1.15.2"
 	kindClusterRole        = "ClusterRole"
-	clusterRoleName        = "crossplane"
 	providerConfigName     = "kndp-kubernetes-provider-config"
 	helmProviderConfigName = "kndp-helm-provider-config"
 	aggregateToAdmin       = "rbac.crossplane.io/aggregate-to-admin"
@@ -184,13 +183,11 @@ func SetupPrivilegedKubernetesProvider(ctx context.Context, configClient *rest.C
 		ObjectMeta: metav1.ObjectMeta{
 			Name: pcn,
 		},
-		AggregationRule: &rbacv1.AggregationRule{
-			ClusterRoleSelectors: []metav1.LabelSelector{
-				{
-					MatchLabels: map[string]string{
-						aggregateToAdmin: trueVal,
-					},
-				},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{"*", ""},
+				Verbs:     []string{"*"},
+				Resources: []string{"*"},
 			},
 		},
 	}
@@ -213,31 +210,13 @@ func SetupPrivilegedKubernetesProvider(ctx context.Context, configClient *rest.C
 		},
 	}
 
-	crbc := &rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: pcn + "-" + clusterRoleName,
-		},
-		Subjects: []rbacv1.Subject{
-			{
-				Kind:      rbacv1.ServiceAccountKind,
-				Name:      sa.Name,
-				Namespace: namespace.Namespace,
-			},
-		},
-		RoleRef: rbacv1.RoleRef{
-			APIGroup: rbacv1.GroupName,
-			Kind:     kindClusterRole,
-			Name:     clusterRoleName,
-		},
-	}
-
 	scheme := runtime.NewScheme()
 	rbacv1.AddToScheme(scheme)
 	corev1.AddToScheme(scheme)
 	extv1.AddToScheme(scheme)
 	log.SetLogger(zap.New(zap.WriteTo(io.Discard)))
 	ctrl, _ := client.New(configClient, client.Options{Scheme: scheme})
-	for _, res := range []client.Object{sa, saSec, cr, crb, crbc} {
+	for _, res := range []client.Object{sa, saSec, cr, crb} {
 		_, err := controllerutil.CreateOrUpdate(ctx, ctrl, res, func() error {
 			return nil
 		})
