@@ -51,15 +51,23 @@ func (c *Configuration) LoadStdinArchive(stream *bufio.Reader) error {
 func (c *Configuration) UpgradeVersion(ctx context.Context, dc dynamic.Interface) error {
 
 	cRef, _ := name.ParseReference(c.Name, name.WithDefaultRegistry(""))
+	requestedVersion, err := semver.NewVersion(cRef.Identifier())
+	if err != nil {
+		return err
+	}
+	requestedVersion = semver.New(requestedVersion.Major(), requestedVersion.Minor(), 0, "", "")
 	eCfgs := GetConfigurations(ctx, dc)
-
 	for _, eCfg := range eCfgs {
 		ecRef, _ := name.ParseReference(eCfg.Spec.Package, name.WithDefaultRegistry(""))
-		if ecRef.Context().Name() == cRef.Context().Name() {
+		deployedVersion, err := semver.NewVersion(ecRef.Identifier())
+		if err != nil {
+			return err
+		}
+		deployedVersion = semver.New(deployedVersion.Major(), deployedVersion.Minor(), 0, "", "")
+		if ecRef.Context().Name() == cRef.Context().Name() && requestedVersion == deployedVersion {
 			cRef = ecRef
 		}
 	}
-
 	version, err := semver.NewVersion(cRef.Identifier())
 	if err != nil {
 		return err
