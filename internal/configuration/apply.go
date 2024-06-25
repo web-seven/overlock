@@ -20,19 +20,7 @@ import (
 )
 
 // RunConfigurationHealthCheck performs a health check on configurations defined by the links string.
-func RunConfigurationHealthCheck(ctx context.Context, dc dynamic.Interface, links string, wait bool, timer string, logger *log.Logger) error {
-	var timeoutChan <-chan time.Time
-	if !wait {
-		return nil
-	}
-
-	if timer != "" {
-		timeout, err := time.ParseDuration(timer)
-		if err != nil {
-			return err
-		}
-		timeoutChan = time.After(timeout)
-	}
+func HealthCheck(ctx context.Context, dc dynamic.Interface, links string, wait bool, timeoutChan <-chan time.Time, logger *log.Logger) error {
 
 	linkSet := make(map[string]struct{})
 	for _, link := range strings.Split(links, ",") {
@@ -49,9 +37,7 @@ func RunConfigurationHealthCheck(ctx context.Context, dc dynamic.Interface, link
 			allHealthy := true
 			for _, cfg := range cfgs {
 				if _, linkMatched := linkSet[cfg.Spec.Package]; linkMatched {
-					condition := cfg.Status.Conditions
-					isHealthy := CheckHealthStatus(condition)
-					if !isHealthy {
+					if !CheckHealthStatus(cfg.Status.Conditions) {
 						allHealthy = false
 						break
 					}

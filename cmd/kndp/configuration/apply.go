@@ -2,6 +2,7 @@ package configuration
 
 import (
 	"context"
+	"time"
 
 	"github.com/kndpio/kndp/internal/configuration"
 
@@ -19,5 +20,17 @@ type applyCmd struct {
 
 func (c *applyCmd) Run(ctx context.Context, dc *dynamic.DynamicClient, config *rest.Config, logger *log.Logger) error {
 	configuration.ApplyConfiguration(ctx, c.Link, config, logger)
-	return configuration.RunConfigurationHealthCheck(ctx, dc, c.Link, c.Wait, c.Timeout, logger)
+	if !c.Wait {
+		return nil
+	}
+
+	var timeoutChan <-chan time.Time
+	if c.Timeout != "" {
+		timeout, err := time.ParseDuration(c.Timeout)
+		if err != nil {
+			return err
+		}
+		timeoutChan = time.After(timeout)
+	}
+	return configuration.HealthCheck(ctx, dc, c.Link, c.Wait, timeoutChan, logger)
 }
