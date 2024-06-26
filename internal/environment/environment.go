@@ -192,7 +192,7 @@ func Start(ctx context.Context, name string, switcher bool, logger *log.Logger) 
 			containerID := c.ID
 			err := dockerClient.ContainerStart(ctx, containerID, types.ContainerStartOptions{})
 			if err != nil {
-				logger.Errorf("Failed to start environment %s: %v", c.ID, err)
+				logger.Errorf("Environment possible doesn't exists or failed to start %s: %v", c.ID, err)
 				return err
 			}
 			if switcher {
