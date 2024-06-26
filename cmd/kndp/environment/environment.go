@@ -7,5 +7,5 @@ type Cmd struct {
 	List    listCmd    `cmd:"" help:"List of Environments"`
 	Stop    stopCmd    `cmd:"" help:"Stop an Environment"`
 	Start   startCmd   `cmd:"" help:"Start an Environment"`
-	Upgrade upgradeCmd `cmd:"" help:"Upgrade an Environment with latest engine"`
+	Upgrade upgradeCmd `cmd:"" help:"Upgrade specified environment context with the latest engine"`
 }

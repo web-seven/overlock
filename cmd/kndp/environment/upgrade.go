@@ -21,6 +21,6 @@ func (c *upgradeCmd) Run(ctx context.Context, logger *log.Logger) error {
 	if err != nil {
 		logger.Fatal(err)
 	}
-	logger.Info("Engine installed successfully.")
+	logger.Info("Environment upgraded successfully.")
 	return nil
 }
