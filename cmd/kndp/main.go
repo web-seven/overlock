@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/kndpio/kndp/cmd/kndp/configuration"
 	"github.com/kndpio/kndp/cmd/kndp/environment"
+	"github.com/kndpio/kndp/cmd/kndp/generate"
 	"github.com/kndpio/kndp/cmd/kndp/provider"
 	"github.com/kndpio/kndp/internal/kube"
 
@@ -72,6 +73,7 @@ type cli struct {
 	InstallCompletions kongplete.InstallCompletions `cmd:"" help:"Install shell completions"`
 	Provider           provider.Cmd                 `cmd:"" name:"provider" help:"KNDP Provider commands"`
 	Search             registry.SearchCmd           `cmd:"" help:"Search for packages"`
+	Generate           generate.Cmd                 `cmd:"" help:"Generate example by XRD YAML file"`
 }
 
 type helpCmd struct{}
