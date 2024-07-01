@@ -8,7 +8,7 @@ import (
 )
 
 type createCmd struct {
-	Name     string `arg:"" optional:"" help:"Name of environment."`
+	Name     string `arg:"" requried:"" help:"Name of environment."`
 	HostPort int    `optional:"" short:"p" help:"Host port for mapping" default:"80"`
 	Context  string `optional:"" short:"c" help:"Kubernetes context where Environment will be created."`
 	Engine   string `optional:"" short:"e" help:"Specifies the Kubernetes engine to use for the runtime environment." default:"kind"`

@@ -19,55 +19,53 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
-	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/log"
 )
 
 // Create environment
 func Create(ctx context.Context, context string, engineName string, name string, port int, logger *log.Logger) error {
-	if context == "" {
-		if !(len(name) > 0) {
-			form := huh.NewForm(
-				huh.NewGroup(
-					huh.NewInput().
-						Title("Enter a name for environment: ").
-						Value(&name),
-				),
-			)
-			form.Run()
-		}
-		switch engineName {
-		case "kind":
-			logger.Infof("Creating environment with Kubernetes engine 'kind'")
-			err := KindEnvironment(ctx, context, logger, name, port)
-			if err != nil {
-				logger.Fatal(err)
-			}
-		case "k3s":
-			logger.Infof("Creating environment with Kubernetes engine 'k3s'")
-			err := K3sEnvironment(ctx, context, logger, name)
-			if err != nil {
-				logger.Fatal(err)
-			}
-		case "k3d":
-			logger.Infof("Creating environment with Kubernetes engine 'k3d'")
-			err := K3dEnvironment(ctx, context, logger, name)
-			if err != nil {
-				logger.Fatal(err)
-			}
-		default:
-			logger.Fatalf("Kubernetes engine '%s' not supported", engineName)
-		}
-
-	} else {
-		configClient, err := config.GetConfigWithContext(context)
+	switch engineName {
+	case "kind":
+		logger.Infof("Creating environment with Kubernetes engine 'kind'")
+		err := KindEnvironment(ctx, context, logger, name, port)
 		if err != nil {
 			logger.Fatal(err)
 		}
+	case "k3s":
+		logger.Infof("Creating environment with Kubernetes engine 'k3s'")
+		err := K3sEnvironment(ctx, context, logger, name)
+		if err != nil {
+			logger.Fatal(err)
+		}
+	case "k3d":
+		logger.Infof("Creating environment with Kubernetes engine 'k3d'")
+		err := K3dEnvironment(ctx, context, logger, name)
+		if err != nil {
+			logger.Fatal(err)
+		}
+	default:
+		logger.Fatalf("Kubernetes engine '%s' not supported", engineName)
+	}
 
-		return engine.InstallEngine(ctx, configClient, nil)
+	err := Setup(ctx, context, logger)
+	if err != nil {
+		logger.Fatal(err)
 	}
 	logger.Info("Environment created successfully.")
+	return nil
+}
+
+// Setup environment
+func Setup(ctx context.Context, context string, logger *log.Logger) error {
+	configClient, err := config.GetConfigWithContext(context)
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	engine.InstallEngine(ctx, configClient, nil)
+	if err != nil {
+		logger.Fatal(err)
+	}
 	return nil
 }
 
