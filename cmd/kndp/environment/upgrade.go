@@ -9,11 +9,11 @@ import (
 )
 
 type upgradeCmd struct {
-	Context string `arg:"" required:"" help:"Kubernetes context where engine will be upgraded."`
+	Name string `arg:"" required:"" help:"Environment name where engine will be upgraded."`
 }
 
 func (c *upgradeCmd) Run(ctx context.Context, logger *log.Logger) error {
-	configClient, err := config.GetConfigWithContext(c.Context)
+	configClient, err := config.GetConfigWithContext("kind-" + c.Name)
 	if err != nil {
 		logger.Fatal(err)
 	}
