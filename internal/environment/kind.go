@@ -7,10 +7,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
-
 	"github.com/charmbracelet/log"
-	"github.com/kndpio/kndp/internal/engine"
 )
 
 var yamlTemplate = `
@@ -34,7 +31,7 @@ nodes:
     protocol: TCP
 `
 
-func KindEnvironment(ctx context.Context, context string, logger *log.Logger, name string, hostPort int) error {
+func CreateKindEnvironment(ctx context.Context, logger *log.Logger, name string, hostPort int) (string, error) {
 
 	clusterYaml := fmt.Sprintf(yamlTemplate, hostPort)
 
@@ -70,9 +67,24 @@ func KindEnvironment(ctx context.Context, context string, logger *log.Logger, na
 	}
 
 	cmd.Wait()
-	configClient, err := config.GetConfigWithContext("kind-" + name)
+	return KindContextName(name), nil
+}
+
+func DeleteKindEnvironment(name string, logger *log.Logger) error {
+	cmd := exec.Command("kind", "delete", "cluster", "--name", name)
+	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		logger.Fatal(err)
+		return err
 	}
-	return engine.InstallEngine(ctx, configClient, nil)
+	cmd.Start()
+
+	stderrScanner := bufio.NewScanner(stderr)
+	for stderrScanner.Scan() {
+		logger.Print(stderrScanner.Text())
+	}
+	return nil
+}
+
+func KindContextName(name string) string {
+	return "kind-" + name
 }

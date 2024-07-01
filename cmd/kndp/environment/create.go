@@ -15,5 +15,5 @@ type createCmd struct {
 }
 
 func (c *createCmd) Run(ctx context.Context, logger *log.Logger) error {
-	return environment.Create(ctx, c.Context, c.Engine, c.Name, c.HostPort, logger)
+	return environment.Create(ctx, c.Engine, c.Name, c.HostPort, logger, c.Context)
 }

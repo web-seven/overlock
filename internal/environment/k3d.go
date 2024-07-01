@@ -1,16 +1,15 @@
 package environment
 
 import (
+	"bufio"
 	"context"
 	"os"
 	"os/exec"
 
 	"github.com/charmbracelet/log"
-	"github.com/kndpio/kndp/internal/engine"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func K3dEnvironment(ctx context.Context, context string, logger *log.Logger, name string) error {
+func CreateK3dEnvironment(ctx context.Context, logger *log.Logger, name string) (string, error) {
 
 	cmd := exec.Command("k3d", "cluster", "create", name)
 
@@ -22,12 +21,24 @@ func K3dEnvironment(ctx context.Context, context string, logger *log.Logger, nam
 		logger.Fatalf("Error creating k3d cluster: %v", err)
 	}
 
-	configClient, err := ctrl.GetConfig()
-	if err != nil {
-		logger.Fatal(err)
-	}
 	logger.Info("k3d cluster created successfully")
+	return K3dContextName(name), nil
+}
 
-	engine.InstallEngine(ctx, configClient, nil)
+func DeleteK3dEnvironment(name string, logger *log.Logger) error {
+	cmd := exec.Command("k3d", "cluster", "delete", name)
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+	cmd.Start()
+
+	stderrScanner := bufio.NewScanner(stderr)
+	for stderrScanner.Scan() {
+		logger.Print(stderrScanner.Text())
+	}
 	return nil
+}
+func K3dContextName(name string) string {
+	return "k3d-" + name
 }
