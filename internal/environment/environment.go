@@ -22,36 +22,51 @@ import (
 	"github.com/charmbracelet/log"
 )
 
+type Environment struct {
+	name    string
+	engine  string
+	port    int
+	context string
+	options EnvironmentOptions
+}
+
+func New(name string, engine string) *Environment {
+	return &Environment{
+		name:   name,
+		engine: engine,
+	}
+}
+
 // Create environment
-func Create(ctx context.Context, engineName string, name string, port int, logger *log.Logger, context string) error {
+func (e *Environment) Create(ctx context.Context, logger *log.Logger) error {
 	var err error
-	if context == "" {
-		switch engineName {
+	if e.context == "" {
+		switch e.engine {
 		case "kind":
 			logger.Infof("Creating environment with Kubernetes engine 'kind'")
-			context, err = CreateKindEnvironment(ctx, logger, name, port)
+			e.context, err = e.CreateKindEnvironment(logger)
 			if err != nil {
 				logger.Fatal(err)
 			}
 		case "k3s":
 			logger.Infof("Creating environment with Kubernetes engine 'k3s'")
-			context, err = CreateK3sEnvironment(ctx, logger, name)
+			e.context, err = e.CreateK3sEnvironment(logger)
 			if err != nil {
 				logger.Fatal(err)
 			}
 		case "k3d":
 			logger.Infof("Creating environment with Kubernetes engine 'k3d'")
-			context, err = CreateK3dEnvironment(ctx, logger, name)
+			e.context, err = e.CreateK3dEnvironment(logger)
 			if err != nil {
 				logger.Fatal(err)
 			}
 		default:
-			logger.Fatalf("Kubernetes engine '%s' not supported", engineName)
+			logger.Fatalf("Kubernetes engine '%s' not supported", e.engine)
 			return nil
 		}
 	}
 
-	err = Setup(ctx, context, logger)
+	err = e.Setup(ctx, logger)
 	if err != nil {
 		return err
 	}
@@ -59,17 +74,17 @@ func Create(ctx context.Context, engineName string, name string, port int, logge
 	return nil
 }
 
-func Upgrade(ctx context.Context, engineName string, name string, logger *log.Logger, context string) error {
+func (e *Environment) Upgrade(ctx context.Context, logger *log.Logger) error {
 	var err error
-	if context == "" {
-		context = GetContextName(engineName, name)
-		if context == "" {
-			logger.Fatalf("Kubernetes engine '%s' not supported", engineName)
+	if e.context == "" {
+		e.context = e.GetContextName()
+		if e.context == "" {
+			logger.Fatalf("Kubernetes engine '%s' not supported", e.engine)
 			return nil
 		}
 	}
 
-	err = Setup(ctx, context, logger)
+	err = e.Setup(ctx, logger)
 	if err != nil {
 		return err
 	}
@@ -77,17 +92,17 @@ func Upgrade(ctx context.Context, engineName string, name string, logger *log.Lo
 	return nil
 }
 
-func Delete(engineName string, name string, logger *log.Logger) error {
+func (e *Environment) Delete(logger *log.Logger) error {
 	var err error
-	switch engineName {
+	switch e.engine {
 	case "kind":
-		err = DeleteKindEnvironment(name, logger)
+		err = e.DeleteKindEnvironment(logger)
 	case "k3s":
-		err = DeleteK3sEnvironment(name, logger)
+		err = e.DeleteK3sEnvironment(logger)
 	case "k3d":
-		err = DeleteK3dEnvironment(name, logger)
+		err = e.DeleteK3dEnvironment(logger)
 	default:
-		logger.Fatalf("Kubernetes engine '%s' not supported", engineName)
+		logger.Fatalf("Kubernetes engine '%s' not supported", e.engine)
 		return nil
 	}
 	if err != nil {
@@ -97,8 +112,8 @@ func Delete(engineName string, name string, logger *log.Logger) error {
 }
 
 // Setup environment
-func Setup(ctx context.Context, context string, logger *log.Logger) error {
-	configClient, err := config.GetConfigWithContext(context)
+func (e *Environment) Setup(ctx context.Context, logger *log.Logger) error {
+	configClient, err := config.GetConfigWithContext(e.context)
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -114,15 +129,15 @@ func Setup(ctx context.Context, context string, logger *log.Logger) error {
 	return nil
 }
 
-func GetContextName(engineName, envName string) string {
+func (e *Environment) GetContextName() string {
 	var context string
-	switch engineName {
+	switch e.engine {
 	case "kind":
-		context = KindContextName(envName)
+		context = e.KindContextName()
 	case "k3s":
-		context = K3sContextName(envName)
+		context = e.K3sContextName()
 	case "k3d":
-		context = K3dContextName(envName)
+		context = e.K3dContextName()
 	default:
 		return ""
 	}
@@ -130,7 +145,7 @@ func GetContextName(engineName, envName string) string {
 }
 
 // Copy Environment from source to destination contexts
-func CopyEnvironment(ctx context.Context, logger *log.Logger, source string, destination string) error {
+func (e *Environment) CopyEnvironment(ctx context.Context, logger *log.Logger, source string, destination string) error {
 
 	// Create a REST clients
 	sourceConfig, err := kube.Config(source)
@@ -191,6 +206,83 @@ func CopyEnvironment(ctx context.Context, logger *log.Logger, source string, des
 	return nil
 }
 
+// Start Environment
+func (e *Environment) Start(ctx context.Context, switcher bool, logger *log.Logger) error {
+	dockerClient, err := docker.NewClientWithOpts(docker.FromEnv)
+	if err != nil {
+		return err
+	}
+	containers, err := dockerClient.ContainerList(ctx, types.ContainerListOptions{All: true})
+	if err != nil {
+		return err
+	}
+	for _, c := range containers {
+		if strings.Contains(c.Names[0], e.name) {
+			containerID := c.ID
+			err := dockerClient.ContainerStart(ctx, containerID, types.ContainerStartOptions{})
+			if err != nil {
+				logger.Errorf("Environment possible doesn't exists or failed to start %s: %v", c.ID, err)
+				return err
+			}
+			if switcher {
+				err := SwitchContext(e.GetContextName())
+				if err != nil {
+					return err
+				}
+			}
+			logger.Infof("Environment %s started successfully.", e.name)
+			return nil
+		}
+	}
+	logger.Errorf("Environment %s does not exist.", e.name)
+	return nil
+}
+
+// Stop Environment
+func (e *Environment) Stop(ctx context.Context, logger *log.Logger) error {
+	dockerClient, err := docker.NewClientWithOpts(docker.FromEnv)
+	if err != nil {
+		return err
+	}
+	containers, err := dockerClient.ContainerList(ctx, types.ContainerListOptions{All: true})
+	if err != nil {
+		return err
+	}
+	for _, c := range containers {
+		if strings.Contains(c.Names[0], e.name) {
+			containerID := c.ID
+			err := dockerClient.ContainerStop(ctx, containerID, container.StopOptions{})
+			if err != nil {
+				return err
+			}
+		}
+	}
+	logger.Info("Environment stopped successfully.")
+	return nil
+}
+
+func (e *Environment) WithPort(port int) *Environment {
+	e.port = port
+	return e
+}
+
+func (e *Environment) WithContext(context string) *Environment {
+	e.context = context
+	return e
+}
+
+func (e *Environment) WithIngressController(icname string) *Environment {
+	e.options.ingressController = icname
+	return e
+}
+
+func SwitchContext(name string) (err error) {
+	newConfig := clientcmd.GetConfigFromFileOrDie(clientcmd.RecommendedHomeFile)
+	newConfig.CurrentContext = name
+	err = clientcmd.ModifyConfig(clientcmd.NewDefaultPathOptions(), *newConfig, true)
+	return
+}
+
 // List Environments in available contexts
 func ListEnvironments(logger *log.Logger, tableData pterm.TableData) pterm.TableData {
 	kubeconfig := os.Getenv("KUBECONFIG")
@@ -210,66 +302,4 @@ func ListEnvironments(logger *log.Logger, tableData pterm.TableData) pterm.Table
 		}
 	}
 	return tableData
-}
-
-// Stop Environment
-func Stop(ctx context.Context, name string, logger *log.Logger) error {
-	dockerClient, err := docker.NewClientWithOpts(docker.FromEnv)
-	if err != nil {
-		return err
-	}
-	containers, err := dockerClient.ContainerList(ctx, types.ContainerListOptions{All: true})
-	if err != nil {
-		return err
-	}
-	for _, c := range containers {
-		if strings.Contains(c.Names[0], name) {
-			containerID := c.ID
-			err := dockerClient.ContainerStop(ctx, containerID, container.StopOptions{})
-			if err != nil {
-				return err
-			}
-		}
-	}
-	logger.Info("Environment stopped successfully.")
-	return nil
-}
-
-// Start Environment
-func Start(ctx context.Context, name string, switcher bool, engineName string, logger *log.Logger) error {
-	dockerClient, err := docker.NewClientWithOpts(docker.FromEnv)
-	if err != nil {
-		return err
-	}
-	containers, err := dockerClient.ContainerList(ctx, types.ContainerListOptions{All: true})
-	if err != nil {
-		return err
-	}
-	for _, c := range containers {
-		if strings.Contains(c.Names[0], name) {
-			containerID := c.ID
-			err := dockerClient.ContainerStart(ctx, containerID, types.ContainerStartOptions{})
-			if err != nil {
-				logger.Errorf("Environment possible doesn't exists or failed to start %s: %v", c.ID, err)
-				return err
-			}
-			if switcher {
-				err := SwitchContext(GetContextName(engineName, name))
-				if err != nil {
-					return err
-				}
-			}
-			logger.Infof("Environment %s started successfully.", name)
-			return nil
-		}
-	}
-	logger.Errorf("Environment %s does not exist.", name)
-	return nil
-}
-
-func SwitchContext(name string) (err error) {
-	newConfig := clientcmd.GetConfigFromFileOrDie(clientcmd.RecommendedHomeFile)
-	newConfig.CurrentContext = name
-	err = clientcmd.ModifyConfig(clientcmd.NewDefaultPathOptions(), *newConfig, true)
-	return
 }

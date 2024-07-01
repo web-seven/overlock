@@ -2,7 +2,6 @@ package environment
 
 import (
 	"bufio"
-	"context"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -31,11 +30,11 @@ nodes:
     protocol: TCP
 `
 
-func CreateKindEnvironment(ctx context.Context, logger *log.Logger, name string, hostPort int) (string, error) {
+func (e *Environment) CreateKindEnvironment(logger *log.Logger) (string, error) {
 
-	clusterYaml := fmt.Sprintf(yamlTemplate, hostPort)
+	clusterYaml := fmt.Sprintf(yamlTemplate, e.port)
 
-	cmd := exec.Command("kind", "create", "cluster", "--name", name, "--config", "-")
+	cmd := exec.Command("kind", "create", "cluster", "--name", e.name, "--config", "-")
 	cmd.Stdin = strings.NewReader(clusterYaml)
 
 	stderr, err := cmd.StderrPipe()
@@ -67,11 +66,11 @@ func CreateKindEnvironment(ctx context.Context, logger *log.Logger, name string,
 	}
 
 	cmd.Wait()
-	return KindContextName(name), nil
+	return e.KindContextName(), nil
 }
 
-func DeleteKindEnvironment(name string, logger *log.Logger) error {
-	cmd := exec.Command("kind", "delete", "cluster", "--name", name)
+func (e *Environment) DeleteKindEnvironment(logger *log.Logger) error {
+	cmd := exec.Command("kind", "delete", "cluster", "--name", e.name)
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		return err
@@ -85,6 +84,6 @@ func DeleteKindEnvironment(name string, logger *log.Logger) error {
 	return nil
 }
 
-func KindContextName(name string) string {
-	return "kind-" + name
+func (e *Environment) KindContextName() string {
+	return "kind-" + e.name
 }

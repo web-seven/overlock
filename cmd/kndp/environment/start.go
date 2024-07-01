@@ -14,5 +14,7 @@ type startCmd struct {
 }
 
 func (c *startCmd) Run(ctx context.Context, logger *log.Logger) error {
-	return environment.Start(ctx, c.Name, c.Switch, c.Engine, logger)
+	return environment.
+		New(c.Engine, c.Name).
+		Start(ctx, c.Switch, logger)
 }

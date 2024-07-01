@@ -13,5 +13,7 @@ type deleteCmd struct {
 }
 
 func (c *deleteCmd) Run(ctx context.Context, logger *log.Logger) error {
-	return environment.Delete(c.Engine, c.Name, logger)
+	return environment.
+		New(c.Engine, c.Name).
+		Delete(logger)
 }
