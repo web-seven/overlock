@@ -23,35 +23,76 @@ import (
 )
 
 // Create environment
-func Create(ctx context.Context, context string, engineName string, name string, port int, logger *log.Logger) error {
-	switch engineName {
-	case "kind":
-		logger.Infof("Creating environment with Kubernetes engine 'kind'")
-		err := KindEnvironment(ctx, context, logger, name, port)
-		if err != nil {
-			logger.Fatal(err)
+func Create(ctx context.Context, engineName string, name string, port int, logger *log.Logger, context string) error {
+	var err error
+	if context == "" {
+		switch engineName {
+		case "kind":
+			logger.Infof("Creating environment with Kubernetes engine 'kind'")
+			context, err = CreateKindEnvironment(ctx, logger, name, port)
+			if err != nil {
+				logger.Fatal(err)
+			}
+		case "k3s":
+			logger.Infof("Creating environment with Kubernetes engine 'k3s'")
+			context, err = CreateK3sEnvironment(ctx, logger, name)
+			if err != nil {
+				logger.Fatal(err)
+			}
+		case "k3d":
+			logger.Infof("Creating environment with Kubernetes engine 'k3d'")
+			context, err = CreateK3dEnvironment(ctx, logger, name)
+			if err != nil {
+				logger.Fatal(err)
+			}
+		default:
+			logger.Fatalf("Kubernetes engine '%s' not supported", engineName)
+			return nil
 		}
-	case "k3s":
-		logger.Infof("Creating environment with Kubernetes engine 'k3s'")
-		err := K3sEnvironment(ctx, context, logger, name)
-		if err != nil {
-			logger.Fatal(err)
-		}
-	case "k3d":
-		logger.Infof("Creating environment with Kubernetes engine 'k3d'")
-		err := K3dEnvironment(ctx, context, logger, name)
-		if err != nil {
-			logger.Fatal(err)
-		}
-	default:
-		logger.Fatalf("Kubernetes engine '%s' not supported", engineName)
 	}
 
-	err := Setup(ctx, context, logger)
+	err = Setup(ctx, context, logger)
 	if err != nil {
-		logger.Fatal(err)
+		return err
 	}
 	logger.Info("Environment created successfully.")
+	return nil
+}
+
+func Upgrade(ctx context.Context, engineName string, name string, logger *log.Logger, context string) error {
+	var err error
+	if context == "" {
+		context = GetContextName(engineName, name)
+		if context == "" {
+			logger.Fatalf("Kubernetes engine '%s' not supported", engineName)
+			return nil
+		}
+	}
+
+	err = Setup(ctx, context, logger)
+	if err != nil {
+		return err
+	}
+	logger.Info("Environment upgraded successfully.")
+	return nil
+}
+
+func Delete(engineName string, name string, logger *log.Logger) error {
+	var err error
+	switch engineName {
+	case "kind":
+		err = DeleteKindEnvironment(name, logger)
+	case "k3s":
+		err = DeleteK3sEnvironment(name, logger)
+	case "k3d":
+		err = DeleteK3dEnvironment(name, logger)
+	default:
+		logger.Fatalf("Kubernetes engine '%s' not supported", engineName)
+		return nil
+	}
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -61,12 +102,26 @@ func Setup(ctx context.Context, context string, logger *log.Logger) error {
 	if err != nil {
 		logger.Fatal(err)
 	}
-
-	engine.InstallEngine(ctx, configClient, nil)
+	err = engine.InstallEngine(ctx, configClient, nil)
 	if err != nil {
 		logger.Fatal(err)
 	}
 	return nil
+}
+
+func GetContextName(engineName, envName string) string {
+	var context string
+	switch engineName {
+	case "kind":
+		context = KindContextName(envName)
+	case "k3s":
+		context = K3sContextName(envName)
+	case "k3d":
+		context = K3dContextName(envName)
+	default:
+		return ""
+	}
+	return context
 }
 
 // Copy Environment from source to destination contexts
@@ -176,7 +231,7 @@ func Stop(ctx context.Context, name string, logger *log.Logger) error {
 }
 
 // Start Environment
-func Start(ctx context.Context, name string, switcher bool, logger *log.Logger) error {
+func Start(ctx context.Context, name string, switcher bool, engineName string, logger *log.Logger) error {
 	dockerClient, err := docker.NewClientWithOpts(docker.FromEnv)
 	if err != nil {
 		return err
@@ -194,7 +249,10 @@ func Start(ctx context.Context, name string, switcher bool, logger *log.Logger) 
 				return err
 			}
 			if switcher {
-				SwitchContext("kind-" + name)
+				err := SwitchContext(GetContextName(engineName, name))
+				if err != nil {
+					return err
+				}
 			}
 			logger.Infof("Environment %s started successfully.", name)
 			return nil

@@ -7,11 +7,9 @@ import (
 	"time"
 
 	"github.com/charmbracelet/log"
-	"github.com/kndpio/kndp/internal/engine"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
-func K3sEnvironment(ctx context.Context, context string, logger *log.Logger, name string) error {
+func CreateK3sEnvironment(ctx context.Context, logger *log.Logger, name string) (string, error) {
 	cmd := exec.Command("sudo", "k3s", "server",
 		"--write-kubeconfig-mode", "0644",
 		"--node-name", name,
@@ -32,11 +30,13 @@ func K3sEnvironment(ctx context.Context, context string, logger *log.Logger, nam
 
 	logger.Info("k3s server started successfully")
 
-	configClient, err := config.GetConfig()
-	if err != nil {
-		logger.Fatal(err)
-	}
+	return K3sContextName(name), nil
+}
 
-	engine.InstallEngine(ctx, configClient, nil)
+func DeleteK3sEnvironment(name string, logger *log.Logger) error {
 	return nil
+}
+
+func K3sContextName(name string) string {
+	return name
 }

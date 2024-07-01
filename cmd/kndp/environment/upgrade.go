@@ -4,23 +4,15 @@ import (
 	"context"
 
 	"github.com/charmbracelet/log"
-	"github.com/kndpio/kndp/internal/engine"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"github.com/kndpio/kndp/internal/environment"
 )
 
 type upgradeCmd struct {
-	Name string `arg:"" required:"" help:"Environment name where engine will be upgraded."`
+	Name    string `arg:"" required:"" help:"Environment name where engine will be upgraded."`
+	Engine  string `arg:"" required:"" help:"Specifies the Kubernetes engine to use for the runtime environment." default:"kind"`
+	Context string `optional:"" short:"c" help:"Kubernetes context where Environment will be upgraded."`
 }
 
 func (c *upgradeCmd) Run(ctx context.Context, logger *log.Logger) error {
-	configClient, err := config.GetConfigWithContext("kind-" + c.Name)
-	if err != nil {
-		logger.Fatal(err)
-	}
-	err = engine.InstallEngine(ctx, configClient, nil)
-	if err != nil {
-		logger.Fatal(err)
-	}
-	logger.Info("Environment upgraded successfully.")
-	return nil
+	return environment.Upgrade(ctx, c.Engine, c.Name, logger, c.Context)
 }
