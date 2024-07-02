@@ -18,6 +18,7 @@ type createCmd struct {
 func (c *createCmd) Run(ctx context.Context, logger *log.Logger) error {
 	return environment.
 		New(c.Engine, c.Name).
+		WithPort(c.HostPort).
 		WithContext(c.Context).
 		WithIngressController(c.IngressController).
 		Create(ctx, logger)

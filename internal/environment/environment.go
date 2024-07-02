@@ -30,6 +30,7 @@ type Environment struct {
 	options EnvironmentOptions
 }
 
+// New Environment entity
 func New(name string, engine string) *Environment {
 	return &Environment{
 		name:   name,
@@ -74,6 +75,7 @@ func (e *Environment) Create(ctx context.Context, logger *log.Logger) error {
 	return nil
 }
 
+// Upgrade environemnt with options or new features
 func (e *Environment) Upgrade(ctx context.Context, logger *log.Logger) error {
 	var err error
 	if e.context == "" {
@@ -92,6 +94,7 @@ func (e *Environment) Upgrade(ctx context.Context, logger *log.Logger) error {
 	return nil
 }
 
+// Delete environment cluster
 func (e *Environment) Delete(logger *log.Logger) error {
 	var err error
 	switch e.engine {
@@ -129,6 +132,7 @@ func (e *Environment) Setup(ctx context.Context, logger *log.Logger) error {
 	return nil
 }
 
+// Get contect name specially for engine
 func (e *Environment) GetContextName() string {
 	var context string
 	switch e.engine {
