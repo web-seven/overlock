@@ -64,7 +64,7 @@ func (c *Configuration) UpgradeVersion(ctx context.Context, dc dynamic.Interface
 			return err
 		}
 		deployedVersion = semver.New(deployedVersion.Major(), deployedVersion.Minor(), 0, "", "")
-		if ecRef.Context().Name() == cRef.Context().Name() && requestedVersion == deployedVersion {
+		if ecRef.Context().Name() == cRef.Context().Name() && requestedVersion.String() == deployedVersion.String() {
 			cRef = ecRef
 		}
 	}
