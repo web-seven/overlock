@@ -107,7 +107,11 @@ func Setup(ctx context.Context, context string, logger *log.Logger) error {
 		return err
 	}
 	release, _ := installer.GetRelease()
-	err = engine.InstallEngine(ctx, configClient, release.Config)
+	if release != nil {
+		err = engine.InstallEngine(ctx, configClient, release.Config)
+	} else {
+		err = engine.InstallEngine(ctx, configClient, nil)
+	}
 	if err != nil {
 		logger.Fatal(err)
 	}
