@@ -7,7 +7,6 @@ import (
 
 	"github.com/charmbracelet/log"
 	"github.com/kndpio/kndp/internal/configuration"
-	cfg "github.com/kndpio/kndp/internal/configuration"
 	"github.com/kndpio/kndp/internal/kube"
 	"github.com/kndpio/kndp/internal/registry"
 	"k8s.io/client-go/dynamic"
@@ -34,7 +33,13 @@ func (c *loadCmd) Run(ctx context.Context, config *rest.Config, dc *dynamic.Dyna
 		return nil
 	}
 
-	cfg := cfg.Configuration{}
+	reg := registry.Registry{
+		Local:   true,
+		Default: true,
+	}
+	reg.Create(ctx, config, logger)
+
+	cfg := configuration.Configuration{}
 	cfg.Name = c.Name
 
 	if c.Upgrade {
