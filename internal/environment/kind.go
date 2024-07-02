@@ -28,11 +28,14 @@ nodes:
   - containerPort: 80
     hostPort: %d
     protocol: TCP
+  - containerPort: 443
+    hostPort: %d
+    protocol: TCP
 `
 
 func (e *Environment) CreateKindEnvironment(logger *log.Logger) (string, error) {
 
-	clusterYaml := fmt.Sprintf(yamlTemplate, e.port)
+	clusterYaml := fmt.Sprintf(yamlTemplate, e.httpPort, e.httpsPort)
 
 	cmd := exec.Command("kind", "create", "cluster", "--name", e.name, "--config", "-")
 	cmd.Stdin = strings.NewReader(clusterYaml)

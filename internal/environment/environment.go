@@ -11,6 +11,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	docker "github.com/docker/docker/client"
 	"github.com/kndpio/kndp/internal/engine"
+	"github.com/kndpio/kndp/internal/ingress"
 	"github.com/kndpio/kndp/internal/kube"
 	"github.com/kndpio/kndp/internal/namespace"
 	"github.com/kndpio/kndp/internal/registry"
@@ -23,15 +24,16 @@ import (
 )
 
 type Environment struct {
-	name    string
-	engine  string
-	port    int
-	context string
-	options EnvironmentOptions
+	name      string
+	engine    string
+	httpPort  int
+	httpsPort int
+	context   string
+	options   EnvironmentOptions
 }
 
 // New Environment entity
-func New(name string, engine string) *Environment {
+func New(engine string, name string) *Environment {
 	return &Environment{
 		name:   name,
 		engine: engine,
@@ -120,15 +122,32 @@ func (e *Environment) Setup(ctx context.Context, logger *log.Logger) error {
 	if err != nil {
 		logger.Fatal(err)
 	}
+
+	logger.Debug("Start installing options")
+	err = ingress.AddIngressConroller(ctx, configClient, e.options.ingressController)
+	if err != nil {
+		return err
+	}
+	logger.Debug("Done")
+
+	logger.Debug("Preparing engine")
 	installer, err := engine.GetEngine(configClient)
 	if err != nil {
 		return err
 	}
-	release, _ := installer.GetRelease()
-	err = engine.InstallEngine(ctx, configClient, release.Config)
+
+	var params map[string]any
+	release, err := installer.GetRelease()
+	if err == nil {
+		params = release.Config
+	}
+
+	logger.Debug("Installing engine")
+	err = engine.InstallEngine(ctx, configClient, params, logger)
 	if err != nil {
 		logger.Fatal(err)
 	}
+	logger.Debug("Done")
 	return nil
 }
 
@@ -196,7 +215,7 @@ func (e *Environment) CopyEnvironment(ctx context.Context, logger *log.Logger, s
 		return err
 	}
 
-	engine.InstallEngine(ctx, destConfig, sourceRelease.Config)
+	engine.InstallEngine(ctx, destConfig, sourceRelease.Config, logger)
 	logger.Info("Engine copied successfully!")
 
 	// Copy composities
@@ -220,6 +239,7 @@ func (e *Environment) Start(ctx context.Context, switcher bool, logger *log.Logg
 	if err != nil {
 		return err
 	}
+
 	for _, c := range containers {
 		if strings.Contains(c.Names[0], e.name) {
 			containerID := c.ID
@@ -228,17 +248,17 @@ func (e *Environment) Start(ctx context.Context, switcher bool, logger *log.Logg
 				logger.Errorf("Environment possible doesn't exists or failed to start %s: %v", c.ID, err)
 				return err
 			}
-			if switcher {
-				err := SwitchContext(e.GetContextName())
-				if err != nil {
-					return err
-				}
-			}
-			logger.Infof("Environment %s started successfully.", e.name)
-			return nil
 		}
 	}
-	logger.Errorf("Environment %s does not exist.", e.name)
+
+	if switcher {
+		err := SwitchContext(e.GetContextName())
+		if err != nil {
+			return err
+		}
+	}
+
+	logger.Infof("Environment %s started successfully.", e.name)
 	return nil
 }
 
@@ -265,8 +285,13 @@ func (e *Environment) Stop(ctx context.Context, logger *log.Logger) error {
 	return nil
 }
 
-func (e *Environment) WithPort(port int) *Environment {
-	e.port = port
+func (e *Environment) WithHttpPort(port int) *Environment {
+	e.httpPort = port
+	return e
+}
+
+func (e *Environment) WithHttpsPort(port int) *Environment {
+	e.httpsPort = port
 	return e
 }
 

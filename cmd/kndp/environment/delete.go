@@ -9,7 +9,7 @@ import (
 
 type deleteCmd struct {
 	Name   string `arg:"" required:"" help:"Name of environment."`
-	Engine string `arg:"" required:"" help:"Specifies the Kubernetes engine to use for the runtime environment." default:"kind"`
+	Engine string `optional:"" help:"Specifies the Kubernetes engine to use for the runtime environment." default:"kind"`
 }
 
 func (c *deleteCmd) Run(ctx context.Context, logger *log.Logger) error {
