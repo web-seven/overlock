@@ -10,9 +10,11 @@ import (
 type startCmd struct {
 	Name   string `arg:"" required:"" help:"Name of environment."`
 	Switch bool   `optional:"" short:"s" help:"Switch kubernetes context to started cluster context."`
-	Engine string `arg:"" required:"" help:"Specifies the Kubernetes engine to use for the runtime environment." default:"kind"`
+	Engine string `optional:"" help:"Specifies the Kubernetes engine to use for the runtime environment." default:"kind"`
 }
 
 func (c *startCmd) Run(ctx context.Context, logger *log.Logger) error {
-	return environment.Start(ctx, c.Name, c.Switch, c.Engine, logger)
+	return environment.
+		New(c.Engine, c.Name).
+		Start(ctx, c.Switch, logger)
 }

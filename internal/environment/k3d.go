@@ -2,16 +2,15 @@ package environment
 
 import (
 	"bufio"
-	"context"
 	"os"
 	"os/exec"
 
 	"github.com/charmbracelet/log"
 )
 
-func CreateK3dEnvironment(ctx context.Context, logger *log.Logger, name string) (string, error) {
+func (e *Environment) CreateK3dEnvironment(logger *log.Logger) (string, error) {
 
-	cmd := exec.Command("k3d", "cluster", "create", name)
+	cmd := exec.Command("k3d", "cluster", "create", e.name)
 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -22,11 +21,11 @@ func CreateK3dEnvironment(ctx context.Context, logger *log.Logger, name string) 
 	}
 
 	logger.Info("k3d cluster created successfully")
-	return K3dContextName(name), nil
+	return e.K3dContextName(), nil
 }
 
-func DeleteK3dEnvironment(name string, logger *log.Logger) error {
-	cmd := exec.Command("k3d", "cluster", "delete", name)
+func (e *Environment) DeleteK3dEnvironment(logger *log.Logger) error {
+	cmd := exec.Command("k3d", "cluster", "delete", e.name)
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		return err
@@ -39,6 +38,7 @@ func DeleteK3dEnvironment(name string, logger *log.Logger) error {
 	}
 	return nil
 }
-func K3dContextName(name string) string {
-	return "k3d-" + name
+
+func (e *Environment) K3dContextName() string {
+	return "k3d-" + e.name
 }

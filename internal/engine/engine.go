@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 
+	logger "github.com/charmbracelet/log"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -102,7 +103,7 @@ func GetEngine(configClient *rest.Config) (install.Manager, error) {
 }
 
 // Install engine Helm release
-func InstallEngine(ctx context.Context, configClient *rest.Config, params map[string]any) error {
+func InstallEngine(ctx context.Context, configClient *rest.Config, params map[string]any, logger *logger.Logger) error {
 	engine, err := GetEngine(configClient)
 	if err != nil {
 		return err
@@ -111,13 +112,14 @@ func InstallEngine(ctx context.Context, configClient *rest.Config, params map[st
 	if params == nil {
 		params = initParameters
 	}
-
+	logger.Debug("Upgrade Crossplane release")
 	err = engine.Upgrade(Version, params)
 	if err != nil {
 		return err
 	}
+	logger.Debug("Done")
 
-	return SetupPrivilegedKubernetesProvider(ctx, configClient)
+	return SetupPrivilegedKubernetesProvider(ctx, configClient, logger)
 }
 
 // Check if engine release exists
@@ -157,7 +159,7 @@ func ManagedSelector(m map[string]string) string {
 }
 
 // Setup Kubernetes provider which has crossplane admin aggregation role assigned
-func SetupPrivilegedKubernetesProvider(ctx context.Context, configClient *rest.Config) error {
+func SetupPrivilegedKubernetesProvider(ctx context.Context, configClient *rest.Config, logger *logger.Logger) error {
 
 	pcn := providerConfigName
 
@@ -261,13 +263,13 @@ func SetupPrivilegedKubernetesProvider(ctx context.Context, configClient *rest.C
 		}); err != nil {
 		return err
 	}
+	logger.Debug("Starting reconciliation of Kubernetes Provider")
 	mgr.Start(mgrContext)
 	return nil
 }
 
 // Reconcile SvcAcc secret for make kubeconfig
 func (a *SecretReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-
 	sec := &corev1.Secret{}
 	err := a.Get(ctx, req.NamespacedName, sec)
 	if err != nil {

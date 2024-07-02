@@ -1,7 +1,6 @@
 package environment
 
 import (
-	"context"
 	"os"
 	"os/exec"
 	"time"
@@ -9,10 +8,10 @@ import (
 	"github.com/charmbracelet/log"
 )
 
-func CreateK3sEnvironment(ctx context.Context, logger *log.Logger, name string) (string, error) {
+func (e *Environment) CreateK3sEnvironment(logger *log.Logger) (string, error) {
 	cmd := exec.Command("sudo", "k3s", "server",
 		"--write-kubeconfig-mode", "0644",
-		"--node-name", name,
+		"--node-name", e.name,
 		"--cluster-init")
 
 	// Set the KUBECONFIG environment variable for the k3s process only
@@ -30,13 +29,13 @@ func CreateK3sEnvironment(ctx context.Context, logger *log.Logger, name string) 
 
 	logger.Info("k3s server started successfully")
 
-	return K3sContextName(name), nil
+	return e.K3sContextName(), nil
 }
 
-func DeleteK3sEnvironment(name string, logger *log.Logger) error {
+func (e *Environment) DeleteK3sEnvironment(logger *log.Logger) error {
 	return nil
 }
 
-func K3sContextName(name string) string {
-	return name
+func (e *Environment) K3sContextName() string {
+	return e.name
 }
