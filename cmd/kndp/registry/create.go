@@ -35,7 +35,7 @@ func (c *createCmd) Run(ctx context.Context, client *kubernetes.Clientset, confi
 
 	err = reg.Create(ctx, config, logger)
 	if err != nil {
-		logger.Error(err)
+		return err
 	} else {
 		logger.Info("Registry created successfully.")
 	}

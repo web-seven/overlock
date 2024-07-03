@@ -9,11 +9,11 @@ import (
 )
 
 const (
-	nginxChartName    = "kyverno"
-	nginxChartVersion = "3.2.5"
-	nginxReleaseName  = "kyverno"
-	nginxRepoUrl      = "https://kyverno.github.io/kyverno/"
-	nginxNamespace    = "kyverno"
+	kyvernoChartName    = "kyverno"
+	kyvernoChartVersion = "3.2.5"
+	kyvernoReleaseName  = "kyverno"
+	kyvernoRepoUrl      = "https://kyverno.github.io/kyverno/"
+	kyvernoNamespace    = "kyverno"
 )
 
 var (
@@ -37,13 +37,13 @@ var (
 )
 
 func AddKyvernoPolicyConroller(ctx context.Context, config *rest.Config) error {
-	repoURL, err := url.Parse(nginxRepoUrl)
+	repoURL, err := url.Parse(kyvernoRepoUrl)
 	if err != nil {
 		return err
 	}
 
-	manager, err := helm.NewManager(config, nginxChartName, repoURL, nginxReleaseName,
-		helm.InstallerModifierFn(helm.WithNamespace(nginxNamespace)),
+	manager, err := helm.NewManager(config, kyvernoChartName, repoURL, kyvernoReleaseName,
+		helm.InstallerModifierFn(helm.WithNamespace(kyvernoNamespace)),
 		helm.InstallerModifierFn(helm.WithUpgradeInstall(true)),
 		helm.InstallerModifierFn(helm.WithCreateNamespace(true)),
 	)
@@ -51,7 +51,7 @@ func AddKyvernoPolicyConroller(ctx context.Context, config *rest.Config) error {
 		return err
 	}
 
-	manager.Upgrade(nginxChartVersion, chartValues)
+	manager.Upgrade(kyvernoChartVersion, chartValues)
 	if err != nil {
 		return err
 	}
