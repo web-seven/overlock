@@ -2,43 +2,50 @@ package provider
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/log"
-	provider "github.com/crossplane/crossplane/apis/pkg/v1"
-	"github.com/kndpio/kndp/internal/kube"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/dynamic"
+	"github.com/kndpio/kndp/internal/engine"
+	"k8s.io/client-go/rest"
 )
 
 // DeleteProvider deletes a crossplane provider from current environment
-func DeleteProvider(ctx context.Context, dynamicClient dynamic.Interface, url string, logger *log.Logger) error {
-	var providerParams = kube.ResourceParams{
-		Dynamic:    dynamicClient,
-		Ctx:        ctx,
-		Group:      "pkg.crossplane.io",
-		Version:    "v1",
-		Resource:   "providers",
-		Namespace:  "",
-		ListOption: metav1.ListOptions{},
+func DeleteProvider(ctx context.Context, configClient *rest.Config, url string, logger *log.Logger) error {
+
+	logger.Debug("Preparing engine")
+	installer, err := engine.GetEngine(configClient)
+	if err != nil {
+		return err
 	}
-	destConf, _ := kube.GetKubeResources(providerParams)
-	logger.Debug("Getting providers from environment")
-	for _, conf := range destConf {
-		var provider provider.Provider
-		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(conf.UnstructuredContent(), &provider); err != nil {
-			logger.Printf("Failed to convert item %s: %v\n", conf.GetName(), err)
-			continue
-		}
-		if provider.Spec.Package == url {
-			err := kube.DeleteKubeResources(ctx, providerParams, provider.Name)
-			if err != nil {
-				return err
-			}
-			logger.Infof("Provider %s deleted succesffuly!", url)
-			return nil
-		}
+
+	var params map[string]any
+	release, err := installer.GetRelease()
+	if err == nil {
+		params = release.Config
 	}
-	logger.Errorf("Provider %s does not exist in environment", url)
+
+	provider := params["provider"].(map[string]any)
+	packages, ok := provider["packages"].([]any)
+	if !ok {
+		return fmt.Errorf("error extracting packages")
+	}
+	var newpackages []string
+	for _, p := range packages {
+		pstr := p.(string)
+		if !strings.Contains(pstr, url) {
+			newpackages = append(newpackages, pstr)
+		}
+
+	}
+	provider["packages"] = newpackages
+	params["provider"] = provider
+
+	logger.Debug("Installing engine")
+	err = engine.InstallEngine(ctx, configClient, params, logger)
+	if err != nil {
+		return err
+	}
+	logger.Infof("Provider %s deleted successfully", url)
 	return nil
 }

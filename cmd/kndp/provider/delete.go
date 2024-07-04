@@ -14,5 +14,5 @@ type deleteCmd struct {
 }
 
 func (c *deleteCmd) Run(ctx context.Context, config *rest.Config, dynamicClient *dynamic.DynamicClient, logger *log.Logger) error {
-	return provider.DeleteProvider(ctx, dynamicClient, c.ProviderUrl, logger)
+	return provider.DeleteProvider(ctx, config, c.ProviderUrl, logger)
 }
