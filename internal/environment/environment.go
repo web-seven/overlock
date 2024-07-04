@@ -125,12 +125,14 @@ func (e *Environment) Setup(ctx context.Context, logger *log.Logger) error {
 	}
 
 	logger.Debug("Start installing options")
-	logger.Debugf("Ingress controller: %s", e.options.ingressController)
+	logger.Debugf("Option Ingress controller: %s", e.options.ingressController)
 	err = ingress.AddIngressConroller(ctx, configClient, e.options.ingressController)
 	if err != nil {
 		return err
 	}
-	logger.Debugf("Policy controller: %s", e.options.policyController)
+	logger.Debug("Done")
+
+	logger.Debugf("Option Policy controller: %s", e.options.policyController)
 	err = policy.AddPolicyConroller(ctx, configClient, e.options.policyController)
 	if err != nil {
 		return err

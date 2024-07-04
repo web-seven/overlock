@@ -12,11 +12,9 @@ import (
 	"github.com/kndpio/kndp/internal/engine"
 	"github.com/kndpio/kndp/internal/kube"
 	"github.com/kndpio/kndp/internal/namespace"
+	"github.com/kndpio/kndp/internal/policy"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	kv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
@@ -27,6 +25,7 @@ const (
 	DefaultRemoteDomain = "xpkg.upbound.io"
 	LocalServiceName    = "registry"
 	DefaultLocalDomain  = LocalServiceName + "." + namespace.Namespace + ".svc.cluster.local"
+	AuthConfigLabel     = "kndp-registry-auth-config"
 )
 
 type RegistryAuth struct {
@@ -51,7 +50,7 @@ type Registry struct {
 // Return regestires from requested context
 func Registries(ctx context.Context, client *kubernetes.Clientset) ([]*Registry, error) {
 	secrets, err := secretClient(client).
-		List(ctx, metav1.ListOptions{LabelSelector: "kndp-registry-auth-config=true"})
+		List(ctx, metav1.ListOptions{LabelSelector: AuthConfigLabel + "=true"})
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +125,7 @@ func (r *Registry) SecretSpec() corev1.Secret {
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "registry-server-auth-",
 			Labels: engine.ManagedLabels(map[string]string{
-				"kndp-registry-auth-config": "true",
+				AuthConfigLabel: "true",
 			}),
 			Annotations: r.Annotations,
 		},
@@ -151,6 +150,8 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *log.
 
 	release, _ := installer.GetRelease()
 
+	logger.Debug("Added policies")
+
 	if r.Local {
 		err := r.CreateLocal(ctx, client)
 		if err != nil {
@@ -166,12 +167,19 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *log.
 		r.Secret = *secret
 		logger.Debugf("Created registry secret %s", r.Secret.ObjectMeta.Name)
 
-		err = r.AddPolicies(ctx, logger, config)
+		serverUrls := []string{}
+		for _, auth := range r.Config.Auths {
+			serverUrls = append(
+				serverUrls,
+				strings.Replace(auth.Server, "https://", "", -1),
+			)
+		}
+		logger.Debugf("Adding registry policies %s", r.Secret.ObjectMeta.Name)
+		err = policy.AddRegistryPolicy(ctx, config, &policy.RegistryPolicy{Name: r.Name, Urls: serverUrls})
 		if err != nil {
 			return err
 		}
-
-		logger.Debug("Added policies")
+		logger.Debug("Done")
 
 		if release.Config == nil {
 			release.Config = map[string]interface{}{
@@ -280,6 +288,11 @@ func (r *Registry) Delete(ctx context.Context, config *rest.Config, logger *log.
 		r.DeleteLocal(ctx, client, logger)
 	}
 
+	err = policy.DeleteRegistryPolicy(ctx, config, &policy.RegistryPolicy{Name: r.Name})
+	if err != nil {
+		return err
+	}
+
 	return secretClient(client).Delete(ctx, r.Name, metav1.DeleteOptions{})
 }
 
@@ -342,117 +355,6 @@ func (r *Registry) Domain() string {
 		break
 	}
 	return domain
-}
-
-// Add policies to sync and apply image pull secrets
-func (r *Registry) AddPolicies(ctx context.Context, logger *log.Logger, config *rest.Config) error {
-
-	scplc := &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "kyverno.io/v1",
-			"kind":       "ClusterPolicy",
-			"metadata": map[string]interface{}{
-				"name": "kndp-sync-registry-secrets",
-			},
-			"spec": map[string]interface{}{
-				"rules": []map[string]interface{}{
-					{
-						"name": "kndp-sync-registry-secrets",
-						"match": map[string]interface{}{
-							"resources": map[string]interface{}{
-								"kinds": []string{
-									"Namespace",
-								},
-							},
-						},
-						"generate": map[string]interface{}{
-							"apiVersion":  "v1",
-							"kind":        "Secret",
-							"name":        r.Secret.ObjectMeta.Name,
-							"namespace":   "{{request.object.metadata.name}}",
-							"synchronize": true,
-							"clone": map[string]interface{}{
-								"namespace": namespace.Namespace,
-								"name":      r.Secret.ObjectMeta.Name,
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	images := []map[string]interface{}{}
-	for _, auth := range r.Config.Auths {
-		images = append(images, map[string]interface{}{
-			"<(image)": strings.Replace(auth.Server, "https://", "", -1),
-		})
-	}
-
-	imsplc := &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"apiVersion": "kyverno.io/v1",
-			"kind":       "ClusterPolicy",
-			"metadata": map[string]interface{}{
-				"name": "kndp-add-imagepullsecrets",
-			},
-			"spec": map[string]interface{}{
-				"rules": []map[string]interface{}{
-					{
-						"name": "kndp-add-imagepullsecret",
-						"match": map[string]interface{}{
-							"any": []map[string]interface{}{
-								{
-									"resources": map[string]interface{}{
-										"kinds": []string{
-											"Pod",
-										},
-									},
-								},
-							},
-						},
-						"mutate": map[string]interface{}{
-							"patchStrategicMerge": map[string]interface{}{
-								"spec": map[string]interface{}{
-									"containers": images,
-									"imagePullSecrets": []map[string]interface{}{
-										{
-											"name": r.Secret.ObjectMeta.Name,
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	dynamicClient, err := dynamic.NewForConfig(config)
-	if err != nil {
-		return err
-	}
-
-	gvr := schema.GroupVersionResource{
-		Group:    "kyverno.io",
-		Version:  "v1",
-		Resource: "clusterpolicies",
-	}
-
-	logger.Debug("Creating secret sync policy")
-	result, err := dynamicClient.Resource(gvr).Create(ctx, scplc, metav1.CreateOptions{})
-	if err != nil {
-		return err
-	}
-	logger.Debugf("Done. %s", fmt.Sprint(result))
-	logger.Debug("Creating image pull policy")
-	result, err = dynamicClient.Resource(gvr).Create(ctx, imsplc, metav1.CreateOptions{})
-	if err != nil {
-		return err
-	}
-	logger.Debugf("Done. %s", fmt.Sprint(result))
-	return nil
 }
 
 func secretClient(client *kubernetes.Clientset) kv1.SecretInterface {
