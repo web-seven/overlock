@@ -3,6 +3,8 @@ package provider
 import (
 	"context"
 
+	regv1 "github.com/google/go-containerregistry/pkg/v1"
+
 	"github.com/charmbracelet/log"
 	provider "github.com/crossplane/crossplane/apis/pkg/v1"
 	"github.com/kndpio/kndp/internal/kube"
@@ -10,6 +12,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 )
+
+type Provider struct {
+	Name  string
+	Image regv1.Image
+}
 
 func ListProviders(ctx context.Context, dynamicClient dynamic.Interface, logger *log.Logger) []provider.Provider {
 	destConf, _ := kube.GetKubeResources(kube.ResourceParams{
