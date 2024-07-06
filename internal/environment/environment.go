@@ -14,6 +14,7 @@ import (
 	"github.com/kndpio/kndp/internal/ingress"
 	"github.com/kndpio/kndp/internal/kube"
 	"github.com/kndpio/kndp/internal/namespace"
+	"github.com/kndpio/kndp/internal/policy"
 	"github.com/kndpio/kndp/internal/registry"
 	"github.com/kndpio/kndp/internal/resources"
 	"github.com/pterm/pterm"
@@ -124,7 +125,15 @@ func (e *Environment) Setup(ctx context.Context, logger *log.Logger) error {
 	}
 
 	logger.Debug("Start installing options")
+	logger.Debugf("Option Ingress controller: %s", e.options.ingressController)
 	err = ingress.AddIngressConroller(ctx, configClient, e.options.ingressController)
+	if err != nil {
+		return err
+	}
+	logger.Debug("Done")
+
+	logger.Debugf("Option Policy controller: %s", e.options.policyController)
+	err = policy.AddPolicyConroller(ctx, configClient, e.options.policyController)
 	if err != nil {
 		return err
 	}
@@ -302,6 +311,11 @@ func (e *Environment) WithContext(context string) *Environment {
 
 func (e *Environment) WithIngressController(icname string) *Environment {
 	e.options.ingressController = icname
+	return e
+}
+
+func (e *Environment) WithPolicyController(pcname string) *Environment {
+	e.options.policyController = pcname
 	return e
 }
 

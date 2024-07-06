@@ -12,6 +12,7 @@ import (
 	"github.com/kndpio/kndp/internal/engine"
 	"github.com/kndpio/kndp/internal/kube"
 	"github.com/kndpio/kndp/internal/namespace"
+	"github.com/kndpio/kndp/internal/policy"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -24,6 +25,7 @@ const (
 	DefaultRemoteDomain = "xpkg.upbound.io"
 	LocalServiceName    = "registry"
 	DefaultLocalDomain  = LocalServiceName + "." + namespace.Namespace + ".svc.cluster.local"
+	AuthConfigLabel     = "kndp-registry-auth-config"
 )
 
 type RegistryAuth struct {
@@ -48,7 +50,7 @@ type Registry struct {
 // Return regestires from requested context
 func Registries(ctx context.Context, client *kubernetes.Clientset) ([]*Registry, error) {
 	secrets, err := secretClient(client).
-		List(ctx, metav1.ListOptions{LabelSelector: "kndp-registry-auth-config=true"})
+		List(ctx, metav1.ListOptions{LabelSelector: AuthConfigLabel + "=true"})
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +125,7 @@ func (r *Registry) SecretSpec() corev1.Secret {
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "registry-server-auth-",
 			Labels: engine.ManagedLabels(map[string]string{
-				"kndp-registry-auth-config": "true",
+				AuthConfigLabel: "true",
 			}),
 			Annotations: r.Annotations,
 		},
@@ -148,6 +150,8 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *log.
 
 	release, _ := installer.GetRelease()
 
+	logger.Debug("Added policies")
+
 	if r.Local {
 		err := r.CreateLocal(ctx, client)
 		if err != nil {
@@ -159,6 +163,23 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *log.
 		if err != nil {
 			return err
 		}
+
+		r.Secret = *secret
+		logger.Debugf("Created registry secret %s", r.Secret.ObjectMeta.Name)
+
+		serverUrls := []string{}
+		for _, auth := range r.Config.Auths {
+			serverUrls = append(
+				serverUrls,
+				strings.Replace(auth.Server, "https://", "", -1),
+			)
+		}
+		logger.Debugf("Adding registry policies %s", r.Secret.ObjectMeta.Name)
+		err = policy.AddRegistryPolicy(ctx, config, &policy.RegistryPolicy{Name: r.Name, Urls: serverUrls})
+		if err != nil {
+			return err
+		}
+		logger.Debug("Done")
 
 		if release.Config == nil {
 			release.Config = map[string]interface{}{
@@ -265,6 +286,11 @@ func (r *Registry) Delete(ctx context.Context, config *rest.Config, logger *log.
 
 	if r.Local {
 		r.DeleteLocal(ctx, client, logger)
+	}
+
+	err = policy.DeleteRegistryPolicy(ctx, config, &policy.RegistryPolicy{Name: r.Name})
+	if err != nil {
+		return err
 	}
 
 	return secretClient(client).Delete(ctx, r.Name, metav1.DeleteOptions{})
