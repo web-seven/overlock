@@ -23,9 +23,9 @@ var (
 				"ingress-ready": "true",
 			},
 			"terminationGracePeriodSeconds": "0",
-			"watchIngressWithoutClass":      "true",
+			"watchIngressWithoutClass":      true,
 			"publishService": map[string]interface{}{
-				"enabled": "false",
+				"enabled": false,
 			},
 			"tolerations": []map[string]interface{}{
 				{
@@ -40,13 +40,13 @@ var (
 				},
 			},
 			"hostPort": map[string]interface{}{
-				"enabled": "true",
+				"enabled": true,
 			},
 			"service": map[string]interface{}{
 				"type": "NodePort",
 			},
 			"extraArgs": map[string]interface{}{
-				"enable-ssl-passthrough": "true",
+				"publish-status-address": "localhost",
 			},
 		},
 	}
