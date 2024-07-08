@@ -18,6 +18,13 @@ type Provider struct {
 	Image regv1.Image
 }
 
+// New Provider entity
+func New(name string) *Provider {
+	return &Provider{
+		Name: name,
+	}
+}
+
 func ListProviders(ctx context.Context, dynamicClient dynamic.Interface, logger *log.Logger) []provider.Provider {
 	destConf, _ := kube.GetKubeResources(kube.ResourceParams{
 		Dynamic:    dynamicClient,
