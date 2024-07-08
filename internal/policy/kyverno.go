@@ -2,6 +2,7 @@ package policy
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"strings"
 
@@ -20,6 +21,7 @@ const (
 	kyvernoReleaseName  = "kyverno"
 	kyvernoRepoUrl      = "https://kyverno.github.io/kyverno/"
 	kyvernoNamespace    = "kyverno"
+	nodePort            = "30100"
 )
 
 var (
@@ -176,6 +178,75 @@ func addKyvernoRegistryPolicies(ctx context.Context, config *rest.Config, regist
 		return err
 	}
 	_, err = dynamicClient.Resource(gvr).Create(ctx, imsplc, metav1.CreateOptions{})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Add local registry policies
+func addKyvernoLocalRegistryPolicies(ctx context.Context, config *rest.Config, registry *RegistryPolicy) error {
+
+	regplc := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "kyverno.io/v1",
+			"kind":       "ClusterPolicy",
+			"metadata": map[string]interface{}{
+				"name": "kndp-patch-" + registry.Name,
+			},
+			"spec": map[string]interface{}{
+				"generateExisting": true,
+				"rules": []interface{}{
+					map[string]interface{}{
+						"name": "kndp-patch-" + registry.Name,
+						"match": map[string]interface{}{
+							"any": []interface{}{
+								map[string]interface{}{
+									"resources": map[string]interface{}{
+										"kinds": []interface{}{
+											"Pod",
+										},
+									},
+								},
+							},
+						},
+						"skipBackgroundRequests": false,
+						"mutate": map[string]interface{}{
+							"foreach": []interface{}{
+								map[string]interface{}{
+									"list": "request.object.spec.containers",
+									"patchStrategicMerge": map[string]interface{}{
+										"spec": map[string]interface{}{
+											"containers": []interface{}{
+												map[string]interface{}{
+													"(image)": "*registry.kndp-system.svc.cluster.local*",
+													"image":   fmt.Sprintf("{{ regex_replace_all_literal('^[^/]+', '{{element.image}}', 'localhost:%s' )}}", nodePort),
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	dynamicClient, err := dynamic.NewForConfig(config)
+	if err != nil {
+		return err
+	}
+
+	gvr := schema.GroupVersionResource{
+		Group:    "kyverno.io",
+		Version:  "v1",
+		Resource: "clusterpolicies",
+	}
+
+	_, err = dynamicClient.Resource(gvr).Create(ctx, regplc, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}

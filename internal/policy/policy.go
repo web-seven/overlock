@@ -29,6 +29,11 @@ func AddRegistryPolicy(ctx context.Context, config *rest.Config, registry *Regis
 	return addKyvernoRegistryPolicies(ctx, config, registry)
 }
 
+// Add local registry related policies
+func AddLocalRegistryPolicy(ctx context.Context, config *rest.Config, registry *RegistryPolicy) error {
+	return addKyvernoLocalRegistryPolicies(ctx, config, registry)
+}
+
 // Delete registry related policies
 func DeleteRegistryPolicy(ctx context.Context, config *rest.Config, registry *RegistryPolicy) error {
 	return deleteKyvernoRegistryPolicies(ctx, config, registry)
