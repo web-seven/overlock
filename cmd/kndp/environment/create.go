@@ -15,6 +15,7 @@ type createCmd struct {
 	Engine            string `optional:"" short:"e" help:"Specifies the Kubernetes engine to use for the runtime environment." default:"kind"`
 	IngressController string `optional:"" help:"Specifies the Ingress Controller type. (Default: nginx)" default:"nginx"`
 	PolicyController  string `optional:"" help:"Specifies the Policy Controller type. (Default: kyverno)" default:"kyverno"`
+	MountPath         string `optional:"" help:"Path for mount to /storage host directory. By default no mounts."`
 }
 
 func (c *createCmd) Run(ctx context.Context, logger *log.Logger) error {
@@ -25,5 +26,6 @@ func (c *createCmd) Run(ctx context.Context, logger *log.Logger) error {
 		WithContext(c.Context).
 		WithIngressController(c.IngressController).
 		WithPolicyController(c.PolicyController).
+		WithMountPath(c.MountPath).
 		Create(ctx, logger)
 }

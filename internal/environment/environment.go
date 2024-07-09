@@ -29,6 +29,7 @@ type Environment struct {
 	engine    string
 	httpPort  int
 	httpsPort int
+	mountPath string
 	context   string
 	options   EnvironmentOptions
 }
@@ -316,6 +317,11 @@ func (e *Environment) WithIngressController(icname string) *Environment {
 
 func (e *Environment) WithPolicyController(pcname string) *Environment {
 	e.options.policyController = pcname
+	return e
+}
+
+func (e *Environment) WithMountPath(path string) *Environment {
+	e.mountPath = path
 	return e
 }
 
