@@ -41,7 +41,6 @@ var (
 
 // Create in cluster registry
 func (r *Registry) CreateLocal(ctx context.Context, client *kubernetes.Clientset) error {
-	r.Name = svcName
 	deploy := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
 			Name: deployName,
