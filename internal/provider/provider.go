@@ -13,6 +13,10 @@ import (
 	"k8s.io/client-go/dynamic"
 )
 
+const (
+	tagDelim = ":"
+)
+
 type Provider struct {
 	Name  string
 	Image regv1.Image
