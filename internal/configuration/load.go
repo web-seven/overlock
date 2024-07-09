@@ -9,7 +9,7 @@ import (
 
 	semver "github.com/Masterminds/semver/v3"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1/tarball"
+	"github.com/kndpio/kndp/internal/loader"
 	"k8s.io/client-go/dynamic"
 )
 
@@ -17,16 +17,6 @@ const (
 	tagDelim         = ":"
 	regRepoDelimiter = "/"
 )
-
-// Load configuration package from TAR archive path
-func (c *Configuration) LoadPathArchive(path string) error {
-	image, err := tarball.ImageFromPath(path, nil)
-	if err != nil {
-		return err
-	}
-	c.Image = image
-	return nil
-}
 
 // Load configuration package from STDIN
 func (c *Configuration) LoadStdinArchive(stream *bufio.Reader) error {
@@ -42,8 +32,8 @@ func (c *Configuration) LoadStdinArchive(stream *bufio.Reader) error {
 	if err != nil {
 		return err
 	}
-
-	return c.LoadPathArchive(tmpFile.Name())
+	c.Image, err = loader.LoadPathArchive(tmpFile.Name())
+	return err
 }
 
 // Upgrade patch part of configuration version based on deployd configuration

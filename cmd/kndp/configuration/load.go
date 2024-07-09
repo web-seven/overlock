@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/kndpio/kndp/internal/configuration"
 	"github.com/kndpio/kndp/internal/kube"
+	"github.com/kndpio/kndp/internal/loader"
 	"github.com/kndpio/kndp/internal/registry"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
@@ -49,7 +50,7 @@ func (c *loadCmd) Run(ctx context.Context, config *rest.Config, dc *dynamic.Dyna
 	logger.Debugf("Loading image to: %s", cfg.Name)
 	if c.Path != "" {
 		logger.Debugf("Loading from path: %s", c.Path)
-		err = cfg.LoadPathArchive(c.Path)
+		cfg.Image, err = loader.LoadPathArchive(c.Path)
 		if err != nil {
 			return err
 		}
