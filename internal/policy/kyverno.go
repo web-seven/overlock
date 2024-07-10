@@ -22,7 +22,6 @@ const (
 	kyvernoRepoUrl      = "https://kyverno.github.io/kyverno/"
 	kyvernoNamespace    = "kyverno"
 	nodePort            = "30100"
-	registryURL         = "registry.kndp-system.svc.cluster.local"
 )
 
 var (
@@ -221,7 +220,7 @@ func addKyvernoLocalRegistryPolicies(ctx context.Context, config *rest.Config, r
 										"spec": map[string]interface{}{
 											"containers": []interface{}{
 												map[string]interface{}{
-													"(image)": fmt.Sprintf("*%s*", registryURL),
+													"(image)": fmt.Sprintf("*%s*", registry.Name),
 													"image":   fmt.Sprintf("{{ regex_replace_all_literal('^[^/]+', '{{element.image}}', 'localhost:%s' )}}", nodePort),
 												},
 											},
