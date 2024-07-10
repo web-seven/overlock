@@ -30,6 +30,7 @@ const (
 	svcName    = "registry"
 	deployPort = 5000
 	svcPort    = 80
+	nodePort   = 30100
 )
 
 var (
@@ -40,7 +41,6 @@ var (
 
 // Create in cluster registry
 func (r *Registry) CreateLocal(ctx context.Context, client *kubernetes.Clientset) error {
-
 	deploy := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
 			Name: deployName,
@@ -92,12 +92,13 @@ func (r *Registry) CreateLocal(ctx context.Context, client *kubernetes.Clientset
 			Name: svcName,
 		},
 		Spec: corev1.ServiceSpec{
-			Type:     "ClusterIP",
+			Type:     "NodePort",
 			Selector: deploy.Spec.Selector.MatchLabels,
 			Ports: []corev1.ServicePort{
 				{
 					Name:       "oci",
 					Protocol:   corev1.ProtocolTCP,
+					NodePort:   nodePort,
 					Port:       svcPort,
 					TargetPort: intstr.FromInt(deployPort),
 				},

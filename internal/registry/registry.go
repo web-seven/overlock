@@ -157,6 +157,12 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *log.
 		if err != nil {
 			return err
 		}
+		logger.Debugf("Adding registry policies %s", r.Domain())
+		err = policy.AddLocalRegistryPolicy(ctx, config, &policy.RegistryPolicy{Name: r.Domain()})
+		if err != nil {
+			return err
+		}
+		logger.Debug("Done")
 	} else {
 		secretSpec := r.SecretSpec()
 		secret, err := secretClient(client).Create(ctx, &secretSpec, metav1.CreateOptions{})
