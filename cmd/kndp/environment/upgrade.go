@@ -3,8 +3,8 @@ package environment
 import (
 	"context"
 
-	"github.com/charmbracelet/log"
 	"github.com/kndpio/kndp/internal/environment"
+	"go.uber.org/zap"
 )
 
 type upgradeCmd struct {
@@ -15,7 +15,7 @@ type upgradeCmd struct {
 	PolicyController  string `optional:"" help:"Specifies the Policy Controller type. (Default: kyverno)" default:"kyverno"`
 }
 
-func (c *upgradeCmd) Run(ctx context.Context, logger *log.Logger) error {
+func (c *upgradeCmd) Run(ctx context.Context, logger *zap.Logger) error {
 	return environment.
 		New(c.Engine, c.Name).
 		WithContext(c.Context).

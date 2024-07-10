@@ -9,12 +9,12 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/charmbracelet/log"
 	"github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kndpio/kndp/internal/kube"
 	"github.com/kndpio/kndp/internal/namespace"
+	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -124,7 +124,7 @@ func (r *Registry) CreateLocal(ctx context.Context, client *kubernetes.Clientset
 }
 
 // Delete in cluster registry
-func (r *Registry) DeleteLocal(ctx context.Context, client *kubernetes.Clientset, logger *log.Logger) error {
+func (r *Registry) DeleteLocal(ctx context.Context, client *kubernetes.Clientset, logger *zap.Logger) error {
 	svcs := client.CoreV1().Services(namespace.Namespace)
 	eSvc, _ := svcs.Get(ctx, svcName, v1.GetOptions{})
 	if eSvc != nil {
@@ -133,7 +133,7 @@ func (r *Registry) DeleteLocal(ctx context.Context, client *kubernetes.Clientset
 			return err
 		}
 	} else {
-		logger.Warnf("Service %s not found", svcName)
+		logger.Sugar().Warnf("Service %s not found", svcName)
 	}
 	deployments := client.AppsV1().Deployments(namespace.Namespace)
 	eDeploy, _ := deployments.Get(ctx, deployName, v1.GetOptions{})
@@ -143,7 +143,7 @@ func (r *Registry) DeleteLocal(ctx context.Context, client *kubernetes.Clientset
 			return err
 		}
 	} else {
-		logger.Warnf("Deployment %s not found", deployName)
+		logger.Sugar().Warnf("Deployment %s not found", deployName)
 	}
 	return nil
 }
@@ -152,7 +152,7 @@ func IsLocalRegistry(ctx context.Context, client *kubernetes.Clientset) bool {
 	return true
 }
 
-func PushLocalRegistry(ctx context.Context, imageName string, image regv1.Image, config *rest.Config, logger *log.Logger) error {
+func PushLocalRegistry(ctx context.Context, imageName string, image regv1.Image, config *rest.Config, logger *zap.Logger) error {
 
 	client, err := kube.Client(config)
 	if err != nil {
@@ -175,13 +175,13 @@ func PushLocalRegistry(ctx context.Context, imageName string, image regv1.Image,
 		return err
 	}
 
-	logger.Debugf("Found local registry with name: %s", regs.Items[0].GetName())
+	logger.Sugar().Debugf("Found local registry with name: %s", regs.Items[0].GetName())
 
 	path := fmt.Sprintf("/api/v1/namespaces/%s/pods/%s/portforward", namespace.Namespace, regs.Items[0].GetName())
 	hostIP := strings.TrimLeft(config.Host, "htps:/")
 	serverURL := url.URL{Scheme: "https", Path: path, Host: hostIP}
 
-	logger.Debugf("Dialer server URL: %s", serverURL.String())
+	logger.Sugar().Debugf("Dialer server URL: %s", serverURL.String())
 
 	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: roundTripper}, http.MethodPost, &serverURL)
 	stopChan, readyChan := make(chan struct{}, 1), make(chan struct{}, 1)
@@ -197,10 +197,10 @@ func PushLocalRegistry(ctx context.Context, imageName string, image regv1.Image,
 		if len(errOut.String()) != 0 {
 			close(stopChan)
 		} else if len(out.String()) != 0 {
-			logger.Debug(out.String())
+			logger.Sugar().Debug(out.String())
 		}
 		refName := "localhost:" + fmt.Sprint(lPort) + "/" + imageName
-		logger.Debugf("Try to push to reference: %s", refName)
+		logger.Sugar().Debugf("Try to push to reference: %s", refName)
 		ref, err := name.ParseReference(refName)
 		if err != nil {
 			close(stopChan)
@@ -209,7 +209,7 @@ func PushLocalRegistry(ctx context.Context, imageName string, image regv1.Image,
 		if err != nil {
 			close(stopChan)
 		}
-		logger.Debug("Pushed to remote registry.")
+		logger.Sugar().Debug("Pushed to remote registry.")
 		close(stopChan)
 	}()
 

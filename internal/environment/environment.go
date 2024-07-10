@@ -21,7 +21,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
-	"github.com/charmbracelet/log"
+	"go.uber.org/zap"
 )
 
 type Environment struct {
@@ -43,30 +43,30 @@ func New(engine string, name string) *Environment {
 }
 
 // Create environment
-func (e *Environment) Create(ctx context.Context, logger *log.Logger) error {
+func (e *Environment) Create(ctx context.Context, logger *zap.Logger) error {
 	var err error
 	if e.context == "" {
 		switch e.engine {
 		case "kind":
-			logger.Infof("Creating environment with Kubernetes engine 'kind'")
+			logger.Sugar().Info("Creating environment with Kubernetes engine 'kind'")
 			e.context, err = e.CreateKindEnvironment(logger)
 			if err != nil {
-				logger.Fatal(err)
+				return err
 			}
 		case "k3s":
-			logger.Infof("Creating environment with Kubernetes engine 'k3s'")
+			logger.Sugar().Info("Creating environment with Kubernetes engine 'k3s'")
 			e.context, err = e.CreateK3sEnvironment(logger)
 			if err != nil {
-				logger.Fatal(err)
+				return err
 			}
 		case "k3d":
-			logger.Infof("Creating environment with Kubernetes engine 'k3d'")
+			logger.Sugar().Info("Creating environment with Kubernetes engine 'k3d'")
 			e.context, err = e.CreateK3dEnvironment(logger)
 			if err != nil {
-				logger.Fatal(err)
+				return err
 			}
 		default:
-			logger.Fatalf("Kubernetes engine '%s' not supported", e.engine)
+			logger.Sugar().Errorf("Kubernetes engine '%s' not supported", e.engine)
 			return nil
 		}
 	}
@@ -75,17 +75,17 @@ func (e *Environment) Create(ctx context.Context, logger *log.Logger) error {
 	if err != nil {
 		return err
 	}
-	logger.Info("Environment created successfully.")
+	logger.Sugar().Info("Environment created successfully.")
 	return nil
 }
 
 // Upgrade environemnt with options or new features
-func (e *Environment) Upgrade(ctx context.Context, logger *log.Logger) error {
+func (e *Environment) Upgrade(ctx context.Context, logger *zap.Logger) error {
 	var err error
 	if e.context == "" {
 		e.context = e.GetContextName()
 		if e.context == "" {
-			logger.Fatalf("Kubernetes engine '%s' not supported", e.engine)
+			logger.Sugar().Fatalf("Kubernetes engine '%s' not supported", e.engine)
 			return nil
 		}
 	}
@@ -94,12 +94,12 @@ func (e *Environment) Upgrade(ctx context.Context, logger *log.Logger) error {
 	if err != nil {
 		return err
 	}
-	logger.Info("Environment upgraded successfully.")
+	logger.Sugar().Info("Environment upgraded successfully.")
 	return nil
 }
 
 // Delete environment cluster
-func (e *Environment) Delete(logger *log.Logger) error {
+func (e *Environment) Delete(logger *zap.Logger) error {
 	var err error
 	switch e.engine {
 	case "kind":
@@ -109,7 +109,7 @@ func (e *Environment) Delete(logger *log.Logger) error {
 	case "k3d":
 		err = e.DeleteK3dEnvironment(logger)
 	default:
-		logger.Fatalf("Kubernetes engine '%s' not supported", e.engine)
+		logger.Sugar().Fatalf("Kubernetes engine '%s' not supported", e.engine)
 		return nil
 	}
 	if err != nil {
@@ -119,28 +119,28 @@ func (e *Environment) Delete(logger *log.Logger) error {
 }
 
 // Setup environment
-func (e *Environment) Setup(ctx context.Context, logger *log.Logger) error {
+func (e *Environment) Setup(ctx context.Context, logger *zap.Logger) error {
 	configClient, err := config.GetConfigWithContext(e.context)
 	if err != nil {
-		logger.Fatal(err)
+		return err
 	}
 
-	logger.Debug("Start installing options")
-	logger.Debugf("Option Ingress controller: %s", e.options.ingressController)
+	logger.Sugar().Debug("Start installing options")
+	logger.Sugar().Debugf("Option Ingress controller: %s", e.options.ingressController)
 	err = ingress.AddIngressConroller(ctx, configClient, e.options.ingressController)
 	if err != nil {
 		return err
 	}
-	logger.Debug("Done")
+	logger.Sugar().Debug("Done")
 
-	logger.Debugf("Option Policy controller: %s", e.options.policyController)
+	logger.Sugar().Debugf("Option Policy controller: %s", e.options.policyController)
 	err = policy.AddPolicyConroller(ctx, configClient, e.options.policyController)
 	if err != nil {
 		return err
 	}
-	logger.Debug("Done")
+	logger.Sugar().Debug("Done")
 
-	logger.Debug("Preparing engine")
+	logger.Sugar().Debug("Preparing engine")
 	installer, err := engine.GetEngine(configClient)
 	if err != nil {
 		return err
@@ -155,9 +155,9 @@ func (e *Environment) Setup(ctx context.Context, logger *log.Logger) error {
 	logger.Debug("Installing engine")
 	err = engine.InstallEngine(ctx, configClient, params, logger)
 	if err != nil {
-		logger.Fatal(err)
+		return err
 	}
-	logger.Debug("Done")
+	logger.Sugar().Debug("Done")
 	return nil
 }
 
@@ -178,7 +178,7 @@ func (e *Environment) GetContextName() string {
 }
 
 // Copy Environment from source to destination contexts
-func (e *Environment) CopyEnvironment(ctx context.Context, logger *log.Logger, source string, destination string) error {
+func (e *Environment) CopyEnvironment(ctx context.Context, logger *zap.Logger, source string, destination string) error {
 
 	// Create a REST clients
 	sourceConfig, err := kube.Config(source)
@@ -214,7 +214,7 @@ func (e *Environment) CopyEnvironment(ctx context.Context, logger *log.Logger, s
 	}
 
 	// Copy engine
-	logger.Info("Start copy engine...")
+	logger.Sugar().Info("Start copy engine...")
 	sourceEngine, err := engine.GetEngine(sourceConfig)
 	if err != nil {
 		return err
@@ -226,7 +226,7 @@ func (e *Environment) CopyEnvironment(ctx context.Context, logger *log.Logger, s
 	}
 
 	engine.InstallEngine(ctx, destConfig, sourceRelease.Config, logger)
-	logger.Info("Engine copied successfully!")
+	logger.Sugar().Info("Engine copied successfully!")
 
 	// Copy composities
 	err = resources.CopyComposites(ctx, logger, sourceContext, destinationContext)
@@ -234,13 +234,13 @@ func (e *Environment) CopyEnvironment(ctx context.Context, logger *log.Logger, s
 		return err
 	}
 
-	logger.Info("Successfully copied Environment to destination context.")
+	logger.Sugar().Info("Successfully copied Environment to destination context.")
 
 	return nil
 }
 
 // Start Environment
-func (e *Environment) Start(ctx context.Context, switcher bool, logger *log.Logger) error {
+func (e *Environment) Start(ctx context.Context, switcher bool, logger *zap.Logger) error {
 	dockerClient, err := docker.NewClientWithOpts(docker.FromEnv)
 	if err != nil {
 		return err
@@ -255,7 +255,7 @@ func (e *Environment) Start(ctx context.Context, switcher bool, logger *log.Logg
 			containerID := c.ID
 			err := dockerClient.ContainerStart(ctx, containerID, types.ContainerStartOptions{})
 			if err != nil {
-				logger.Errorf("Environment possible doesn't exists or failed to start %s: %v", c.ID, err)
+				logger.Sugar().Errorf("Environment possible doesn't exists or failed to start %s: %v", c.ID, err)
 				return err
 			}
 		}
@@ -268,12 +268,12 @@ func (e *Environment) Start(ctx context.Context, switcher bool, logger *log.Logg
 		}
 	}
 
-	logger.Infof("Environment %s started successfully.", e.name)
+	logger.Sugar().Infof("Environment %s started successfully.", e.name)
 	return nil
 }
 
 // Stop Environment
-func (e *Environment) Stop(ctx context.Context, logger *log.Logger) error {
+func (e *Environment) Stop(ctx context.Context, logger *zap.Logger) error {
 	dockerClient, err := docker.NewClientWithOpts(docker.FromEnv)
 	if err != nil {
 		return err
@@ -333,7 +333,7 @@ func SwitchContext(name string) (err error) {
 }
 
 // List Environments in available contexts
-func ListEnvironments(logger *log.Logger, tableData pterm.TableData) pterm.TableData {
+func ListEnvironments(logger *zap.Logger, tableData pterm.TableData) pterm.TableData {
 	kubeconfig := os.Getenv("KUBECONFIG")
 	if kubeconfig == "" {
 		kubeconfig = filepath.Join(os.Getenv("HOME"), ".kube", "config")
@@ -343,7 +343,7 @@ func ListEnvironments(logger *log.Logger, tableData pterm.TableData) pterm.Table
 	for name := range configFile.Contexts {
 		configClient, err := config.GetConfigWithContext(name)
 		if err != nil {
-			logger.Fatal(err)
+			logger.Sugar().Fatal(err)
 		}
 		if engine.IsHelmReleaseFound(configClient) {
 			types := regexp.MustCompile(`(\w+)`).FindStringSubmatch(name)

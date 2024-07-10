@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/charmbracelet/log"
 	"github.com/kndpio/kndp/internal/registry"
 	"github.com/pterm/pterm"
+	"go.uber.org/zap"
 
 	"github.com/google/go-github/v61/github"
 )
@@ -28,7 +28,7 @@ func getAllPackages(ctx context.Context, client *github.Client, org string, opts
 }
 
 // GetPackages list packages and their versions from Container Registry
-func GetPackages(ctx context.Context, query string, version bool, r *registry.Registry, registryUrl string, org string, logger *log.Logger) (pterm.TableData, error) {
+func GetPackages(ctx context.Context, query string, version bool, r *registry.Registry, registryUrl string, org string, logger *zap.Logger) (pterm.TableData, error) {
 	auth := registry.RegistryConfig{}
 	json.Unmarshal([]byte(r.Data[".dockerconfigjson"]), &auth)
 	clientgh := github.NewClient(nil).WithAuthToken(auth.Auths[registryUrl].Password)
@@ -43,7 +43,7 @@ func GetPackages(ctx context.Context, query string, version bool, r *registry.Re
 
 	allPkgs, err := getAllPackages(ctx, clientgh, org, opts, allPkgs)
 	if err != nil {
-		logger.Errorf("Cannot get packages from %s", registryUrl)
+		logger.Sugar().Errorf("Cannot get packages from %s", registryUrl)
 		return nil, err
 	}
 
@@ -51,7 +51,7 @@ func GetPackages(ctx context.Context, query string, version bool, r *registry.Re
 	for _, pkg := range allPkgs {
 		versions, _, err := clientgh.Organizations.PackageGetAllVersions(ctx, org, pkgType, pkg.GetName(), nil)
 		if err != nil {
-			logger.Errorf("Cannot get package versions for %s/%s", org, *pkg.Name)
+			logger.Sugar().Errorf("Cannot get package versions for %s/%s", org, *pkg.Name)
 			return nil, err
 		}
 		if !version {

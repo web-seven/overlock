@@ -5,20 +5,21 @@ import (
 	"io"
 	"os"
 
-	"github.com/charmbracelet/log"
+	"go.uber.org/zap"
+
 	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func transformToUnstructured(filename string, logger *log.Logger) ([]unstructured.Unstructured, error) {
+func transformToUnstructured(filename string, logger *zap.Logger) ([]unstructured.Unstructured, error) {
 	file, err := readFromFile(filename)
 	if err != nil {
-		logger.Fatal(err)
+		logger.Sugar().Fatal(err)
 	}
 
 	yamlBytes, err := splitYAML(file)
 	if err != nil {
-		logger.Fatal(err)
+		logger.Sugar().Fatal(err)
 	}
 
 	var unstructuredResources []unstructured.Unstructured

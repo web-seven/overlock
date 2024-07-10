@@ -7,8 +7,8 @@ import (
 	"encoding/json"
 	"os"
 
-	"github.com/charmbracelet/log"
 	crossv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
+	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 )
@@ -22,20 +22,20 @@ type xr struct {
 
 // GenerateCompositeResource reads a CompositeResourceDefinition from a YAML file,
 // generates an example composite resource, and prints it as YAML.
-func GenerateCompositeResource(ctx context.Context, path string, logger *log.Logger) error {
+func GenerateCompositeResource(ctx context.Context, path string, logger *zap.Logger) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		logger.Errorf("failed to read file: %v", err)
+		logger.Sugar().Errorf("failed to read file: %v", err)
 	}
 
 	var xrd crossv1.CompositeResourceDefinition
 	if err := yaml.Unmarshal(data, &xrd); err != nil {
-		logger.Errorf("failed to unmarshal YAML: %v", err)
+		logger.Sugar().Errorf("failed to unmarshal YAML: %v", err)
 	}
 
 	xrSpec, err := generateSpec(xrd, logger)
 	if err != nil {
-		logger.Errorf("failed to generate spec: %v", err)
+		logger.Sugar().Errorf("failed to generate spec: %v", err)
 	}
 
 	xr := xr{
@@ -51,26 +51,26 @@ func GenerateCompositeResource(ctx context.Context, path string, logger *log.Log
 
 	yamlXR, err := yaml.Marshal(xr)
 	if err != nil {
-		logger.Errorf("failed to marshal YAML: %v", err)
+		logger.Sugar().Errorf("failed to marshal YAML: %v", err)
 	}
 
-	logger.Print(string(yamlXR))
+	logger.Sugar().Info(string(yamlXR))
 	return nil
 }
 
 // generateSpec creates an example spec map based on the schema defined in the CompositeResourceDefinition.
-func generateSpec(xrd crossv1.CompositeResourceDefinition, logger *log.Logger) (map[string]interface{}, error) {
+func generateSpec(xrd crossv1.CompositeResourceDefinition, logger *zap.Logger) (map[string]interface{}, error) {
 	xrSpec := make(map[string]interface{})
 	rawData := xrd.Spec.Versions[0].Schema.OpenAPIV3Schema.Raw
 
 	var schema map[string]interface{}
 	if err := json.Unmarshal(rawData, &schema); err != nil {
-		logger.Errorf("failed to unmarshal schema JSON: %v", err)
+		logger.Sugar().Errorf("failed to unmarshal schema JSON: %v", err)
 	}
 
 	specProperties, ok := schema["properties"].(map[string]interface{})["spec"].(map[string]interface{})["properties"].(map[string]interface{})
 	if !ok {
-		logger.Error("invalid schema format")
+		logger.Sugar().Error("invalid schema format")
 	}
 
 	for key, prop := range specProperties {

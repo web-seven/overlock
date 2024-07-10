@@ -5,10 +5,10 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/charmbracelet/log"
+	"go.uber.org/zap"
 )
 
-func (e *Environment) CreateK3sEnvironment(logger *log.Logger) (string, error) {
+func (e *Environment) CreateK3sEnvironment(logger *zap.Logger) (string, error) {
 
 	args := []string{
 		"k3s", "server",
@@ -36,12 +36,12 @@ func (e *Environment) CreateK3sEnvironment(logger *log.Logger) (string, error) {
 	// Wait for some time
 	time.Sleep(10 * time.Second)
 
-	logger.Info("k3s server started successfully")
+	logger.Sugar().Info("k3s server started successfully")
 
 	return e.K3sContextName(), nil
 }
 
-func (e *Environment) DeleteK3sEnvironment(logger *log.Logger) error {
+func (e *Environment) DeleteK3sEnvironment(logger *zap.Logger) error {
 	return nil
 }
 

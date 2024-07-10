@@ -3,7 +3,7 @@ package resource
 import (
 	"context"
 
-	"github.com/charmbracelet/log"
+	"go.uber.org/zap"
 
 	crossv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	"github.com/kndpio/kndp/internal/resources"
@@ -16,7 +16,7 @@ type createCmd struct {
 	Type string `arg:"" required:"" help:"XRD type name."`
 }
 
-func (c *createCmd) Run(ctx context.Context, client *dynamic.DynamicClient, logger *log.Logger) error {
+func (c *createCmd) Run(ctx context.Context, client *dynamic.DynamicClient, logger *zap.Logger) error {
 
 	xrd := crossv1.CompositeResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
@@ -31,7 +31,7 @@ func (c *createCmd) Run(ctx context.Context, client *dynamic.DynamicClient, logg
 	return nil
 }
 
-func CreateXResource(ctx context.Context, xrd crossv1.CompositeResourceDefinition, client *dynamic.DynamicClient, logger *log.Logger) bool {
+func CreateXResource(ctx context.Context, xrd crossv1.CompositeResourceDefinition, client *dynamic.DynamicClient, logger *zap.Logger) bool {
 	xResource := resources.XResource{}
 	form := xResource.GetSchemaFormFromXRDefinition(
 		ctx,
@@ -58,7 +58,7 @@ func CreateXResource(ctx context.Context, xrd crossv1.CompositeResourceDefinitio
 			groupVersion,
 		).Create(ctx, &xResource.Unstructured, metav1.CreateOptions{})
 		if err != nil {
-			logger.Error(err)
+			logger.Sugar().Error(err)
 		}
 		return true
 	}

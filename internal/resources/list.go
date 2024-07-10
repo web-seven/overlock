@@ -3,16 +3,16 @@ package resources
 import (
 	"context"
 
-	"github.com/charmbracelet/log"
 	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	"github.com/kndpio/kndp/internal/kube"
+	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 )
 
-func GetXResources(ctx context.Context, dynamicClient *dynamic.DynamicClient, logger *log.Logger) []unstructured.Unstructured {
+func GetXResources(ctx context.Context, dynamicClient *dynamic.DynamicClient, logger *zap.Logger) []unstructured.Unstructured {
 
 	paramsXRDs := kube.ResourceParams{
 		Dynamic:   dynamicClient,
@@ -24,7 +24,7 @@ func GetXResources(ctx context.Context, dynamicClient *dynamic.DynamicClient, lo
 	}
 	XRDs, err := kube.GetKubeResources(paramsXRDs)
 	if err != nil {
-		logger.Error(err)
+		logger.Sugar().Error(err)
 	}
 	var XRs []unstructured.Unstructured
 
@@ -32,7 +32,7 @@ func GetXResources(ctx context.Context, dynamicClient *dynamic.DynamicClient, lo
 		var paramsXRs v1.CompositeResourceDefinition
 		err := runtime.DefaultUnstructuredConverter.FromUnstructured(xrd.UnstructuredContent(), &paramsXRs)
 		if err != nil {
-			logger.Error(err)
+			logger.Sugar().Error(err)
 		}
 		for _, version := range paramsXRs.Spec.Versions {
 			xrList, err := kube.GetKubeResources(kube.ResourceParams{
@@ -48,7 +48,7 @@ func GetXResources(ctx context.Context, dynamicClient *dynamic.DynamicClient, lo
 			})
 
 			if err != nil {
-				logger.Error(err)
+				logger.Sugar().Error(err)
 			}
 
 			XRs = append(XRs, xrList...)

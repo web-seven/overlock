@@ -4,7 +4,6 @@ import (
 	"context"
 	b64 "encoding/base64"
 	"fmt"
-	"io"
 	"net/url"
 	"strings"
 
@@ -22,7 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 
-	logger "github.com/charmbracelet/log"
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -30,8 +29,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -103,7 +100,7 @@ func GetEngine(configClient *rest.Config) (install.Manager, error) {
 }
 
 // Install engine Helm release
-func InstallEngine(ctx context.Context, configClient *rest.Config, params map[string]any, logger *logger.Logger) error {
+func InstallEngine(ctx context.Context, configClient *rest.Config, params map[string]any, logger *zap.Logger) error {
 	engine, err := GetEngine(configClient)
 	if err != nil {
 		return err
@@ -112,12 +109,12 @@ func InstallEngine(ctx context.Context, configClient *rest.Config, params map[st
 	if params == nil {
 		params = initParameters
 	}
-	logger.Debug("Upgrade Crossplane release")
+	logger.Sugar().Debug("Upgrade Crossplane release")
 	err = engine.Upgrade(Version, params)
 	if err != nil {
 		return err
 	}
-	logger.Debug("Done")
+	logger.Sugar().Debug("Done")
 
 	return SetupPrivilegedKubernetesProvider(ctx, configClient, logger)
 }
@@ -159,7 +156,7 @@ func ManagedSelector(m map[string]string) string {
 }
 
 // Setup Kubernetes provider which has crossplane admin aggregation role assigned
-func SetupPrivilegedKubernetesProvider(ctx context.Context, configClient *rest.Config, logger *logger.Logger) error {
+func SetupPrivilegedKubernetesProvider(ctx context.Context, configClient *rest.Config, logger *zap.Logger) error {
 
 	pcn := providerConfigName
 
@@ -216,7 +213,6 @@ func SetupPrivilegedKubernetesProvider(ctx context.Context, configClient *rest.C
 	rbacv1.AddToScheme(scheme)
 	corev1.AddToScheme(scheme)
 	extv1.AddToScheme(scheme)
-	log.SetLogger(zap.New(zap.WriteTo(io.Discard)))
 	ctrl, _ := client.New(configClient, client.Options{Scheme: scheme})
 	for _, res := range []client.Object{sa, saSec, cr, crb} {
 		_, err := controllerutil.CreateOrUpdate(ctx, ctrl, res, func() error {
@@ -263,7 +259,7 @@ func SetupPrivilegedKubernetesProvider(ctx context.Context, configClient *rest.C
 		}); err != nil {
 		return err
 	}
-	logger.Debug("Starting reconciliation of Kubernetes Provider")
+	logger.Sugar().Debug("Starting reconciliation of Kubernetes Provider")
 	mgr.Start(mgrContext)
 	return nil
 }

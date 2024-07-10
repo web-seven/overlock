@@ -1,13 +1,13 @@
 package provider
 
 import (
-	"github.com/charmbracelet/log"
 	"github.com/kndpio/kndp/internal/engine"
+	"go.uber.org/zap"
 
 	"k8s.io/client-go/rest"
 )
 
-func InstallProvider(provider string, config *rest.Config, logger *log.Logger) error {
+func InstallProvider(provider string, config *rest.Config, logger *zap.Logger) error {
 
 	installer, err := engine.GetEngine(config)
 	if err != nil {
@@ -40,6 +40,6 @@ func InstallProvider(provider string, config *rest.Config, logger *log.Logger) e
 		return err
 	}
 
-	logger.Info("KNDP provider installed successfully.")
+	logger.Sugar().Info("KNDP provider installed successfully.")
 	return nil
 }

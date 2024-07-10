@@ -5,11 +5,11 @@ import (
 	"context"
 	"os"
 
-	"github.com/charmbracelet/log"
 	"github.com/kndpio/kndp/internal/configuration"
 	"github.com/kndpio/kndp/internal/kube"
 	"github.com/kndpio/kndp/internal/loader"
 	"github.com/kndpio/kndp/internal/registry"
+	"go.uber.org/zap"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 )
@@ -22,7 +22,7 @@ type loadCmd struct {
 	Upgrade bool   `help:"Upgrade existing configuration."`
 }
 
-func (c *loadCmd) Run(ctx context.Context, config *rest.Config, dc *dynamic.DynamicClient, logger *log.Logger) error {
+func (c *loadCmd) Run(ctx context.Context, config *rest.Config, dc *dynamic.DynamicClient, logger *zap.Logger) error {
 
 	client, err := kube.Client(config)
 	if err != nil {
@@ -30,7 +30,7 @@ func (c *loadCmd) Run(ctx context.Context, config *rest.Config, dc *dynamic.Dyna
 	}
 
 	if !registry.IsLocalRegistry(ctx, client) {
-		logger.Warn("Local registry is not installed.")
+		logger.Sugar().Warn("Local registry is not installed.")
 		return nil
 	}
 
@@ -47,31 +47,31 @@ func (c *loadCmd) Run(ctx context.Context, config *rest.Config, dc *dynamic.Dyna
 		cfg.UpgradeVersion(ctx, dc)
 	}
 
-	logger.Debugf("Loading image to: %s", cfg.Name)
+	logger.Sugar().Debugf("Loading image to: %s", cfg.Name)
 	if c.Path != "" {
-		logger.Debugf("Loading from path: %s", c.Path)
+		logger.Sugar().Debugf("Loading from path: %s", c.Path)
 		cfg.Image, err = loader.LoadPathArchive(c.Path)
 		if err != nil {
 			return err
 		}
 	} else if c.Stdin {
-		logger.Debug("Loading from STDIN")
+		logger.Sugar().Debug("Loading from STDIN")
 		reader := bufio.NewReader(os.Stdin)
 		err = cfg.LoadStdinArchive(reader)
 		if err != nil {
 			return err
 		}
 	} else {
-		logger.Warn("Archive path or STDIN required for load configuration.")
+		logger.Sugar().Warn("Archive path or STDIN required for load configuration.")
 		return nil
 	}
 
-	logger.Debug("Pushing to local registry")
+	logger.Sugar().Debug("Pushing to local registry")
 	err = registry.PushLocalRegistry(ctx, cfg.Name, cfg.Image, config, logger)
 	if err != nil {
 		return err
 	}
-	logger.Infof("Image archive %s loaded to local registry.", cfg.Name)
+	logger.Sugar().Infof("Image archive %s loaded to local registry.", cfg.Name)
 
 	if c.Apply {
 		return configuration.ApplyConfiguration(ctx, cfg.Name, config, logger)

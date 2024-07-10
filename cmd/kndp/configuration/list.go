@@ -4,22 +4,21 @@ import (
 	"context"
 
 	"github.com/kndpio/kndp/internal/configuration"
+	"github.com/pterm/pterm"
+	"go.uber.org/zap"
 
 	"k8s.io/client-go/dynamic"
-
-	"github.com/charmbracelet/log"
 )
 
 type listCmd struct {
 }
 
-func (listCmd) Run(ctx context.Context, dynamicClient *dynamic.DynamicClient, logger *log.Logger) error {
+func (listCmd) Run(ctx context.Context, dynamicClient *dynamic.DynamicClient, logger *zap.Logger) error {
 	configurations := configuration.GetConfigurations(ctx, dynamicClient)
-	logger.SetReportTimestamp(false)
-	logger.Printf("%-30s %-30s", "NAME", "PACKAGE")
+	table := pterm.TableData{{"NAME", "PACKAGE"}}
 	for _, conf := range configurations {
-		logger.Printf("%-30s %-30s", conf.Name, conf.Spec.Package)
+		table = append(table, []string{conf.Name, conf.Spec.Package})
 	}
-
+	pterm.DefaultTable.WithHasHeader().WithData(table).Render()
 	return nil
 }

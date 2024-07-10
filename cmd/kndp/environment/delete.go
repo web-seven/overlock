@@ -3,8 +3,8 @@ package environment
 import (
 	"context"
 
-	"github.com/charmbracelet/log"
 	"github.com/kndpio/kndp/internal/environment"
+	"go.uber.org/zap"
 )
 
 type deleteCmd struct {
@@ -12,7 +12,7 @@ type deleteCmd struct {
 	Engine string `optional:"" help:"Specifies the Kubernetes engine to use for the runtime environment." default:"kind"`
 }
 
-func (c *deleteCmd) Run(ctx context.Context, logger *log.Logger) error {
+func (c *deleteCmd) Run(ctx context.Context, logger *zap.Logger) error {
 	return environment.
 		New(c.Engine, c.Name).
 		Delete(logger)

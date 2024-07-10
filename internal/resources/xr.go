@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/log"
+	"github.com/charmbracelet/huh"
 	"github.com/kndpio/kndp/internal/engine"
 	"github.com/kndpio/kndp/internal/kube"
+	"go.uber.org/zap"
 
-	"github.com/charmbracelet/huh"
 	crossv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -31,7 +31,7 @@ type XResource struct {
 var apiFields = []string{"apiVersion", "kind"}
 var metadataFields = []string{"metadata"}
 
-func (xr *XResource) GetSchemaFormFromXRDefinition(ctx context.Context, xrd crossv1.CompositeResourceDefinition, client *dynamic.DynamicClient, logger *log.Logger) *huh.Form {
+func (xr *XResource) GetSchemaFormFromXRDefinition(ctx context.Context, xrd crossv1.CompositeResourceDefinition, client *dynamic.DynamicClient, logger *zap.Logger) *huh.Form {
 
 	xrdInstance, err := client.Resource(schema.GroupVersionResource{
 		Group:    xrd.GroupVersionKind().Group,
@@ -40,7 +40,7 @@ func (xr *XResource) GetSchemaFormFromXRDefinition(ctx context.Context, xrd cros
 	}).Get(ctx, xrd.Name, metav1.GetOptions{})
 
 	if err != nil {
-		logger.Error(err)
+		logger.Sugar().Error(err)
 		return nil
 	}
 
@@ -260,14 +260,14 @@ func (xr *XResource) getFormGroupsByProps(schema *extv1.JSONSchemaProps, parent 
 	return formGroups
 }
 
-func parseSchema(v *v1.CompositeResourceValidation, logger *log.Logger) (*extv1.JSONSchemaProps, error) {
+func parseSchema(v *v1.CompositeResourceValidation, logger *zap.Logger) (*extv1.JSONSchemaProps, error) {
 	if v == nil {
 		return nil, nil
 	}
 
 	s := &extv1.JSONSchemaProps{}
 	if err := json.Unmarshal(v.OpenAPIV3Schema.Raw, s); err != nil {
-		logger.Error(err)
+		logger.Sugar().Error(err)
 	}
 	return s, nil
 }
@@ -281,7 +281,7 @@ func isStringInArray(a []string, s string) bool {
 	return false
 }
 
-func ApplyResources(ctx context.Context, client *dynamic.DynamicClient, logger *log.Logger, file string) error {
+func ApplyResources(ctx context.Context, client *dynamic.DynamicClient, logger *zap.Logger, file string) error {
 	resources, err := transformToUnstructured(file, logger)
 
 	if err != nil {
@@ -296,19 +296,19 @@ func ApplyResources(ctx context.Context, client *dynamic.DynamicClient, logger *
 			Resource: strings.ToLower(resource.GetKind()) + "s",
 		}
 		resource.SetLabels(engine.ManagedLabels(nil))
-		logger.Infof("Applying resource: %s", resourceId.String())
+		logger.Sugar().Infof("Applying resource: %s", resourceId.String())
 		res, err := client.Resource(resourceId).Apply(ctx, resource.GetName(), &resource, metav1.ApplyOptions{FieldManager: "kndp"})
 
 		if err != nil {
 			return err
 		} else {
-			logger.Infof("Resource %s from %s successfully applied", res.GetName(), res.GetAPIVersion())
+			logger.Sugar().Infof("Resource %s from %s successfully applied", res.GetName(), res.GetAPIVersion())
 		}
 	}
 	return nil
 }
 
-func CopyComposites(ctx context.Context, logger *log.Logger, sourceContext dynamic.Interface, destinationContext dynamic.Interface) error {
+func CopyComposites(ctx context.Context, logger *zap.Logger, sourceContext dynamic.Interface, destinationContext dynamic.Interface) error {
 
 	//Get composite resources from XRDs definition and apply them
 	XRDs, err := kube.GetKubeResources(kube.ResourceParams{
@@ -328,7 +328,7 @@ func CopyComposites(ctx context.Context, logger *log.Logger, sourceContext dynam
 		for _, xrd := range XRDs {
 			var paramsXRs v1.CompositeResourceDefinition
 			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(xrd.UnstructuredContent(), &paramsXRs); err != nil {
-				logger.Printf("Failed to convert item %s: %v\n", xrd.GetName(), err)
+				logger.Sugar().Infof("Failed to convert item %s: %v\n", xrd.GetName(), err)
 				return nil
 			}
 			for _, version := range paramsXRs.Spec.Versions {
@@ -344,8 +344,7 @@ func CopyComposites(ctx context.Context, logger *log.Logger, sourceContext dynam
 					},
 				})
 				if err != nil {
-					logger.Error(err)
-					return nil
+					return err
 				}
 
 				for _, xr := range XRs {
@@ -361,12 +360,12 @@ func CopyComposites(ctx context.Context, logger *log.Logger, sourceContext dynam
 					if err != nil {
 						_, err = destinationContext.Resource(resourceId).Namespace("").Create(ctx, &xr, metav1.CreateOptions{})
 						if err != nil {
-							logger.Warn(err)
+							logger.Sugar().Warn(err)
 						} else {
-							logger.Infof("Resource created successfully %s", xr.GetName())
+							logger.Sugar().Infof("Resource created successfully %s", xr.GetName())
 						}
 					} else {
-						logger.Warnf("Resource %s with type %s already exists, skipping.", xr.GetName(), resourceId.GroupResource().String())
+						logger.Sugar().Warnf("Resource %s with type %s already exists, skipping.", xr.GetName(), resourceId.GroupResource().String())
 					}
 				}
 			}

@@ -5,7 +5,7 @@ import (
 
 	"github.com/kndpio/kndp/internal/environment"
 
-	"github.com/charmbracelet/log"
+	"go.uber.org/zap"
 )
 
 type copyCmd struct {
@@ -14,7 +14,7 @@ type copyCmd struct {
 	SourceEngine string `arg:"" required:"" help:"Specifies the Kubernetes engine to use for the runtime environment." default:"kind"`
 }
 
-func (c *copyCmd) Run(ctx context.Context, logger *log.Logger) error {
+func (c *copyCmd) Run(ctx context.Context, logger *zap.Logger) error {
 	return environment.
 		New(c.Source, c.Source).
 		CopyEnvironment(ctx, logger, c.Source, c.Destination)

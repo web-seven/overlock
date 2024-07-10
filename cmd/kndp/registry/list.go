@@ -3,19 +3,19 @@ package registry
 import (
 	"context"
 
-	"github.com/charmbracelet/log"
 	"github.com/kndpio/kndp/internal/registry"
 	"github.com/pterm/pterm"
+	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
 )
 
 type listCmd struct {
 }
 
-func (c listCmd) Run(ctx context.Context, client *kubernetes.Clientset, logger *log.Logger) error {
+func (c listCmd) Run(ctx context.Context, client *kubernetes.Clientset, logger *zap.Logger) error {
 	registries, err := registry.Registries(ctx, client)
 	if err != nil {
-		logger.Error(err)
+		logger.Sugar().Error(err)
 	}
 
 	tableRegs := pterm.TableData{
