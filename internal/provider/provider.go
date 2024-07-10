@@ -18,8 +18,10 @@ const (
 )
 
 type Provider struct {
-	Name  string
-	Image regv1.Image
+	Name    string
+	Image   regv1.Image
+	Upgrade bool
+	Apply   bool
 }
 
 // New Provider entity
@@ -27,6 +29,16 @@ func New(name string) *Provider {
 	return &Provider{
 		Name: name,
 	}
+}
+
+func (p *Provider) WithUpgrade(upgrade bool) *Provider {
+	p.Upgrade = upgrade
+	return p
+}
+
+func (p *Provider) WithApply(apply bool) *Provider {
+	p.Apply = apply
+	return p
 }
 
 func ListProviders(ctx context.Context, dynamicClient dynamic.Interface, logger *log.Logger) []provider.Provider {

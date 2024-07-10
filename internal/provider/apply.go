@@ -2,7 +2,6 @@ package provider
 
 import (
 	"context"
-	"strings"
 
 	crossv1 "github.com/crossplane/crossplane/apis/pkg/v1"
 
@@ -15,11 +14,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (p *Provider) ApplyProvider(ctx context.Context, links string, config *rest.Config, logger *log.Logger) error {
+func (p *Provider) ApplyProvider(ctx context.Context, links []string, config *rest.Config, logger *log.Logger) error {
 	scheme := runtime.NewScheme()
 	crossv1.AddToScheme(scheme)
 	if kube, err := client.New(config, client.Options{Scheme: scheme}); err == nil {
-		for _, link := range strings.Split(links, ",") {
+		for _, link := range links {
 			cfg := &crossv1.Provider{}
 			engine.BuildPack(cfg, link, map[string]string{})
 			pa := resource.NewAPIPatchingApplicator(kube)

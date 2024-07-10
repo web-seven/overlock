@@ -11,8 +11,8 @@ import (
 )
 
 type applyCmd struct {
-	Name string `arg:"" help:"Name of provider."`
-	Link string `arg:"" required:"" help:"Link URL (or multiple comma separated) to Crossplane provider to be applied to Environment."`
+	Name string   `arg:"" help:"Name of provider."`
+	Link []string `arg:"" required:"" help:"Link URL (or multiple comma separated) to Crossplane provider to be applied to Environment."`
 }
 
 func (c *applyCmd) Run(ctx context.Context, dc *dynamic.DynamicClient, config *rest.Config, logger *log.Logger) error {

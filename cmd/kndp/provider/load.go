@@ -18,13 +18,5 @@ type loadCmd struct {
 }
 
 func (p *loadCmd) Run(ctx context.Context, config *rest.Config, dc *dynamic.DynamicClient, logger *log.Logger) error {
-	provider := provider.New(p.Name)
-	if p.Upgrade {
-		provider.UpgradeVersion(ctx, dc, logger)
-	}
-	provider.LoadProvider(ctx, p.Path, provider.Name, config, logger)
-	if p.Apply {
-		return provider.ApplyProvider(ctx, provider.Name, config, logger)
-	}
-	return nil
+	return provider.New(p.Name).WithApply(p.Apply).WithUpgrade(p.Upgrade).LoadProvider(ctx, p.Path, p.Name, config, dc, logger)
 }
