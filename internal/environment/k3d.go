@@ -10,7 +10,15 @@ import (
 
 func (e *Environment) CreateK3dEnvironment(logger *log.Logger) (string, error) {
 
-	cmd := exec.Command("k3d", "cluster", "create", e.name)
+	args := []string{
+		"cluster", "create", e.name,
+	}
+
+	if e.mountPath != "" {
+		args = append(args, "-v", e.mountPath+":/storage")
+	}
+
+	cmd := exec.Command("k3d", args...)
 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
