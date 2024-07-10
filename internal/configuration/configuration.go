@@ -10,6 +10,7 @@ import (
 	configuration "github.com/crossplane/crossplane/apis/pkg/v1"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/kndpio/kndp/internal/kube"
+	"github.com/kndpio/kndp/internal/packages"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -26,6 +27,7 @@ const (
 type Configuration struct {
 	Name  string
 	Image regv1.Image
+	packages.Package
 }
 
 func CheckHealthStatus(status []condition.Condition) bool {

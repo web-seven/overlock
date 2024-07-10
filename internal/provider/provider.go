@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/log"
 	provider "github.com/crossplane/crossplane/apis/pkg/v1"
 	"github.com/kndpio/kndp/internal/kube"
+	"github.com/kndpio/kndp/internal/packages"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
@@ -22,6 +23,7 @@ type Provider struct {
 	Image   regv1.Image
 	Upgrade bool
 	Apply   bool
+	packages.Package
 }
 
 // New Provider entity
