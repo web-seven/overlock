@@ -11,9 +11,9 @@ import (
 )
 
 // DeleteProvider deletes a crossplane provider from current environment
-func DeleteProvider(ctx context.Context, configClient *rest.Config, url string, logger *zap.Logger) error {
+func DeleteProvider(ctx context.Context, configClient *rest.Config, url string, logger *zap.SugaredLogger) error {
 
-	logger.Sugar().Debug("Preparing engine")
+	logger.Debug("Preparing engine")
 	installer, err := engine.GetEngine(configClient)
 	if err != nil {
 		return err
@@ -41,11 +41,11 @@ func DeleteProvider(ctx context.Context, configClient *rest.Config, url string, 
 	provider["packages"] = newpackages
 	params["provider"] = provider
 
-	logger.Sugar().Debug("Installing engine")
+	logger.Debug("Installing engine")
 	err = engine.InstallEngine(ctx, configClient, params, logger)
 	if err != nil {
 		return err
 	}
-	logger.Sugar().Infof("Provider %s deleted successfully", url)
+	logger.Infof("Provider %s deleted successfully", url)
 	return nil
 }

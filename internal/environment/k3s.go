@@ -8,7 +8,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func (e *Environment) CreateK3sEnvironment(logger *zap.Logger) (string, error) {
+func (e *Environment) CreateK3sEnvironment(logger *zap.SugaredLogger) (string, error) {
 
 	args := []string{
 		"k3s", "server",
@@ -36,12 +36,12 @@ func (e *Environment) CreateK3sEnvironment(logger *zap.Logger) (string, error) {
 	// Wait for some time
 	time.Sleep(10 * time.Second)
 
-	logger.Sugar().Info("k3s server started successfully")
+	logger.Info("k3s server started successfully")
 
 	return e.K3sContextName(), nil
 }
 
-func (e *Environment) DeleteK3sEnvironment(logger *zap.Logger) error {
+func (e *Environment) DeleteK3sEnvironment(logger *zap.SugaredLogger) error {
 	return nil
 }
 

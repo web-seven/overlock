@@ -12,7 +12,7 @@ import (
 	"k8s.io/client-go/dynamic"
 )
 
-func GetXResources(ctx context.Context, dynamicClient *dynamic.DynamicClient, logger *zap.Logger) []unstructured.Unstructured {
+func GetXResources(ctx context.Context, dynamicClient *dynamic.DynamicClient, logger *zap.SugaredLogger) []unstructured.Unstructured {
 
 	paramsXRDs := kube.ResourceParams{
 		Dynamic:   dynamicClient,
@@ -24,7 +24,7 @@ func GetXResources(ctx context.Context, dynamicClient *dynamic.DynamicClient, lo
 	}
 	XRDs, err := kube.GetKubeResources(paramsXRDs)
 	if err != nil {
-		logger.Sugar().Error(err)
+		logger.Error(err)
 	}
 	var XRs []unstructured.Unstructured
 
@@ -32,7 +32,7 @@ func GetXResources(ctx context.Context, dynamicClient *dynamic.DynamicClient, lo
 		var paramsXRs v1.CompositeResourceDefinition
 		err := runtime.DefaultUnstructuredConverter.FromUnstructured(xrd.UnstructuredContent(), &paramsXRs)
 		if err != nil {
-			logger.Sugar().Error(err)
+			logger.Error(err)
 		}
 		for _, version := range paramsXRs.Spec.Versions {
 			xrList, err := kube.GetKubeResources(kube.ResourceParams{
@@ -48,7 +48,7 @@ func GetXResources(ctx context.Context, dynamicClient *dynamic.DynamicClient, lo
 			})
 
 			if err != nil {
-				logger.Sugar().Error(err)
+				logger.Error(err)
 			}
 
 			XRs = append(XRs, xrList...)

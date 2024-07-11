@@ -14,10 +14,10 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-func SearchPackages(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, query string, versions bool, logger *zap.Logger) (pterm.TableData, error) {
+func SearchPackages(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, query string, versions bool, logger *zap.SugaredLogger) (pterm.TableData, error) {
 	registries, err := registry.Registries(ctx, client)
 	if err != nil {
-		logger.Sugar().Error("Cannot get registries")
+		logger.Error("Cannot get registries")
 		return nil, err
 	}
 
@@ -34,7 +34,7 @@ func SearchPackages(ctx context.Context, client *kubernetes.Clientset, config *r
 			}
 			return tableRegs, nil
 		default:
-			logger.Sugar().Errorf("Registry %s is not supported", registryUrl)
+			logger.Errorf("Registry %s is not supported", registryUrl)
 		}
 
 	}

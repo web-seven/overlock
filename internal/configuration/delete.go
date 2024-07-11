@@ -11,7 +11,7 @@ import (
 	"k8s.io/client-go/dynamic"
 )
 
-func DeleteConfiguration(ctx context.Context, urls string, dynamicClient *dynamic.DynamicClient, logger *zap.Logger) error {
+func DeleteConfiguration(ctx context.Context, urls string, dynamicClient *dynamic.DynamicClient, logger *zap.SugaredLogger) error {
 
 	for _, url := range strings.Split(urls, ",") {
 		cfg := crossv1.Configuration{}
@@ -23,6 +23,6 @@ func DeleteConfiguration(ctx context.Context, urls string, dynamicClient *dynami
 		}
 	}
 
-	logger.Sugar().Info("Configuration(s) removed successfully.")
+	logger.Info("Configuration(s) removed successfully.")
 	return nil
 }

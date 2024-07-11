@@ -13,7 +13,7 @@ import (
 type listCmd struct {
 }
 
-func (listCmd) Run(ctx context.Context, dynamicClient *dynamic.DynamicClient, logger *zap.Logger) error {
+func (listCmd) Run(ctx context.Context, dynamicClient *dynamic.DynamicClient, logger *zap.SugaredLogger) error {
 	configurations := configuration.GetConfigurations(ctx, dynamicClient)
 	table := pterm.TableData{{"NAME", "PACKAGE"}}
 	for _, conf := range configurations {

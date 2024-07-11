@@ -17,13 +17,13 @@ type SearchCmd struct {
 	Versions bool   `optional:""  short:"v" help:"display all versions"`
 }
 
-func (c *SearchCmd) Run(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, logger *zap.Logger) error {
+func (c *SearchCmd) Run(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, logger *zap.SugaredLogger) error {
 	tableRegs, err := search.SearchPackages(ctx, client, config, c.Query, c.Versions, logger)
 	if err != nil {
 		return err
 	}
 	if len(tableRegs) <= 1 {
-		logger.Sugar().Info("No packages found")
+		logger.Info("No packages found")
 	} else {
 		pterm.DefaultTable.WithHasHeader().WithData(tableRegs).Render()
 	}

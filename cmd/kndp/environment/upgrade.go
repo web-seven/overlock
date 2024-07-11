@@ -15,7 +15,7 @@ type upgradeCmd struct {
 	PolicyController  string `optional:"" help:"Specifies the Policy Controller type. (Default: kyverno)" default:"kyverno"`
 }
 
-func (c *upgradeCmd) Run(ctx context.Context, logger *zap.Logger) error {
+func (c *upgradeCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
 	return environment.
 		New(c.Engine, c.Name).
 		WithContext(c.Context).

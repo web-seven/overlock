@@ -8,7 +8,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func (e *Environment) CreateK3dEnvironment(logger *zap.Logger) (string, error) {
+func (e *Environment) CreateK3dEnvironment(logger *zap.SugaredLogger) (string, error) {
 
 	args := []string{
 		"cluster", "create", e.name,
@@ -25,14 +25,14 @@ func (e *Environment) CreateK3dEnvironment(logger *zap.Logger) (string, error) {
 
 	err := cmd.Run()
 	if err != nil {
-		logger.Sugar().Fatalf("Error creating k3d cluster: %v", err)
+		logger.Fatalf("Error creating k3d cluster: %v", err)
 	}
 
-	logger.Sugar().Info("k3d cluster created successfully")
+	logger.Info("k3d cluster created successfully")
 	return e.K3dContextName(), nil
 }
 
-func (e *Environment) DeleteK3dEnvironment(logger *zap.Logger) error {
+func (e *Environment) DeleteK3dEnvironment(logger *zap.SugaredLogger) error {
 	cmd := exec.Command("k3d", "cluster", "delete", e.name)
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
@@ -42,7 +42,7 @@ func (e *Environment) DeleteK3dEnvironment(logger *zap.Logger) error {
 
 	stderrScanner := bufio.NewScanner(stderr)
 	for stderrScanner.Scan() {
-		logger.Sugar().Info(stderrScanner.Text())
+		logger.Info(stderrScanner.Text())
 	}
 	return nil
 }

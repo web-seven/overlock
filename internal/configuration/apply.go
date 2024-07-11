@@ -20,7 +20,7 @@ import (
 )
 
 // RunConfigurationHealthCheck performs a health check on configurations defined by the links string.
-func HealthCheck(ctx context.Context, dc dynamic.Interface, links string, wait bool, timeoutChan <-chan time.Time, logger *zap.Logger) error {
+func HealthCheck(ctx context.Context, dc dynamic.Interface, links string, wait bool, timeoutChan <-chan time.Time, logger *zap.SugaredLogger) error {
 
 	linkSet := make(map[string]struct{})
 	for _, link := range strings.Split(links, ",") {
@@ -31,7 +31,7 @@ func HealthCheck(ctx context.Context, dc dynamic.Interface, links string, wait b
 	for {
 		select {
 		case <-timeoutChan:
-			logger.Sugar().Error("Timeout reached.")
+			logger.Error("Timeout reached.")
 			return nil
 		default:
 			allHealthy := true
@@ -44,7 +44,7 @@ func HealthCheck(ctx context.Context, dc dynamic.Interface, links string, wait b
 				}
 			}
 			if allHealthy {
-				logger.Sugar().Info("Configuration(s) are healthy.")
+				logger.Info("Configuration(s) are healthy.")
 				return nil
 			}
 			time.Sleep(5 * time.Second)
@@ -52,7 +52,7 @@ func HealthCheck(ctx context.Context, dc dynamic.Interface, links string, wait b
 	}
 }
 
-func ApplyConfiguration(ctx context.Context, links string, config *rest.Config, logger *zap.Logger) error {
+func ApplyConfiguration(ctx context.Context, links string, config *rest.Config, logger *zap.SugaredLogger) error {
 	scheme := runtime.NewScheme()
 	crossv1.AddToScheme(scheme)
 	if kube, err := client.New(config, client.Options{Scheme: scheme}); err == nil {
@@ -69,6 +69,6 @@ func ApplyConfiguration(ctx context.Context, links string, config *rest.Config, 
 		return err
 	}
 
-	logger.Sugar().Info("Configuration(s) applied successfully.")
+	logger.Info("Configuration(s) applied successfully.")
 	return nil
 }

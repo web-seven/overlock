@@ -11,6 +11,6 @@ type exampleCmd struct {
 	Path string `help:"Path to CRD YAML file archive."`
 }
 
-func (c *exampleCmd) Run(ctx context.Context, logger *zap.Logger) error {
+func (c *exampleCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
 	return generate.GenerateCompositeResource(ctx, c.Path, logger)
 }

@@ -7,7 +7,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-func InstallProvider(provider string, config *rest.Config, logger *zap.Logger) error {
+func InstallProvider(provider string, config *rest.Config, logger *zap.SugaredLogger) error {
 
 	installer, err := engine.GetEngine(config)
 	if err != nil {
@@ -40,6 +40,6 @@ func InstallProvider(provider string, config *rest.Config, logger *zap.Logger) e
 		return err
 	}
 
-	logger.Sugar().Info("KNDP provider installed successfully.")
+	logger.Info("KNDP provider installed successfully.")
 	return nil
 }

@@ -10,14 +10,14 @@ import (
 )
 
 // Load Provider package from TAR archive path
-func (p *Provider) LoadProvider(ctx context.Context, path string, name string, config *rest.Config, logger *zap.Logger) error {
-	logger.Sugar().Debugf("Loading image to: %s", name)
+func (p *Provider) LoadProvider(ctx context.Context, path string, name string, config *rest.Config, logger *zap.SugaredLogger) error {
+	logger.Debugf("Loading image to: %s", name)
 	p.Image, _ = loader.LoadPathArchive(path)
-	logger.Sugar().Debug("Pushing to local registry")
+	logger.Debug("Pushing to local registry")
 	err := registry.PushLocalRegistry(ctx, p.Name, p.Image, config, logger)
 	if err != nil {
 		return err
 	}
-	logger.Sugar().Infof("Image archive %s loaded to local registry.", name)
+	logger.Infof("Image archive %s loaded to local registry.", name)
 	return nil
 }

@@ -14,7 +14,7 @@ import (
 type listCmd struct {
 }
 
-func (c *listCmd) Run(ctx context.Context, config *rest.Config, dynamicClient *dynamic.DynamicClient, logger *zap.Logger) error {
+func (c *listCmd) Run(ctx context.Context, config *rest.Config, dynamicClient *dynamic.DynamicClient, logger *zap.SugaredLogger) error {
 	providers := provider.ListProviders(ctx, dynamicClient, logger)
 	table := pterm.TableData{{"NAME", "PACKAGE"}}
 	for _, provider := range providers {

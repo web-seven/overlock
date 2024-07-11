@@ -14,16 +14,16 @@ type deleteCmd struct {
 	Local   bool   `help:"Remove associated local registry."`
 }
 
-func (c deleteCmd) Run(ctx context.Context, config *rest.Config, logger *zap.Logger) error {
+func (c deleteCmd) Run(ctx context.Context, config *rest.Config, logger *zap.SugaredLogger) error {
 	reg := registry.Registry{}
 	reg.Name = c.Name
 	reg.SetDefault(c.Default)
 	reg.SetLocal(c.Local)
 	err := reg.Delete(ctx, config, logger)
 	if err != nil {
-		logger.Sugar().Error(err)
+		logger.Error(err)
 	} else {
-		logger.Sugar().Info("Registry was removed successfully.")
+		logger.Info("Registry was removed successfully.")
 	}
 	return nil
 }

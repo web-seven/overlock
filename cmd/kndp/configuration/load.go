@@ -22,7 +22,7 @@ type loadCmd struct {
 	Upgrade bool   `help:"Upgrade existing configuration."`
 }
 
-func (c *loadCmd) Run(ctx context.Context, config *rest.Config, dc *dynamic.DynamicClient, logger *zap.Logger) error {
+func (c *loadCmd) Run(ctx context.Context, config *rest.Config, dc *dynamic.DynamicClient, logger *zap.SugaredLogger) error {
 
 	client, err := kube.Client(config)
 	if err != nil {
@@ -30,7 +30,7 @@ func (c *loadCmd) Run(ctx context.Context, config *rest.Config, dc *dynamic.Dyna
 	}
 
 	if !registry.IsLocalRegistry(ctx, client) {
-		logger.Sugar().Warn("Local registry is not installed.")
+		logger.Warn("Local registry is not installed.")
 		return nil
 	}
 
@@ -47,31 +47,31 @@ func (c *loadCmd) Run(ctx context.Context, config *rest.Config, dc *dynamic.Dyna
 		cfg.UpgradeVersion(ctx, dc)
 	}
 
-	logger.Sugar().Debugf("Loading image to: %s", cfg.Name)
+	logger.Debugf("Loading image to: %s", cfg.Name)
 	if c.Path != "" {
-		logger.Sugar().Debugf("Loading from path: %s", c.Path)
+		logger.Debugf("Loading from path: %s", c.Path)
 		cfg.Image, err = loader.LoadPathArchive(c.Path)
 		if err != nil {
 			return err
 		}
 	} else if c.Stdin {
-		logger.Sugar().Debug("Loading from STDIN")
+		logger.Debug("Loading from STDIN")
 		reader := bufio.NewReader(os.Stdin)
 		err = cfg.LoadStdinArchive(reader)
 		if err != nil {
 			return err
 		}
 	} else {
-		logger.Sugar().Warn("Archive path or STDIN required for load configuration.")
+		logger.Warn("Archive path or STDIN required for load configuration.")
 		return nil
 	}
 
-	logger.Sugar().Debug("Pushing to local registry")
+	logger.Debug("Pushing to local registry")
 	err = registry.PushLocalRegistry(ctx, cfg.Name, cfg.Image, config, logger)
 	if err != nil {
 		return err
 	}
-	logger.Sugar().Infof("Image archive %s loaded to local registry.", cfg.Name)
+	logger.Infof("Image archive %s loaded to local registry.", cfg.Name)
 
 	if c.Apply {
 		return configuration.ApplyConfiguration(ctx, cfg.Name, config, logger)

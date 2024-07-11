@@ -33,7 +33,7 @@ type KindPortMapping struct {
 	Protocol      string `yaml:"protocol"`
 }
 
-func (e *Environment) CreateKindEnvironment(logger *zap.Logger) (string, error) {
+func (e *Environment) CreateKindEnvironment(logger *zap.SugaredLogger) (string, error) {
 
 	clusterYaml := e.configYaml(logger)
 
@@ -42,12 +42,12 @@ func (e *Environment) CreateKindEnvironment(logger *zap.Logger) (string, error) 
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		logger.Sugar().Errorf("error creating StderrPipe: %v", err)
+		logger.Errorf("error creating StderrPipe: %v", err)
 	}
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		logger.Sugar().Errorf("error creating StdoutPipe: %v", err)
+		logger.Errorf("error creating StdoutPipe: %v", err)
 	}
 
 	cmd.Start()
@@ -56,10 +56,10 @@ func (e *Environment) CreateKindEnvironment(logger *zap.Logger) (string, error) 
 	for stderrScanner.Scan() {
 		line := stderrScanner.Text()
 		if strings.Contains(line, "ERROR") {
-			logger.Sugar().Fatal(line)
+			logger.Fatal(line)
 		} else {
 			if !strings.Contains(line, " • ") {
-				logger.Sugar().Debug(line)
+				logger.Debug(line)
 			}
 		}
 	}
@@ -68,7 +68,7 @@ func (e *Environment) CreateKindEnvironment(logger *zap.Logger) (string, error) 
 	for stdoutScanner.Scan() {
 		line := stdoutScanner.Text()
 		if !strings.Contains(line, " • ") {
-			logger.Sugar().Debug(line)
+			logger.Debug(line)
 		}
 	}
 
@@ -76,7 +76,7 @@ func (e *Environment) CreateKindEnvironment(logger *zap.Logger) (string, error) 
 	return e.KindContextName(), nil
 }
 
-func (e *Environment) DeleteKindEnvironment(logger *zap.Logger) error {
+func (e *Environment) DeleteKindEnvironment(logger *zap.SugaredLogger) error {
 	cmd := exec.Command("kind", "delete", "cluster", "--name", e.name)
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
@@ -86,7 +86,7 @@ func (e *Environment) DeleteKindEnvironment(logger *zap.Logger) error {
 
 	stderrScanner := bufio.NewScanner(stderr)
 	for stderrScanner.Scan() {
-		logger.Sugar().Info(stderrScanner.Text())
+		logger.Info(stderrScanner.Text())
 	}
 	return nil
 }
@@ -96,7 +96,7 @@ func (e *Environment) KindContextName() string {
 }
 
 // Return YAML of cluster config file
-func (e *Environment) configYaml(logger *zap.Logger) string {
+func (e *Environment) configYaml(logger *zap.SugaredLogger) string {
 
 	template := KindCluster{
 		Kind:       "Cluster",
@@ -139,7 +139,7 @@ nodeRegistration:
 
 	yamlData, err := yaml.Marshal(&template)
 	if err != nil {
-		logger.Sugar().Fatalf("error: %v", err)
+		logger.Fatalf("error: %v", err)
 	}
 	return string(yamlData)
 }

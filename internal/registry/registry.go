@@ -85,7 +85,7 @@ func New(server string, username string, password string, email string) Registry
 }
 
 // Validate data in Registry object
-func (r *Registry) Validate(ctx context.Context, client *kubernetes.Clientset, logger *zap.Logger) error {
+func (r *Registry) Validate(ctx context.Context, client *kubernetes.Clientset, logger *zap.SugaredLogger) error {
 	if r.Local {
 		return nil
 	}
@@ -137,7 +137,7 @@ func (r *Registry) SecretSpec() corev1.Secret {
 }
 
 // Creates registry in requested context and assign it to engine
-func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.Logger) error {
+func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.SugaredLogger) error {
 
 	client, err := kube.Client(config)
 	if err != nil {
@@ -157,7 +157,7 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.
 		if err != nil {
 			return err
 		}
-		logger.Sugar().Debugf("Adding registry policies %s", r.Domain())
+		logger.Debugf("Adding registry policies %s", r.Domain())
 		err = policy.AddLocalRegistryPolicy(ctx, config, &policy.RegistryPolicy{Name: r.Domain()})
 		if err != nil {
 			return err
@@ -171,7 +171,7 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.
 		}
 
 		r.Secret = *secret
-		logger.Sugar().Debugf("Created registry secret %s", r.Secret.ObjectMeta.Name)
+		logger.Debugf("Created registry secret %s", r.Secret.ObjectMeta.Name)
 
 		serverUrls := []string{}
 		for _, auth := range r.Config.Auths {
@@ -180,7 +180,7 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.
 				strings.Replace(auth.Server, "https://", "", -1),
 			)
 		}
-		logger.Sugar().Debugf("Adding registry policies %s", r.Secret.ObjectMeta.Name)
+		logger.Debugf("Adding registry policies %s", r.Secret.ObjectMeta.Name)
 		err = policy.AddRegistryPolicy(ctx, config, &policy.RegistryPolicy{Name: r.Name, Urls: serverUrls})
 		if err != nil {
 			return err
@@ -218,7 +218,7 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.
 		)
 	}
 
-	logger.Sugar().Debug("Upgrade Corssplane chart", "Values", release.Config)
+	logger.Debug("Upgrade Corssplane chart", "Values", release.Config)
 
 	return installer.Upgrade(engine.Version, release.Config)
 }
@@ -237,11 +237,11 @@ func (r *Registry) ToSecret() *corev1.Secret {
 }
 
 // Delete registry
-func (r *Registry) Delete(ctx context.Context, config *rest.Config, logger *zap.Logger) error {
+func (r *Registry) Delete(ctx context.Context, config *rest.Config, logger *zap.SugaredLogger) error {
 
 	installer, err := engine.GetEngine(config)
 	if err != nil {
-		logger.Sugar().Errorf(" %v\n", err)
+		logger.Errorf(" %v\n", err)
 	}
 
 	release, _ := installer.GetRelease()
@@ -303,7 +303,7 @@ func (r *Registry) Delete(ctx context.Context, config *rest.Config, logger *zap.
 }
 
 // Copy registries from source to destination contexts
-func CopyRegistries(ctx context.Context, logger *zap.Logger, sourceConfig *rest.Config, destinationConfig *rest.Config) error {
+func CopyRegistries(ctx context.Context, logger *zap.SugaredLogger, sourceConfig *rest.Config, destinationConfig *rest.Config) error {
 
 	destClient, err := kube.Client(destinationConfig)
 	if err != nil {

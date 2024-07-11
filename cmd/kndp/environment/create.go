@@ -18,7 +18,7 @@ type createCmd struct {
 	MountPath         string `optional:"" help:"Path for mount to /storage host directory. By default no mounts."`
 }
 
-func (c *createCmd) Run(ctx context.Context, logger *zap.Logger) error {
+func (c *createCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
 	return environment.
 		New(c.Engine, c.Name).
 		WithHttpPort(c.HttpPort).

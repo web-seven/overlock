@@ -100,7 +100,7 @@ func GetEngine(configClient *rest.Config) (install.Manager, error) {
 }
 
 // Install engine Helm release
-func InstallEngine(ctx context.Context, configClient *rest.Config, params map[string]any, logger *zap.Logger) error {
+func InstallEngine(ctx context.Context, configClient *rest.Config, params map[string]any, logger *zap.SugaredLogger) error {
 	engine, err := GetEngine(configClient)
 	if err != nil {
 		return err
@@ -109,12 +109,12 @@ func InstallEngine(ctx context.Context, configClient *rest.Config, params map[st
 	if params == nil {
 		params = initParameters
 	}
-	logger.Sugar().Debug("Upgrade Crossplane release")
+	logger.Debug("Upgrade Crossplane release")
 	err = engine.Upgrade(Version, params)
 	if err != nil {
 		return err
 	}
-	logger.Sugar().Debug("Done")
+	logger.Debug("Done")
 
 	return SetupPrivilegedKubernetesProvider(ctx, configClient, logger)
 }
@@ -156,7 +156,7 @@ func ManagedSelector(m map[string]string) string {
 }
 
 // Setup Kubernetes provider which has crossplane admin aggregation role assigned
-func SetupPrivilegedKubernetesProvider(ctx context.Context, configClient *rest.Config, logger *zap.Logger) error {
+func SetupPrivilegedKubernetesProvider(ctx context.Context, configClient *rest.Config, logger *zap.SugaredLogger) error {
 
 	pcn := providerConfigName
 
@@ -259,7 +259,7 @@ func SetupPrivilegedKubernetesProvider(ctx context.Context, configClient *rest.C
 		}); err != nil {
 		return err
 	}
-	logger.Sugar().Debug("Starting reconciliation of Kubernetes Provider")
+	logger.Debug("Starting reconciliation of Kubernetes Provider")
 	mgr.Start(mgrContext)
 	return nil
 }

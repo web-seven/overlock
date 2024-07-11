@@ -15,7 +15,7 @@ import (
 type listCmd struct {
 }
 
-func (listCmd) Run(ctx context.Context, config *rest.Config, dynamicClient *dynamic.DynamicClient, logger *zap.Logger) error {
+func (listCmd) Run(ctx context.Context, config *rest.Config, dynamicClient *dynamic.DynamicClient, logger *zap.SugaredLogger) error {
 	tbl := table.New("NAME", "API-VERSION", "KIND", "CREATION-DATE", "UPDATE-DATE")
 
 	xresources := resources.GetXResources(ctx, dynamicClient, logger)
@@ -25,8 +25,8 @@ func (listCmd) Run(ctx context.Context, config *rest.Config, dynamicClient *dyna
 
 		jsonFormat, _ := resource.MarshalJSON()
 		yamlFormat, _ := yaml.JSONToYAML(jsonFormat)
-		logger.Sugar().Infof("\n%s JSON: \n%s\n", resource.GetName(), string(jsonFormat))
-		logger.Sugar().Infof("%s YAML: \n%s\n", resource.GetName(), string(yamlFormat))
+		logger.Infof("\n%s JSON: \n%s\n", resource.GetName(), string(jsonFormat))
+		logger.Infof("%s YAML: \n%s\n", resource.GetName(), string(yamlFormat))
 	}
 
 	if len(xresources) > 0 {

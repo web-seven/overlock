@@ -25,7 +25,7 @@ func New(name string) *Provider {
 	}
 }
 
-func ListProviders(ctx context.Context, dynamicClient dynamic.Interface, logger *zap.Logger) []provider.Provider {
+func ListProviders(ctx context.Context, dynamicClient dynamic.Interface, logger *zap.SugaredLogger) []provider.Provider {
 	destConf, _ := kube.GetKubeResources(kube.ResourceParams{
 		Dynamic:    dynamicClient,
 		Ctx:        ctx,
@@ -39,7 +39,7 @@ func ListProviders(ctx context.Context, dynamicClient dynamic.Interface, logger 
 	for _, conf := range destConf {
 		var paramsProvider provider.Provider
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(conf.UnstructuredContent(), &paramsProvider); err != nil {
-			logger.Sugar().Errorf("Failed to convert item %s: %v\n", conf.GetName(), err)
+			logger.Errorf("Failed to convert item %s: %v\n", conf.GetName(), err)
 			continue
 		}
 		providers = append(providers, paramsProvider)

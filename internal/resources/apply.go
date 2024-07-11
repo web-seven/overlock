@@ -11,15 +11,15 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-func transformToUnstructured(filename string, logger *zap.Logger) ([]unstructured.Unstructured, error) {
+func transformToUnstructured(filename string, logger *zap.SugaredLogger) ([]unstructured.Unstructured, error) {
 	file, err := readFromFile(filename)
 	if err != nil {
-		logger.Sugar().Fatal(err)
+		logger.Fatal(err)
 	}
 
 	yamlBytes, err := splitYAML(file)
 	if err != nil {
-		logger.Sugar().Fatal(err)
+		logger.Fatal(err)
 	}
 
 	var unstructuredResources []unstructured.Unstructured

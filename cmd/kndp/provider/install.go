@@ -14,7 +14,7 @@ type installCmd struct {
 	ProviderUrl string `arg:"" required:"" help:"Provider URL to Crossplane provider to be installed to Environment."`
 }
 
-func (c *installCmd) Run(ctx context.Context, config *rest.Config, dynamicClient *dynamic.DynamicClient, logger *zap.Logger) error {
+func (c *installCmd) Run(ctx context.Context, config *rest.Config, dynamicClient *dynamic.DynamicClient, logger *zap.SugaredLogger) error {
 	provider.InstallProvider(c.ProviderUrl, config, logger)
 
 	return nil

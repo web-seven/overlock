@@ -12,7 +12,7 @@ type deleteCmd struct {
 	Engine string `optional:"" help:"Specifies the Kubernetes engine to use for the runtime environment." default:"kind"`
 }
 
-func (c *deleteCmd) Run(ctx context.Context, logger *zap.Logger) error {
+func (c *deleteCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
 	return environment.
 		New(c.Engine, c.Name).
 		Delete(logger)

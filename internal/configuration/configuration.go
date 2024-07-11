@@ -38,7 +38,7 @@ func CheckHealthStatus(status []condition.Condition) bool {
 	return healthStatus
 }
 
-func GetConfiguration(ctx context.Context, logger *zap.Logger, sourceDynamicClient dynamic.Interface, paramsConfiguration kube.ResourceParams) ([]unstructured.Unstructured, error) {
+func GetConfiguration(ctx context.Context, logger *zap.SugaredLogger, sourceDynamicClient dynamic.Interface, paramsConfiguration kube.ResourceParams) ([]unstructured.Unstructured, error) {
 
 	configurations, err := kube.GetKubeResources(paramsConfiguration)
 	if err != nil {
@@ -48,7 +48,7 @@ func GetConfiguration(ctx context.Context, logger *zap.Logger, sourceDynamicClie
 	return configurations, nil
 }
 
-func MoveConfigurations(ctx context.Context, logger *zap.Logger, destClientset dynamic.Interface, configurations []unstructured.Unstructured, paramsConfiguration kube.ResourceParams) error {
+func MoveConfigurations(ctx context.Context, logger *zap.SugaredLogger, destClientset dynamic.Interface, configurations []unstructured.Unstructured, paramsConfiguration kube.ResourceParams) error {
 	if len(configurations) > 0 {
 		logger.Info("Moving Kubernetes resources to the destination cluster, please wait ...")
 
@@ -63,7 +63,7 @@ func MoveConfigurations(ctx context.Context, logger *zap.Logger, destClientset d
 			if err != nil {
 				return err
 			} else {
-				logger.Sugar().Infof("Configuration created successfully %s", item.GetName())
+				logger.Infof("Configuration created successfully %s", item.GetName())
 
 			}
 
@@ -86,7 +86,7 @@ func MoveConfigurations(ctx context.Context, logger *zap.Logger, destClientset d
 			for _, conf := range destConf {
 				var paramsConf configuration.Configuration
 				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(conf.UnstructuredContent(), &paramsConf); err != nil {
-					logger.Sugar().Infof("Failed to convert item %s: %v\n", conf.GetName(), err)
+					logger.Infof("Failed to convert item %s: %v\n", conf.GetName(), err)
 					continue
 				}
 				condition := paramsConf.Status.Conditions
@@ -102,7 +102,7 @@ func MoveConfigurations(ctx context.Context, logger *zap.Logger, destClientset d
 			}
 		}
 	} else {
-		logger.Sugar().Warn("Configuration resources not found")
+		logger.Warn("Configuration resources not found")
 	}
 
 	return nil

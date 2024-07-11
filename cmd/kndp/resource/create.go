@@ -16,7 +16,7 @@ type createCmd struct {
 	Type string `arg:"" required:"" help:"XRD type name."`
 }
 
-func (c *createCmd) Run(ctx context.Context, client *dynamic.DynamicClient, logger *zap.Logger) error {
+func (c *createCmd) Run(ctx context.Context, client *dynamic.DynamicClient, logger *zap.SugaredLogger) error {
 
 	xrd := crossv1.CompositeResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
@@ -31,7 +31,7 @@ func (c *createCmd) Run(ctx context.Context, client *dynamic.DynamicClient, logg
 	return nil
 }
 
-func CreateXResource(ctx context.Context, xrd crossv1.CompositeResourceDefinition, client *dynamic.DynamicClient, logger *zap.Logger) bool {
+func CreateXResource(ctx context.Context, xrd crossv1.CompositeResourceDefinition, client *dynamic.DynamicClient, logger *zap.SugaredLogger) bool {
 	xResource := resources.XResource{}
 	form := xResource.GetSchemaFormFromXRDefinition(
 		ctx,
@@ -58,7 +58,7 @@ func CreateXResource(ctx context.Context, xrd crossv1.CompositeResourceDefinitio
 			groupVersion,
 		).Create(ctx, &xResource.Unstructured, metav1.CreateOptions{})
 		if err != nil {
-			logger.Sugar().Error(err)
+			logger.Error(err)
 		}
 		return true
 	}

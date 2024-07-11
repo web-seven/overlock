@@ -12,10 +12,10 @@ import (
 type listCmd struct {
 }
 
-func (c listCmd) Run(ctx context.Context, client *kubernetes.Clientset, logger *zap.Logger) error {
+func (c listCmd) Run(ctx context.Context, client *kubernetes.Clientset, logger *zap.SugaredLogger) error {
 	registries, err := registry.Registries(ctx, client)
 	if err != nil {
-		logger.Sugar().Error(err)
+		logger.Error(err)
 	}
 
 	tableRegs := pterm.TableData{

@@ -61,7 +61,7 @@ func (c *cli) AfterApply(ctx *kong.Context) error { //nolint:unparam
 		cfg.Level = zap.NewAtomicLevelAt(zapcore.DebugLevel)
 	}
 	logger, _ := cfg.Build()
-	ctx.Bind(logger)
+	ctx.Bind(logger.Sugar())
 	return nil
 }
 
