@@ -1,7 +1,9 @@
 package environment
 
 import (
+	"bufio"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -98,9 +100,32 @@ func (e *Environment) Upgrade(ctx context.Context, logger *log.Logger) error {
 	return nil
 }
 
+// confirmationPrompt prompts the user with a yes/no choice.
+func confirmationPrompt(s string, logger *log.Logger) bool {
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		fmt.Printf("%s [y/n]: ", s)
+		r, err := reader.ReadString('\n')
+		if err != nil {
+			logger.Error(err)
+		}
+		r = strings.ToLower(strings.TrimSpace(r))
+		switch r {
+		case "y", "yes":
+			return true
+		case "n", "no", "":
+			logger.Info("Aborting...")
+			return false
+		}
+	}
+}
+
 // Delete environment cluster
-func (e *Environment) Delete(logger *log.Logger) error {
+func (e *Environment) Delete(f bool, logger *log.Logger) error {
 	var err error
+	if !f && !confirmationPrompt(fmt.Sprintf("Do you really want to delete environment %s ?", e.name), logger) {
+		return nil
+	}
 	switch e.engine {
 	case "kind":
 		err = e.DeleteKindEnvironment(logger)
