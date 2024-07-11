@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/log"
 	"github.com/kndpio/kndp/internal/engine"
+	"go.uber.org/zap"
 	"k8s.io/client-go/rest"
 )
 
 // DeleteProvider deletes a crossplane provider from current environment
-func DeleteProvider(ctx context.Context, configClient *rest.Config, url string, logger *log.Logger) error {
+func DeleteProvider(ctx context.Context, configClient *rest.Config, url string, logger *zap.SugaredLogger) error {
 
 	logger.Debug("Preparing engine")
 	installer, err := engine.GetEngine(configClient)

@@ -3,8 +3,8 @@ package provider
 import (
 	"context"
 
-	"github.com/charmbracelet/log"
 	"github.com/kndpio/kndp/internal/provider"
+	"go.uber.org/zap"
 
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
@@ -17,6 +17,6 @@ type loadCmd struct {
 	Upgrade bool   `help:"Upgrade existing provider."`
 }
 
-func (p *loadCmd) Run(ctx context.Context, config *rest.Config, dc *dynamic.DynamicClient, logger *log.Logger) error {
+func (p *loadCmd) Run(ctx context.Context, config *rest.Config, dc *dynamic.DynamicClient, logger logger *zap.SugaredLogger) error {
 	return provider.New(p.Name).WithApply(p.Apply).WithUpgrade(p.Upgrade).LoadProvider(ctx, p.Path, config, dc, logger)
 }

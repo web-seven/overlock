@@ -6,11 +6,11 @@ import (
 
 	condition "github.com/crossplane/crossplane-runtime/apis/common/v1"
 
-	"github.com/charmbracelet/log"
 	configuration "github.com/crossplane/crossplane/apis/pkg/v1"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/kndpio/kndp/internal/kube"
 	"github.com/kndpio/kndp/internal/packages"
+	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -40,18 +40,17 @@ func CheckHealthStatus(status []condition.Condition) bool {
 	return healthStatus
 }
 
-func GetConfiguration(ctx context.Context, logger *log.Logger, sourceDynamicClient dynamic.Interface, paramsConfiguration kube.ResourceParams) ([]unstructured.Unstructured, error) {
+func GetConfiguration(ctx context.Context, logger *zap.SugaredLogger, sourceDynamicClient dynamic.Interface, paramsConfiguration kube.ResourceParams) ([]unstructured.Unstructured, error) {
 
 	configurations, err := kube.GetKubeResources(paramsConfiguration)
 	if err != nil {
-		logger.Error(err)
 		return nil, err
 	}
 
 	return configurations, nil
 }
 
-func MoveConfigurations(ctx context.Context, logger *log.Logger, destClientset dynamic.Interface, configurations []unstructured.Unstructured, paramsConfiguration kube.ResourceParams) error {
+func MoveConfigurations(ctx context.Context, logger *zap.SugaredLogger, destClientset dynamic.Interface, configurations []unstructured.Unstructured, paramsConfiguration kube.ResourceParams) error {
 	if len(configurations) > 0 {
 		logger.Info("Moving Kubernetes resources to the destination cluster, please wait ...")
 
@@ -89,7 +88,7 @@ func MoveConfigurations(ctx context.Context, logger *log.Logger, destClientset d
 			for _, conf := range destConf {
 				var paramsConf configuration.Configuration
 				if err := runtime.DefaultUnstructuredConverter.FromUnstructured(conf.UnstructuredContent(), &paramsConf); err != nil {
-					logger.Printf("Failed to convert item %s: %v\n", conf.GetName(), err)
+					logger.Infof("Failed to convert item %s: %v\n", conf.GetName(), err)
 					continue
 				}
 				condition := paramsConf.Status.Conditions

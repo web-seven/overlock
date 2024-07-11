@@ -5,14 +5,23 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/charmbracelet/log"
+	"go.uber.org/zap"
 )
 
-func (e *Environment) CreateK3sEnvironment(logger *log.Logger) (string, error) {
-	cmd := exec.Command("sudo", "k3s", "server",
+func (e *Environment) CreateK3sEnvironment(logger *zap.SugaredLogger) (string, error) {
+
+	args := []string{
+		"k3s", "server",
 		"--write-kubeconfig-mode", "0644",
 		"--node-name", e.name,
-		"--cluster-init")
+		"--cluster-init",
+	}
+
+	if e.mountPath != "" {
+		args = append(args, "--data-dir", e.mountPath)
+	}
+
+	cmd := exec.Command("sudo", args...)
 
 	// Set the KUBECONFIG environment variable for the k3s process only
 	if os.Getenv("KUBECONFIG") == "" {
@@ -32,7 +41,7 @@ func (e *Environment) CreateK3sEnvironment(logger *log.Logger) (string, error) {
 	return e.K3sContextName(), nil
 }
 
-func (e *Environment) DeleteK3sEnvironment(logger *log.Logger) error {
+func (e *Environment) DeleteK3sEnvironment(logger *zap.SugaredLogger) error {
 	return nil
 }
 

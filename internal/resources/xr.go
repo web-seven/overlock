@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/log"
+	"github.com/charmbracelet/huh"
 	"github.com/kndpio/kndp/internal/engine"
 	"github.com/kndpio/kndp/internal/kube"
+	"go.uber.org/zap"
 
-	"github.com/charmbracelet/huh"
 	crossv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -31,7 +31,7 @@ type XResource struct {
 var apiFields = []string{"apiVersion", "kind"}
 var metadataFields = []string{"metadata"}
 
-func (xr *XResource) GetSchemaFormFromXRDefinition(ctx context.Context, xrd crossv1.CompositeResourceDefinition, client *dynamic.DynamicClient, logger *log.Logger) *huh.Form {
+func (xr *XResource) GetSchemaFormFromXRDefinition(ctx context.Context, xrd crossv1.CompositeResourceDefinition, client *dynamic.DynamicClient, logger *zap.SugaredLogger) *huh.Form {
 
 	xrdInstance, err := client.Resource(schema.GroupVersionResource{
 		Group:    xrd.GroupVersionKind().Group,
@@ -260,7 +260,7 @@ func (xr *XResource) getFormGroupsByProps(schema *extv1.JSONSchemaProps, parent 
 	return formGroups
 }
 
-func parseSchema(v *v1.CompositeResourceValidation, logger *log.Logger) (*extv1.JSONSchemaProps, error) {
+func parseSchema(v *v1.CompositeResourceValidation, logger *zap.SugaredLogger) (*extv1.JSONSchemaProps, error) {
 	if v == nil {
 		return nil, nil
 	}
@@ -281,7 +281,7 @@ func isStringInArray(a []string, s string) bool {
 	return false
 }
 
-func ApplyResources(ctx context.Context, client *dynamic.DynamicClient, logger *log.Logger, file string) error {
+func ApplyResources(ctx context.Context, client *dynamic.DynamicClient, logger *zap.SugaredLogger, file string) error {
 	resources, err := transformToUnstructured(file, logger)
 
 	if err != nil {
@@ -308,7 +308,7 @@ func ApplyResources(ctx context.Context, client *dynamic.DynamicClient, logger *
 	return nil
 }
 
-func CopyComposites(ctx context.Context, logger *log.Logger, sourceContext dynamic.Interface, destinationContext dynamic.Interface) error {
+func CopyComposites(ctx context.Context, logger *zap.SugaredLogger, sourceContext dynamic.Interface, destinationContext dynamic.Interface) error {
 
 	//Get composite resources from XRDs definition and apply them
 	XRDs, err := kube.GetKubeResources(kube.ResourceParams{
@@ -328,7 +328,7 @@ func CopyComposites(ctx context.Context, logger *log.Logger, sourceContext dynam
 		for _, xrd := range XRDs {
 			var paramsXRs v1.CompositeResourceDefinition
 			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(xrd.UnstructuredContent(), &paramsXRs); err != nil {
-				logger.Printf("Failed to convert item %s: %v\n", xrd.GetName(), err)
+				logger.Infof("Failed to convert item %s: %v\n", xrd.GetName(), err)
 				return nil
 			}
 			for _, version := range paramsXRs.Spec.Versions {
@@ -344,8 +344,7 @@ func CopyComposites(ctx context.Context, logger *log.Logger, sourceContext dynam
 					},
 				})
 				if err != nil {
-					logger.Error(err)
-					return nil
+					return err
 				}
 
 				for _, xr := range XRs {

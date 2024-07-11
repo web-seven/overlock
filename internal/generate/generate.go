@@ -7,10 +7,10 @@ import (
 	"encoding/json"
 	"os"
 
-	"github.com/charmbracelet/log"
 	crossv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
+	"go.uber.org/zap"
+	"gopkg.in/yaml.v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/yaml"
 )
 
 // xr represents a Crossplane composite resource with metadata and specifications.
@@ -22,7 +22,7 @@ type xr struct {
 
 // GenerateCompositeResource reads a CompositeResourceDefinition from a YAML file,
 // generates an example composite resource, and prints it as YAML.
-func GenerateCompositeResource(ctx context.Context, path string, logger *log.Logger) error {
+func GenerateCompositeResource(ctx context.Context, path string, logger *zap.SugaredLogger) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		logger.Errorf("failed to read file: %v", err)
@@ -54,12 +54,12 @@ func GenerateCompositeResource(ctx context.Context, path string, logger *log.Log
 		logger.Errorf("failed to marshal YAML: %v", err)
 	}
 
-	logger.Print(string(yamlXR))
+	logger.Info(string(yamlXR))
 	return nil
 }
 
 // generateSpec creates an example spec map based on the schema defined in the CompositeResourceDefinition.
-func generateSpec(xrd crossv1.CompositeResourceDefinition, logger *log.Logger) (map[string]interface{}, error) {
+func generateSpec(xrd crossv1.CompositeResourceDefinition, logger *zap.SugaredLogger) (map[string]interface{}, error) {
 	xrSpec := make(map[string]interface{})
 	rawData := xrd.Spec.Versions[0].Schema.OpenAPIV3Schema.Raw
 

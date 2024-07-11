@@ -2,40 +2,40 @@ package environment
 
 import (
 	"bufio"
-	"fmt"
 	"os/exec"
 	"strings"
 
-	"github.com/charmbracelet/log"
+	"go.uber.org/zap"
+	"gopkg.in/yaml.v3"
 )
 
-var yamlTemplate = `
-kind: Cluster
-apiVersion: kind.x-k8s.io/v1alpha4
-nodes:
-- role: worker
-  extraMounts:
-  - hostPath: ./
-    containerPath: /storage
-- role: control-plane
-  kubeadmConfigPatches:
-  - |
-    kind: InitConfiguration
-    nodeRegistration:
-      kubeletExtraArgs:
-        node-labels: "ingress-ready=true"
-  extraPortMappings:
-  - containerPort: 80
-    hostPort: %d
-    protocol: TCP
-  - containerPort: 443
-    hostPort: %d
-    protocol: TCP
-`
+type KindCluster struct {
+	Kind       string     `yaml:"kind"`
+	APIVersion string     `yaml:"apiVersion"`
+	Nodes      []KindNode `yaml:"nodes"`
+}
 
-func (e *Environment) CreateKindEnvironment(logger *log.Logger) (string, error) {
+type KindNode struct {
+	Role                 string            `yaml:"role"`
+	ExtraMounts          []KindMount       `yaml:"extraMounts,omitempty"`
+	KubeadmConfigPatches []string          `yaml:"kubeadmConfigPatches,omitempty"`
+	ExtraPortMappings    []KindPortMapping `yaml:"extraPortMappings,omitempty"`
+}
 
-	clusterYaml := fmt.Sprintf(yamlTemplate, e.httpPort, e.httpsPort)
+type KindMount struct {
+	HostPath      string `yaml:"hostPath"`
+	ContainerPath string `yaml:"containerPath"`
+}
+
+type KindPortMapping struct {
+	ContainerPort int    `yaml:"containerPort"`
+	HostPort      int    `yaml:"hostPort"`
+	Protocol      string `yaml:"protocol"`
+}
+
+func (e *Environment) CreateKindEnvironment(logger *zap.SugaredLogger) (string, error) {
+
+	clusterYaml := e.configYaml(logger)
 
 	cmd := exec.Command("kind", "create", "cluster", "--name", e.name, "--config", "-")
 	cmd.Stdin = strings.NewReader(clusterYaml)
@@ -57,6 +57,10 @@ func (e *Environment) CreateKindEnvironment(logger *log.Logger) (string, error) 
 		line := stderrScanner.Text()
 		if strings.Contains(line, "ERROR") {
 			logger.Fatal(line)
+		} else {
+			if !strings.Contains(line, " • ") {
+				logger.Debug(line)
+			}
 		}
 	}
 
@@ -64,7 +68,7 @@ func (e *Environment) CreateKindEnvironment(logger *log.Logger) (string, error) 
 	for stdoutScanner.Scan() {
 		line := stdoutScanner.Text()
 		if !strings.Contains(line, " • ") {
-			logger.Print(line)
+			logger.Debug(line)
 		}
 	}
 
@@ -72,7 +76,7 @@ func (e *Environment) CreateKindEnvironment(logger *log.Logger) (string, error) 
 	return e.KindContextName(), nil
 }
 
-func (e *Environment) DeleteKindEnvironment(logger *log.Logger) error {
+func (e *Environment) DeleteKindEnvironment(logger *zap.SugaredLogger) error {
 	cmd := exec.Command("kind", "delete", "cluster", "--name", e.name)
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
@@ -82,11 +86,60 @@ func (e *Environment) DeleteKindEnvironment(logger *log.Logger) error {
 
 	stderrScanner := bufio.NewScanner(stderr)
 	for stderrScanner.Scan() {
-		logger.Print(stderrScanner.Text())
+		logger.Info(stderrScanner.Text())
 	}
 	return nil
 }
 
 func (e *Environment) KindContextName() string {
 	return "kind-" + e.name
+}
+
+// Return YAML of cluster config file
+func (e *Environment) configYaml(logger *zap.SugaredLogger) string {
+
+	template := KindCluster{
+		Kind:       "Cluster",
+		APIVersion: "kind.x-k8s.io/v1alpha4",
+		Nodes: []KindNode{
+			{
+				Role:        "worker",
+				ExtraMounts: []KindMount{},
+			},
+			{
+				Role: "control-plane",
+				KubeadmConfigPatches: []string{
+					`kind: InitConfiguration
+nodeRegistration:
+  kubeletExtraArgs:
+    node-labels: "ingress-ready=true"`,
+				},
+				ExtraPortMappings: []KindPortMapping{
+					{
+						ContainerPort: 80,
+						HostPort:      e.httpPort,
+						Protocol:      "TCP",
+					},
+					{
+						ContainerPort: 443,
+						HostPort:      e.httpsPort,
+						Protocol:      "TCP",
+					},
+				},
+			},
+		},
+	}
+
+	if e.mountPath != "" {
+		template.Nodes[0].ExtraMounts = append(template.Nodes[0].ExtraMounts, KindMount{
+			HostPath:      e.mountPath,
+			ContainerPath: "/storage",
+		})
+	}
+
+	yamlData, err := yaml.Marshal(&template)
+	if err != nil {
+		logger.Fatalf("error: %v", err)
+	}
+	return string(yamlData)
 }

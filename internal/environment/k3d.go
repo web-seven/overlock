@@ -5,12 +5,20 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/charmbracelet/log"
+	"go.uber.org/zap"
 )
 
-func (e *Environment) CreateK3dEnvironment(logger *log.Logger) (string, error) {
+func (e *Environment) CreateK3dEnvironment(logger *zap.SugaredLogger) (string, error) {
 
-	cmd := exec.Command("k3d", "cluster", "create", e.name)
+	args := []string{
+		"cluster", "create", e.name,
+	}
+
+	if e.mountPath != "" {
+		args = append(args, "-v", e.mountPath+":/storage")
+	}
+
+	cmd := exec.Command("k3d", args...)
 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -24,7 +32,7 @@ func (e *Environment) CreateK3dEnvironment(logger *log.Logger) (string, error) {
 	return e.K3dContextName(), nil
 }
 
-func (e *Environment) DeleteK3dEnvironment(logger *log.Logger) error {
+func (e *Environment) DeleteK3dEnvironment(logger *zap.SugaredLogger) error {
 	cmd := exec.Command("k3d", "cluster", "delete", e.name)
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
@@ -34,7 +42,7 @@ func (e *Environment) DeleteK3dEnvironment(logger *log.Logger) error {
 
 	stderrScanner := bufio.NewScanner(stderr)
 	for stderrScanner.Scan() {
-		logger.Print(stderrScanner.Text())
+		logger.Info(stderrScanner.Text())
 	}
 	return nil
 }

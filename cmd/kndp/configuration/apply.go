@@ -5,11 +5,10 @@ import (
 	"time"
 
 	"github.com/kndpio/kndp/internal/configuration"
+	"go.uber.org/zap"
 
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
-
-	"github.com/charmbracelet/log"
 )
 
 type applyCmd struct {
@@ -18,7 +17,7 @@ type applyCmd struct {
 	Timeout string `optional:"" short:"t" help:"Timeout is used to set how much to wait until configuration is installed (valid time units are ns, us, ms, s, m, h)"`
 }
 
-func (c *applyCmd) Run(ctx context.Context, dc *dynamic.DynamicClient, config *rest.Config, logger *log.Logger) error {
+func (c *applyCmd) Run(ctx context.Context, dc *dynamic.DynamicClient, config *rest.Config, logger *zap.SugaredLogger) error {
 	configuration.ApplyConfiguration(ctx, c.Link, config, logger)
 	if !c.Wait {
 		return nil

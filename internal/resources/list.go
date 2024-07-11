@@ -3,16 +3,16 @@ package resources
 import (
 	"context"
 
-	"github.com/charmbracelet/log"
 	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	"github.com/kndpio/kndp/internal/kube"
+	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 )
 
-func GetXResources(ctx context.Context, dynamicClient *dynamic.DynamicClient, logger *log.Logger) []unstructured.Unstructured {
+func GetXResources(ctx context.Context, dynamicClient *dynamic.DynamicClient, logger *zap.SugaredLogger) []unstructured.Unstructured {
 
 	paramsXRDs := kube.ResourceParams{
 		Dynamic:   dynamicClient,

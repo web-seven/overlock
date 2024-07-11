@@ -3,17 +3,18 @@ package provider
 import (
 	"context"
 
-	"github.com/charmbracelet/log"
 	"github.com/kndpio/kndp/internal/loader"
 	"github.com/kndpio/kndp/internal/packages"
 	"github.com/kndpio/kndp/internal/registry"
 	"k8s.io/client-go/dynamic"
+	"go.uber.org/zap"
 	"k8s.io/client-go/rest"
 )
 
 // Load Provider package from TAR archive path
-func (p *Provider) LoadProvider(ctx context.Context, path string, config *rest.Config, dc *dynamic.DynamicClient, logger *log.Logger) error {
+func (p *Provider) LoadProvider(ctx context.Context, path string, config *rest.Config, dc *dynamic.DynamicClient, logger *zap.SugaredLogger) error {
 	logger.Debugf("Loading image to: %s", p.Name)
+
 	p.Image, _ = loader.LoadPathArchive(path)
 	providers := ListProviders(ctx, dc, logger)
 	var pkgs []packages.Package

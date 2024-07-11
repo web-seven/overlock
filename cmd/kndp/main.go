@@ -6,12 +6,13 @@ import (
 	"os/signal"
 
 	"github.com/alecthomas/kong"
-	"github.com/charmbracelet/log"
 	"github.com/kndpio/kndp/cmd/kndp/configuration"
 	"github.com/kndpio/kndp/cmd/kndp/environment"
 	"github.com/kndpio/kndp/cmd/kndp/generate"
 	"github.com/kndpio/kndp/cmd/kndp/provider"
 	"github.com/kndpio/kndp/internal/kube"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/kndpio/kndp/cmd/kndp/registry"
 	"github.com/kndpio/kndp/cmd/kndp/resource"
@@ -32,8 +33,6 @@ var Version = "development"
 func (v VersionFlag) Decode(ctx *kong.DecodeContext) error { return nil }
 func (v VersionFlag) IsBool() bool                         { return true }
 func (v VersionFlag) BeforeApply(app *kong.Kong, vars kong.Vars) error {
-	log.SetReportTimestamp(false)
-	log.Print(vars["version"])
 	app.Exit(0)
 	return nil
 }
@@ -53,12 +52,16 @@ func (c *cli) AfterApply(ctx *kong.Context) error { //nolint:unparam
 		ctx.Bind(dynamicClient)
 		ctx.Bind(kubeClient)
 	}
-	logger := log.Default()
+
+	cfg := zap.NewDevelopmentConfig()
+	cfg.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
+	cfg.EncoderConfig.TimeKey = ""
+	cfg.EncoderConfig.CallerKey = ""
 	if c.Globals.Debug {
-		logger.SetLevel(log.DebugLevel)
+		cfg.Level = zap.NewAtomicLevelAt(zapcore.DebugLevel)
 	}
-	logger.SetReportTimestamp(false)
-	ctx.Bind(logger)
+	logger, _ := cfg.Build()
+	ctx.Bind(logger.Sugar())
 	return nil
 }
 

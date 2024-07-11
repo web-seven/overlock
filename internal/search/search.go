@@ -5,8 +5,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/charmbracelet/log"
 	"github.com/pterm/pterm"
+	"go.uber.org/zap"
 
 	"github.com/kndpio/kndp/internal/github"
 	"github.com/kndpio/kndp/internal/registry"
@@ -14,7 +14,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-func SearchPackages(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, query string, versions bool, logger *log.Logger) (pterm.TableData, error) {
+func SearchPackages(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, query string, versions bool, logger *zap.SugaredLogger) (pterm.TableData, error) {
 	registries, err := registry.Registries(ctx, client)
 	if err != nil {
 		logger.Error("Cannot get registries")

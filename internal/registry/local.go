@@ -9,12 +9,12 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/charmbracelet/log"
 	"github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/kndpio/kndp/internal/kube"
 	"github.com/kndpio/kndp/internal/namespace"
+	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,6 +30,7 @@ const (
 	svcName    = "registry"
 	deployPort = 5000
 	svcPort    = 80
+	nodePort   = 30100
 )
 
 var (
@@ -40,7 +41,6 @@ var (
 
 // Create in cluster registry
 func (r *Registry) CreateLocal(ctx context.Context, client *kubernetes.Clientset) error {
-
 	deploy := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
 			Name: deployName,
@@ -92,12 +92,13 @@ func (r *Registry) CreateLocal(ctx context.Context, client *kubernetes.Clientset
 			Name: svcName,
 		},
 		Spec: corev1.ServiceSpec{
-			Type:     "ClusterIP",
+			Type:     "NodePort",
 			Selector: deploy.Spec.Selector.MatchLabels,
 			Ports: []corev1.ServicePort{
 				{
 					Name:       "oci",
 					Protocol:   corev1.ProtocolTCP,
+					NodePort:   nodePort,
 					Port:       svcPort,
 					TargetPort: intstr.FromInt(deployPort),
 				},
@@ -123,7 +124,7 @@ func (r *Registry) CreateLocal(ctx context.Context, client *kubernetes.Clientset
 }
 
 // Delete in cluster registry
-func (r *Registry) DeleteLocal(ctx context.Context, client *kubernetes.Clientset, logger *log.Logger) error {
+func (r *Registry) DeleteLocal(ctx context.Context, client *kubernetes.Clientset, logger *zap.SugaredLogger) error {
 	svcs := client.CoreV1().Services(namespace.Namespace)
 	eSvc, _ := svcs.Get(ctx, svcName, v1.GetOptions{})
 	if eSvc != nil {
@@ -151,7 +152,7 @@ func IsLocalRegistry(ctx context.Context, client *kubernetes.Clientset) bool {
 	return true
 }
 
-func PushLocalRegistry(ctx context.Context, imageName string, image regv1.Image, config *rest.Config, logger *log.Logger) error {
+func PushLocalRegistry(ctx context.Context, imageName string, image regv1.Image, config *rest.Config, logger *zap.SugaredLogger) error {
 
 	client, err := kube.Client(config)
 	if err != nil {

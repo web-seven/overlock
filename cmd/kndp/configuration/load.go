@@ -5,12 +5,12 @@ import (
 	"context"
 	"os"
 
-	"github.com/charmbracelet/log"
 	"github.com/kndpio/kndp/internal/configuration"
 	"github.com/kndpio/kndp/internal/kube"
 	"github.com/kndpio/kndp/internal/loader"
 	"github.com/kndpio/kndp/internal/packages"
 	"github.com/kndpio/kndp/internal/registry"
+	"go.uber.org/zap"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 )
@@ -23,7 +23,7 @@ type loadCmd struct {
 	Upgrade bool   `help:"Upgrade existing configuration."`
 }
 
-func (c *loadCmd) Run(ctx context.Context, config *rest.Config, dc *dynamic.DynamicClient, logger *log.Logger) error {
+func (c *loadCmd) Run(ctx context.Context, config *rest.Config, dc *dynamic.DynamicClient, logger *zap.SugaredLogger) error {
 
 	client, err := kube.Client(config)
 	if err != nil {
