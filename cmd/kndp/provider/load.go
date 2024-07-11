@@ -17,6 +17,6 @@ type loadCmd struct {
 	Upgrade bool   `help:"Upgrade existing provider."`
 }
 
-func (p *loadCmd) Run(ctx context.Context, config *rest.Config, dc *dynamic.DynamicClient, logger logger *zap.SugaredLogger) error {
+func (p *loadCmd) Run(ctx context.Context, config *rest.Config, dc *dynamic.DynamicClient, logger *zap.SugaredLogger) error {
 	return provider.New(p.Name).WithApply(p.Apply).WithUpgrade(p.Upgrade).LoadProvider(ctx, p.Path, config, dc, logger)
 }

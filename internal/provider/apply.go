@@ -4,8 +4,8 @@ import (
 	"context"
 
 	crossv1 "github.com/crossplane/crossplane/apis/pkg/v1"
+	"go.uber.org/zap"
 
-	"github.com/charmbracelet/log"
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
 	"github.com/kndpio/kndp/internal/engine"
 	"github.com/pkg/errors"
@@ -14,7 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (p *Provider) ApplyProvider(ctx context.Context, links []string, config *rest.Config, logger *log.Logger) error {
+func (p *Provider) ApplyProvider(ctx context.Context, links []string, config *rest.Config, logger *zap.SugaredLogger) error {
 	scheme := runtime.NewScheme()
 	crossv1.AddToScheme(scheme)
 	if kube, err := client.New(config, client.Options{Scheme: scheme}); err == nil {

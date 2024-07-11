@@ -6,8 +6,8 @@ import (
 	"github.com/kndpio/kndp/internal/loader"
 	"github.com/kndpio/kndp/internal/packages"
 	"github.com/kndpio/kndp/internal/registry"
-	"k8s.io/client-go/dynamic"
 	"go.uber.org/zap"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 )
 
@@ -31,11 +31,9 @@ func (p *Provider) LoadProvider(ctx context.Context, path string, config *rest.C
 	}
 	logger.Debug("Pushing to local registry")
 	err := registry.PushLocalRegistry(ctx, p.Name, p.Image, config, logger)
-	var names []string
-	names = append(names, p.Name)
 	if p.Apply {
 		logger.Debug("Apply provider")
-		return p.ApplyProvider(ctx, names, config, logger)
+		return p.ApplyProvider(ctx, []string{p.Name}, config, logger)
 	}
 	if err != nil {
 		return err
