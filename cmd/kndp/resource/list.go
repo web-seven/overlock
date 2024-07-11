@@ -3,10 +3,10 @@ package resource
 import (
 	"context"
 
-	"github.com/charmbracelet/log"
 	"github.com/ghodss/yaml"
 	"github.com/kndpio/kndp/internal/resources"
 	"github.com/rodaine/table"
+	"go.uber.org/zap"
 
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
@@ -15,9 +15,8 @@ import (
 type listCmd struct {
 }
 
-func (listCmd) Run(ctx context.Context, config *rest.Config, dynamicClient *dynamic.DynamicClient, logger *log.Logger) error {
+func (listCmd) Run(ctx context.Context, config *rest.Config, dynamicClient *dynamic.DynamicClient, logger *zap.SugaredLogger) error {
 	tbl := table.New("NAME", "API-VERSION", "KIND", "CREATION-DATE", "UPDATE-DATE")
-	logger.SetReportTimestamp(false)
 
 	xresources := resources.GetXResources(ctx, dynamicClient, logger)
 	for _, resource := range xresources {
@@ -26,8 +25,8 @@ func (listCmd) Run(ctx context.Context, config *rest.Config, dynamicClient *dyna
 
 		jsonFormat, _ := resource.MarshalJSON()
 		yamlFormat, _ := yaml.JSONToYAML(jsonFormat)
-		logger.Printf("\n%s JSON: \n%s\n", resource.GetName(), string(jsonFormat))
-		logger.Printf("%s YAML: \n%s\n", resource.GetName(), string(yamlFormat))
+		logger.Infof("\n%s JSON: \n%s\n", resource.GetName(), string(jsonFormat))
+		logger.Infof("%s YAML: \n%s\n", resource.GetName(), string(yamlFormat))
 	}
 
 	if len(xresources) > 0 {

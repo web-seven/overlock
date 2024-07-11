@@ -3,9 +3,9 @@ package registry
 import (
 	"context"
 
-	"github.com/charmbracelet/log"
 	"github.com/kndpio/kndp/internal/search"
 	"github.com/pterm/pterm"
+	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -17,7 +17,7 @@ type SearchCmd struct {
 	Versions bool   `optional:""  short:"v" help:"display all versions"`
 }
 
-func (c *SearchCmd) Run(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, logger *log.Logger) error {
+func (c *SearchCmd) Run(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, logger *zap.SugaredLogger) error {
 	tableRegs, err := search.SearchPackages(ctx, client, config, c.Query, c.Versions, logger)
 	if err != nil {
 		return err

@@ -5,8 +5,8 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/charmbracelet/log"
-	"gopkg.in/yaml.v2"
+	"go.uber.org/zap"
+	"gopkg.in/yaml.v3"
 )
 
 type KindCluster struct {
@@ -33,9 +33,9 @@ type KindPortMapping struct {
 	Protocol      string `yaml:"protocol"`
 }
 
-func (e *Environment) CreateKindEnvironment(logger *log.Logger) (string, error) {
+func (e *Environment) CreateKindEnvironment(logger *zap.SugaredLogger) (string, error) {
 
-	clusterYaml := e.configYaml()
+	clusterYaml := e.configYaml(logger)
 
 	cmd := exec.Command("kind", "create", "cluster", "--name", e.name, "--config", "-")
 	cmd.Stdin = strings.NewReader(clusterYaml)
@@ -76,7 +76,7 @@ func (e *Environment) CreateKindEnvironment(logger *log.Logger) (string, error) 
 	return e.KindContextName(), nil
 }
 
-func (e *Environment) DeleteKindEnvironment(logger *log.Logger) error {
+func (e *Environment) DeleteKindEnvironment(logger *zap.SugaredLogger) error {
 	cmd := exec.Command("kind", "delete", "cluster", "--name", e.name)
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
@@ -86,7 +86,7 @@ func (e *Environment) DeleteKindEnvironment(logger *log.Logger) error {
 
 	stderrScanner := bufio.NewScanner(stderr)
 	for stderrScanner.Scan() {
-		logger.Print(stderrScanner.Text())
+		logger.Info(stderrScanner.Text())
 	}
 	return nil
 }
@@ -96,7 +96,7 @@ func (e *Environment) KindContextName() string {
 }
 
 // Return YAML of cluster config file
-func (e *Environment) configYaml() string {
+func (e *Environment) configYaml(logger *zap.SugaredLogger) string {
 
 	template := KindCluster{
 		Kind:       "Cluster",
@@ -139,7 +139,7 @@ nodeRegistration:
 
 	yamlData, err := yaml.Marshal(&template)
 	if err != nil {
-		log.Fatalf("error: %v", err)
+		logger.Fatalf("error: %v", err)
 	}
 	return string(yamlData)
 }

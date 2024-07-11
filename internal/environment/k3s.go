@@ -5,10 +5,10 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/charmbracelet/log"
+	"go.uber.org/zap"
 )
 
-func (e *Environment) CreateK3sEnvironment(logger *log.Logger) (string, error) {
+func (e *Environment) CreateK3sEnvironment(logger *zap.SugaredLogger) (string, error) {
 
 	args := []string{
 		"k3s", "server",
@@ -41,7 +41,7 @@ func (e *Environment) CreateK3sEnvironment(logger *log.Logger) (string, error) {
 	return e.K3sContextName(), nil
 }
 
-func (e *Environment) DeleteK3sEnvironment(logger *log.Logger) error {
+func (e *Environment) DeleteK3sEnvironment(logger *zap.SugaredLogger) error {
 	return nil
 }
 

@@ -4,14 +4,14 @@ import (
 	"context"
 	"strings"
 
-	"github.com/charmbracelet/log"
 	crossv1 "github.com/crossplane/crossplane/apis/pkg/v1"
 	"github.com/kndpio/kndp/internal/engine"
+	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 )
 
-func DeleteConfiguration(ctx context.Context, urls string, dynamicClient *dynamic.DynamicClient, logger *log.Logger) error {
+func DeleteConfiguration(ctx context.Context, urls string, dynamicClient *dynamic.DynamicClient, logger *zap.SugaredLogger) error {
 
 	for _, url := range strings.Split(urls, ",") {
 		cfg := crossv1.Configuration{}

@@ -23,7 +23,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
-	"github.com/charmbracelet/log"
+	"go.uber.org/zap"
 )
 
 type Environment struct {
@@ -45,30 +45,30 @@ func New(engine string, name string) *Environment {
 }
 
 // Create environment
-func (e *Environment) Create(ctx context.Context, logger *log.Logger) error {
+func (e *Environment) Create(ctx context.Context, logger *zap.SugaredLogger) error {
 	var err error
 	if e.context == "" {
 		switch e.engine {
 		case "kind":
-			logger.Infof("Creating environment with Kubernetes engine 'kind'")
+			logger.Info("Creating environment with Kubernetes engine 'kind'")
 			e.context, err = e.CreateKindEnvironment(logger)
 			if err != nil {
-				logger.Fatal(err)
+				return err
 			}
 		case "k3s":
-			logger.Infof("Creating environment with Kubernetes engine 'k3s'")
+			logger.Info("Creating environment with Kubernetes engine 'k3s'")
 			e.context, err = e.CreateK3sEnvironment(logger)
 			if err != nil {
-				logger.Fatal(err)
+				return err
 			}
 		case "k3d":
-			logger.Infof("Creating environment with Kubernetes engine 'k3d'")
+			logger.Info("Creating environment with Kubernetes engine 'k3d'")
 			e.context, err = e.CreateK3dEnvironment(logger)
 			if err != nil {
-				logger.Fatal(err)
+				return err
 			}
 		default:
-			logger.Fatalf("Kubernetes engine '%s' not supported", e.engine)
+			logger.Errorf("Kubernetes engine '%s' not supported", e.engine)
 			return nil
 		}
 	}
@@ -82,7 +82,7 @@ func (e *Environment) Create(ctx context.Context, logger *log.Logger) error {
 }
 
 // Upgrade environemnt with options or new features
-func (e *Environment) Upgrade(ctx context.Context, logger *log.Logger) error {
+func (e *Environment) Upgrade(ctx context.Context, logger *zap.SugaredLogger) error {
 	var err error
 	if e.context == "" {
 		e.context = e.GetContextName()
@@ -101,7 +101,7 @@ func (e *Environment) Upgrade(ctx context.Context, logger *log.Logger) error {
 }
 
 // confirmationPrompt prompts the user with a yes/no choice.
-func confirmationPrompt(s string, logger *log.Logger) bool {
+func confirmationPrompt(s string, logger  *zap.SugaredLogger) bool {
 	reader := bufio.NewReader(os.Stdin)
 	for {
 		fmt.Printf("%s [y/n]: ", s)
@@ -121,7 +121,7 @@ func confirmationPrompt(s string, logger *log.Logger) bool {
 }
 
 // Delete environment cluster
-func (e *Environment) Delete(f bool, logger *log.Logger) error {
+func (e *Environment) Delete(f bool, logger  *zap.SugaredLogger) error {
 	var err error
 	if !f && !confirmationPrompt(fmt.Sprintf("Do you really want to delete environment %s ?", e.name), logger) {
 		return nil
@@ -144,10 +144,10 @@ func (e *Environment) Delete(f bool, logger *log.Logger) error {
 }
 
 // Setup environment
-func (e *Environment) Setup(ctx context.Context, logger *log.Logger) error {
+func (e *Environment) Setup(ctx context.Context, logger *zap.SugaredLogger) error {
 	configClient, err := config.GetConfigWithContext(e.context)
 	if err != nil {
-		logger.Fatal(err)
+		return err
 	}
 
 	logger.Debug("Start installing options")
@@ -180,7 +180,7 @@ func (e *Environment) Setup(ctx context.Context, logger *log.Logger) error {
 	logger.Debug("Installing engine")
 	err = engine.InstallEngine(ctx, configClient, params, logger)
 	if err != nil {
-		logger.Fatal(err)
+		return err
 	}
 	logger.Debug("Done")
 	return nil
@@ -203,7 +203,7 @@ func (e *Environment) GetContextName() string {
 }
 
 // Copy Environment from source to destination contexts
-func (e *Environment) CopyEnvironment(ctx context.Context, logger *log.Logger, source string, destination string) error {
+func (e *Environment) CopyEnvironment(ctx context.Context, logger *zap.SugaredLogger, source string, destination string) error {
 
 	// Create a REST clients
 	sourceConfig, err := kube.Config(source)
@@ -265,7 +265,7 @@ func (e *Environment) CopyEnvironment(ctx context.Context, logger *log.Logger, s
 }
 
 // Start Environment
-func (e *Environment) Start(ctx context.Context, switcher bool, logger *log.Logger) error {
+func (e *Environment) Start(ctx context.Context, switcher bool, logger *zap.SugaredLogger) error {
 	dockerClient, err := docker.NewClientWithOpts(docker.FromEnv)
 	if err != nil {
 		return err
@@ -298,7 +298,7 @@ func (e *Environment) Start(ctx context.Context, switcher bool, logger *log.Logg
 }
 
 // Stop Environment
-func (e *Environment) Stop(ctx context.Context, logger *log.Logger) error {
+func (e *Environment) Stop(ctx context.Context, logger *zap.SugaredLogger) error {
 	dockerClient, err := docker.NewClientWithOpts(docker.FromEnv)
 	if err != nil {
 		return err
@@ -358,7 +358,7 @@ func SwitchContext(name string) (err error) {
 }
 
 // List Environments in available contexts
-func ListEnvironments(logger *log.Logger, tableData pterm.TableData) pterm.TableData {
+func ListEnvironments(logger *zap.SugaredLogger, tableData pterm.TableData) pterm.TableData {
 	kubeconfig := os.Getenv("KUBECONFIG")
 	if kubeconfig == "" {
 		kubeconfig = filepath.Join(os.Getenv("HOME"), ".kube", "config")

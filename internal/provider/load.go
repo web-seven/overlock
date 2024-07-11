@@ -3,14 +3,14 @@ package provider
 import (
 	"context"
 
-	"github.com/charmbracelet/log"
 	"github.com/kndpio/kndp/internal/loader"
 	"github.com/kndpio/kndp/internal/registry"
+	"go.uber.org/zap"
 	"k8s.io/client-go/rest"
 )
 
 // Load Provider package from TAR archive path
-func (p *Provider) LoadProvider(ctx context.Context, path string, name string, config *rest.Config, logger *log.Logger) error {
+func (p *Provider) LoadProvider(ctx context.Context, path string, name string, config *rest.Config, logger *zap.SugaredLogger) error {
 	logger.Debugf("Loading image to: %s", name)
 	p.Image, _ = loader.LoadPathArchive(path)
 	logger.Debug("Pushing to local registry")

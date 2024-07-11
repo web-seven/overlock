@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/log"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
@@ -20,7 +20,7 @@ import (
 )
 
 // RunConfigurationHealthCheck performs a health check on configurations defined by the links string.
-func HealthCheck(ctx context.Context, dc dynamic.Interface, links string, wait bool, timeoutChan <-chan time.Time, logger *log.Logger) error {
+func HealthCheck(ctx context.Context, dc dynamic.Interface, links string, wait bool, timeoutChan <-chan time.Time, logger *zap.SugaredLogger) error {
 
 	linkSet := make(map[string]struct{})
 	for _, link := range strings.Split(links, ",") {
@@ -52,7 +52,7 @@ func HealthCheck(ctx context.Context, dc dynamic.Interface, links string, wait b
 	}
 }
 
-func ApplyConfiguration(ctx context.Context, links string, config *rest.Config, logger *log.Logger) error {
+func ApplyConfiguration(ctx context.Context, links string, config *rest.Config, logger *zap.SugaredLogger) error {
 	scheme := runtime.NewScheme()
 	crossv1.AddToScheme(scheme)
 	if kube, err := client.New(config, client.Options{Scheme: scheme}); err == nil {

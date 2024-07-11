@@ -3,8 +3,8 @@ package registry
 import (
 	"context"
 
-	"github.com/charmbracelet/log"
 	"github.com/kndpio/kndp/internal/registry"
+	"go.uber.org/zap"
 	"k8s.io/client-go/rest"
 )
 
@@ -14,7 +14,7 @@ type deleteCmd struct {
 	Local   bool   `help:"Remove associated local registry."`
 }
 
-func (c deleteCmd) Run(ctx context.Context, config *rest.Config, logger *log.Logger) error {
+func (c deleteCmd) Run(ctx context.Context, config *rest.Config, logger *zap.SugaredLogger) error {
 	reg := registry.Registry{}
 	reg.Name = c.Name
 	reg.SetDefault(c.Default)

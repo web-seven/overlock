@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/charmbracelet/log"
 	"github.com/kndpio/kndp/internal/registry"
 	"github.com/pterm/pterm"
+	"go.uber.org/zap"
 
 	"github.com/google/go-github/v61/github"
 )
@@ -28,7 +28,7 @@ func getAllPackages(ctx context.Context, client *github.Client, org string, opts
 }
 
 // GetPackages list packages and their versions from Container Registry
-func GetPackages(ctx context.Context, query string, version bool, r *registry.Registry, registryUrl string, org string, logger *log.Logger) (pterm.TableData, error) {
+func GetPackages(ctx context.Context, query string, version bool, r *registry.Registry, registryUrl string, org string, logger *zap.SugaredLogger) (pterm.TableData, error) {
 	auth := registry.RegistryConfig{}
 	json.Unmarshal([]byte(r.Data[".dockerconfigjson"]), &auth)
 	clientgh := github.NewClient(nil).WithAuthToken(auth.Auths[registryUrl].Password)

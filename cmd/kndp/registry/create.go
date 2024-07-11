@@ -3,9 +3,8 @@ package registry
 import (
 	"context"
 
-	"github.com/charmbracelet/log"
-
 	"github.com/kndpio/kndp/internal/registry"
+	"go.uber.org/zap"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -24,7 +23,7 @@ type createCmd struct {
 	Local          bool   `help:"Create local registry."`
 }
 
-func (c *createCmd) Run(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, logger *log.Logger) error {
+func (c *createCmd) Run(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, logger *zap.SugaredLogger) error {
 	reg := registry.New(c.RegistryServer, c.Username, c.Password, c.Email)
 	reg.SetDefault(c.Default)
 	reg.SetLocal(c.Local)

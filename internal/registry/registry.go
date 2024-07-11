@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/log"
 	"github.com/go-playground/validator/v10"
 	"github.com/kndpio/kndp/internal/engine"
 	"github.com/kndpio/kndp/internal/kube"
 	"github.com/kndpio/kndp/internal/namespace"
 	"github.com/kndpio/kndp/internal/policy"
+	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -85,7 +85,7 @@ func New(server string, username string, password string, email string) Registry
 }
 
 // Validate data in Registry object
-func (r *Registry) Validate(ctx context.Context, client *kubernetes.Clientset, logger *log.Logger) error {
+func (r *Registry) Validate(ctx context.Context, client *kubernetes.Clientset, logger *zap.SugaredLogger) error {
 	if r.Local {
 		return nil
 	}
@@ -137,7 +137,7 @@ func (r *Registry) SecretSpec() corev1.Secret {
 }
 
 // Creates registry in requested context and assign it to engine
-func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *log.Logger) error {
+func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.SugaredLogger) error {
 
 	client, err := kube.Client(config)
 	if err != nil {
@@ -237,7 +237,7 @@ func (r *Registry) ToSecret() *corev1.Secret {
 }
 
 // Delete registry
-func (r *Registry) Delete(ctx context.Context, config *rest.Config, logger *log.Logger) error {
+func (r *Registry) Delete(ctx context.Context, config *rest.Config, logger *zap.SugaredLogger) error {
 
 	installer, err := engine.GetEngine(config)
 	if err != nil {
@@ -303,7 +303,7 @@ func (r *Registry) Delete(ctx context.Context, config *rest.Config, logger *log.
 }
 
 // Copy registries from source to destination contexts
-func CopyRegistries(ctx context.Context, logger *log.Logger, sourceConfig *rest.Config, destinationConfig *rest.Config) error {
+func CopyRegistries(ctx context.Context, logger *zap.SugaredLogger, sourceConfig *rest.Config, destinationConfig *rest.Config) error {
 
 	destClient, err := kube.Client(destinationConfig)
 	if err != nil {

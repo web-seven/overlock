@@ -3,8 +3,8 @@ package environment
 import (
 	"context"
 
-	"github.com/charmbracelet/log"
 	"github.com/kndpio/kndp/internal/environment"
+	"go.uber.org/zap"
 )
 
 type deleteCmd struct {
@@ -13,7 +13,7 @@ type deleteCmd struct {
 	Confirm bool   `optional:"" short:"c" help:"Confirm deletion of kndp environment." default:"false"`
 }
 
-func (c *deleteCmd) Run(ctx context.Context, logger *log.Logger) error {
+func (c *deleteCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
 	return environment.
 		New(c.Engine, c.Name).
 		Delete(c.Confirm, logger)
