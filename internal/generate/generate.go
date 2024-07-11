@@ -9,8 +9,8 @@ import (
 
 	crossv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	"go.uber.org/zap"
+	"gopkg.in/yaml.v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/yaml"
 )
 
 // xr represents a Crossplane composite resource with metadata and specifications.
