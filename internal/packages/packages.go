@@ -19,28 +19,18 @@ type Package struct {
 	Url  string
 }
 
-func (p *Package) UpgradeVersion(ctx context.Context, dc dynamic.Interface, pkgs []Package) error {
-	pRef, _ := name.ParseReference(p.Name, name.WithDefaultRegistry(""))
-	requestedVersion, err := semver.NewVersion(pRef.Identifier())
-	if err != nil {
-		return err
-	}
+func (p *Package) UpgradeVersion(ctx context.Context, dc dynamic.Interface, pname string, pkgs []Package) string {
+	pRef, _ := name.ParseReference(pname, name.WithDefaultRegistry(""))
+	requestedVersion, _ := semver.NewVersion(pRef.Identifier())
 	requestedVersion = semver.New(requestedVersion.Major(), requestedVersion.Minor(), 0, "", "")
 	for _, pkg := range pkgs {
 		epRef, _ := name.ParseReference(pkg.Url, name.WithDefaultRegistry(""))
-		deployedVersion, err := semver.NewVersion(epRef.Identifier())
-		if err != nil {
-			return err
-		}
+		deployedVersion, _ := semver.NewVersion(epRef.Identifier())
 		deployedVersion = semver.New(deployedVersion.Major(), deployedVersion.Minor(), 0, "", "")
 		if epRef.Context().Name() == pRef.Context().Name() && requestedVersion.String() == deployedVersion.String() {
 			pRef = epRef
 		}
 	}
-	version, err := semver.NewVersion(pRef.Identifier())
-	if err != nil {
-		return err
-	}
-	p.Name = strings.Join([]string{pRef.Context().Name(), version.IncPatch().String()}, tagDelim)
-	return nil
+	version, _ := semver.NewVersion(pRef.Identifier())
+	return strings.Join([]string{pRef.Context().Name(), version.IncPatch().String()}, tagDelim)
 }

@@ -19,7 +19,6 @@ func (p *Provider) ApplyProvider(ctx context.Context, links []string, config *re
 	crossv1.AddToScheme(scheme)
 	if kube, err := client.New(config, client.Options{Scheme: scheme}); err == nil {
 		for _, link := range links {
-			logger.Info(link)
 			cfg := &crossv1.Provider{}
 			engine.BuildPack(cfg, link, map[string]string{})
 			pa := resource.NewAPIPatchingApplicator(kube)

@@ -26,9 +26,7 @@ func (p *Provider) LoadProvider(ctx context.Context, path string, config *rest.C
 	}
 	if p.Upgrade {
 		logger.Debug("Upgrading provider")
-		p.Package.Name = p.Name
-		p.UpgradeVersion(ctx, dc, pkgs)
-		p.Name = p.Package.Name
+		p.Name = p.UpgradeVersion(ctx, dc, p.Name, pkgs)
 	}
 	logger.Debug("Pushing to local registry")
 	err := registry.PushLocalRegistry(ctx, p.Name, p.Image, config, logger)

@@ -54,9 +54,7 @@ func (c *loadCmd) Run(ctx context.Context, config *rest.Config, dc *dynamic.Dyna
 		pkgs = append(pkgs, pkg)
 	}
 	if c.Upgrade {
-		cfg.Package.Name = cfg.Name
-		cfg.UpgradeVersion(ctx, dc, pkgs)
-		cfg.Name = cfg.Package.Name
+		cfg.Name = cfg.UpgradeVersion(ctx, dc, cfg.Name, pkgs)
 	}
 
 	logger.Debugf("Loading image to: %s", cfg.Name)
