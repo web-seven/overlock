@@ -8,13 +8,13 @@ import (
 )
 
 type deleteCmd struct {
-	Name   string `arg:"" required:"" help:"Name of environment."`
-	Engine string `optional:"" help:"Specifies the Kubernetes engine to use for the runtime environment." default:"kind"`
-	Force  bool   `optional:"" short:"f" help:"Force deletion of kndp environment." default:"false"`
+	Name    string `arg:"" required:"" help:"Name of environment."`
+	Engine  string `optional:"" help:"Specifies the Kubernetes engine to use for the runtime environment." default:"kind"`
+	Confirm bool   `optional:"" short:"c" help:"Confirm deletion of kndp environment." default:"false"`
 }
 
 func (c *deleteCmd) Run(ctx context.Context, logger *log.Logger) error {
 	return environment.
 		New(c.Engine, c.Name).
-		Delete(c.Force, logger)
+		Delete(c.Confirm, logger)
 }

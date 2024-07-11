@@ -123,18 +123,19 @@ func confirmationPrompt(s string, logger *log.Logger) bool {
 // Delete environment cluster
 func (e *Environment) Delete(f bool, logger *log.Logger) error {
 	var err error
-	if f || confirmationPrompt(fmt.Sprintf("Do you really want to delete environment %s ?", e.name), logger) {
-		switch e.engine {
-		case "kind":
-			err = e.DeleteKindEnvironment(logger)
-		case "k3s":
-			err = e.DeleteK3sEnvironment(logger)
-		case "k3d":
-			err = e.DeleteK3dEnvironment(logger)
-		default:
-			logger.Fatalf("Kubernetes engine '%s' not supported", e.engine)
-			return nil
-		}
+	if !f && !confirmationPrompt(fmt.Sprintf("Do you really want to delete environment %s ?", e.name), logger) {
+		return nil
+	}
+	switch e.engine {
+	case "kind":
+		err = e.DeleteKindEnvironment(logger)
+	case "k3s":
+		err = e.DeleteK3sEnvironment(logger)
+	case "k3d":
+		err = e.DeleteK3dEnvironment(logger)
+	default:
+		logger.Fatalf("Kubernetes engine '%s' not supported", e.engine)
+		return nil
 	}
 	if err != nil {
 		return err
