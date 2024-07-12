@@ -2,15 +2,10 @@ package configuration
 
 import (
 	"bufio"
-	"context"
 	"io"
 	"os"
-	"strings"
 
-	semver "github.com/Masterminds/semver/v3"
-	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/kndpio/kndp/internal/loader"
-	"k8s.io/client-go/dynamic"
 )
 
 const (
@@ -34,35 +29,4 @@ func (c *Configuration) LoadStdinArchive(stream *bufio.Reader) error {
 	}
 	c.Image, err = loader.LoadPathArchive(tmpFile.Name())
 	return err
-}
-
-// Upgrade patch part of configuration version based on deployd configuration
-// Details: https://github.com/kndpio/cli/issues/131
-func (c *Configuration) UpgradeVersion(ctx context.Context, dc dynamic.Interface) error {
-
-	cRef, _ := name.ParseReference(c.Name, name.WithDefaultRegistry(""))
-	requestedVersion, err := semver.NewVersion(cRef.Identifier())
-	if err != nil {
-		return err
-	}
-	requestedVersion = semver.New(requestedVersion.Major(), requestedVersion.Minor(), 0, "", "")
-	eCfgs := GetConfigurations(ctx, dc)
-	for _, eCfg := range eCfgs {
-		ecRef, _ := name.ParseReference(eCfg.Spec.Package, name.WithDefaultRegistry(""))
-		deployedVersion, err := semver.NewVersion(ecRef.Identifier())
-		if err != nil {
-			return err
-		}
-		deployedVersion = semver.New(deployedVersion.Major(), deployedVersion.Minor(), 0, "", "")
-		if ecRef.Context().Name() == cRef.Context().Name() && requestedVersion.String() == deployedVersion.String() {
-			cRef = ecRef
-		}
-	}
-	version, err := semver.NewVersion(cRef.Identifier())
-	if err != nil {
-		return err
-	}
-
-	c.Name = strings.Join([]string{cRef.Context().Name(), version.IncPatch().String()}, tagDelim)
-	return nil
 }

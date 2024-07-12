@@ -5,4 +5,5 @@ type Cmd struct {
 	Load    loadCmd    `cmd:"" help:"Load Crossplane Provider."`
 	List    listCmd    `cmd:"" help:"List all Crossplane Providers."`
 	Delete  deleteCmd  `cmd:"" help:"Delete Crossplane Provider."`
+	Apply   applyCmd   `cmd:"" help:"Apply Crossplane Provider."`
 }

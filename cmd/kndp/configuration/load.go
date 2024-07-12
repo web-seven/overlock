@@ -8,6 +8,7 @@ import (
 	"github.com/kndpio/kndp/internal/configuration"
 	"github.com/kndpio/kndp/internal/kube"
 	"github.com/kndpio/kndp/internal/loader"
+	"github.com/kndpio/kndp/internal/packages"
 	"github.com/kndpio/kndp/internal/registry"
 	"go.uber.org/zap"
 	"k8s.io/client-go/dynamic"
@@ -43,8 +44,17 @@ func (c *loadCmd) Run(ctx context.Context, config *rest.Config, dc *dynamic.Dyna
 	cfg := configuration.Configuration{}
 	cfg.Name = c.Name
 
+	cfgs := configuration.GetConfigurations(ctx, dc)
+	var pkgs []packages.Package
+	for _, c := range cfgs {
+		pkg := packages.Package{
+			Name: c.Name,
+			Url:  c.Spec.Package,
+		}
+		pkgs = append(pkgs, pkg)
+	}
 	if c.Upgrade {
-		cfg.UpgradeVersion(ctx, dc)
+		cfg.Name = cfg.UpgradeVersion(ctx, dc, cfg.Name, pkgs)
 	}
 
 	logger.Debugf("Loading image to: %s", cfg.Name)

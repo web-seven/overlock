@@ -11,10 +11,12 @@ import (
 )
 
 type loadCmd struct {
-	Name string `arg:"" help:"Name of provider."`
-	Path string `help:"Path to provider package archive."`
+	Name    string `arg:"" help:"Name of provider."`
+	Path    string `help:"Path to provider package archive."`
+	Apply   bool   `help:"Apply provider after load."`
+	Upgrade bool   `help:"Upgrade existing provider."`
 }
 
-func (c *loadCmd) Run(ctx context.Context, config *rest.Config, dc *dynamic.DynamicClient, logger *zap.SugaredLogger) error {
-	return provider.New(c.Name).LoadProvider(ctx, c.Path, c.Name, config, logger)
+func (p *loadCmd) Run(ctx context.Context, config *rest.Config, dc *dynamic.DynamicClient, logger *zap.SugaredLogger) error {
+	return provider.New(p.Name).WithApply(p.Apply).WithUpgrade(p.Upgrade).LoadProvider(ctx, p.Path, config, dc, logger)
 }

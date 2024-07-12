@@ -8,14 +8,22 @@ import (
 
 	provider "github.com/crossplane/crossplane/apis/pkg/v1"
 	"github.com/kndpio/kndp/internal/kube"
+	"github.com/kndpio/kndp/internal/packages"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 )
 
+const (
+	tagDelim = ":"
+)
+
 type Provider struct {
-	Name  string
-	Image regv1.Image
+	Name    string
+	Image   regv1.Image
+	Upgrade bool
+	Apply   bool
+	packages.Package
 }
 
 // New Provider entity
@@ -25,7 +33,18 @@ func New(name string) *Provider {
 	}
 }
 
+func (p *Provider) WithUpgrade(upgrade bool) *Provider {
+	p.Upgrade = upgrade
+	return p
+}
+
+func (p *Provider) WithApply(apply bool) *Provider {
+	p.Apply = apply
+	return p
+}
+
 func ListProviders(ctx context.Context, dynamicClient dynamic.Interface, logger *zap.SugaredLogger) []provider.Provider {
+
 	destConf, _ := kube.GetKubeResources(kube.ResourceParams{
 		Dynamic:    dynamicClient,
 		Ctx:        ctx,
