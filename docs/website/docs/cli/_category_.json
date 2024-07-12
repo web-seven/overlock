@@ -1,0 +1,9 @@
+{
+    "label": "KNDP CLI",
+    "position": 1,
+    "link": {
+      "type": "generated-index",
+      "title": "KNDP CLI",
+      "description": "The KNDP command-line enables creation and interaction with KNDP resources. It also simplifies common workflows with Kubernetes clusters and apply Crossplane packages for the Upbound Marketplace or any OCI-compliant registry."
+    }
+  }

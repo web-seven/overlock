@@ -1,0 +1,1408 @@
+
+
+/*
+ * Plugin: Web Slide Navigation System
+ * Demo Link: https://uxwing.com/webslide/
+ * Author: UXWing
+ * License: http://codecanyon.net/licenses/standard
+*/
+
+
+/*------------------------------------------*/
+/*  Desktop Base CSS
+--------------------------------------------*/
+
+.wsmenu html,
+.wsmenu body,
+.wsmenu iframe,
+.wsmenu h1,
+.wsmenu h2,
+.wsmenu h3,
+.wsmenu h4,
+.wsmenu h5,
+.wsmenu h6 {
+  -webkit-font-smoothing: subpixel-antialiased;
+  font-smoothing: antialiased;
+  font-smooth: antialiased;
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+  -webkit-font-smoothing: subpixel-antialiased;
+  font-smoothing: subpixel-antialiased;
+  font-smooth: subpixel-antialiased;
+}
+
+.wsmenu .cl {
+  clear: both;
+}
+
+.wsmenu img {
+  border: 0 none;
+  max-width: 100%;
+}
+
+.wsmenu a:focus {
+  outline: none;
+}
+
+.wsmenu:before,
+.wsmenu:after {
+  content: "";
+  display: table;
+}
+
+.wsmenu:after {
+  clear: both;
+}
+
+/*------------------------------------------*/
+/*  Desktop Main Menu CSS
+--------------------------------------------*/
+
+.wsmenucontainer {
+  background-size: cover;
+  overflow: hidden;
+  background-attachment: fixed;
+  background-position: 50% 0;
+  background-repeat: no-repeat;
+}
+
+.wsmainfull {
+  width: 100%;
+  height: auto;
+  background-color: #fff!important;
+  z-index: 999;
+  -webkit-box-shadow: 0 2px 3px rgba(96, 96, 96, .1);
+  -moz-box-shadow: 0 2px 3px rgba(96, 96, 96, .1);
+  box-shadow: 0 2px 3px rgba(96, 96, 96, .1);
+  -webkit-transition: all 450ms ease-in-out;
+  -moz-transition: all 450ms ease-in-out;
+  -o-transition: all 450ms ease-in-out;
+  -ms-transition: all 450ms ease-in-out;
+  transition: all 450ms ease-in-out; 
+}
+
+.wsmainwp {
+  margin: 0 auto;
+  max-width: 1140px;
+  padding: 0 15px;
+  position: relative;
+}
+
+/* Header Logo */
+.desktoplogo {
+  padding: 0;
+  margin: 0;
+  float: left;
+  line-height: 70px;
+}
+
+.desktoplogo img {
+  vertical-align: middle;
+}
+
+/* Navigation Menu */
+.wsmenu {
+  padding: 0;
+  float: right;
+  display: block;
+}
+
+.wsmenu > .wsmenu-list {
+  text-align: left;
+  margin: 0 auto 0 auto;
+  width: 100%;
+  display: block;
+  padding: 0;
+}
+
+.wsmenu > .wsmenu-list > li {
+  text-align: center;
+  display: block;
+  padding: 0;
+  margin: 0;
+  float: left;
+}
+
+.wsmenu > .wsmenu-list > li > a {
+  display: block;
+  color: #666;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 10px 32px 10px 18px;
+  line-height: 50px;
+  text-decoration: none;
+  position: relative;
+}
+
+.wsmenu > .wsmenu-list > li > a.last-link {
+  padding: 10px 0px 10px 0;
+}
+
+.wsmenu > .wsmenu-list > li > a.callusbtn {
+  font-size: 15px;
+}
+
+.wsmenu > .wsmenu-list > li > a.callusbtn i {
+  font-size: 13px;
+  margin-top: 1px;
+  margin-right: 1px;
+}
+
+.tra-menu .wsmenu > .wsmenu-list > li > a,
+.aqua-menu .wsmenu > .wsmenu-list > li > a,
+.blue-menu .wsmenu > .wsmenu-list > li > a {
+  color: #fff;
+}
+
+.white-menu .wsmenu > .wsmenu-list > li > a {
+  color: #444;
+}
+
+.tra-menu .wsmenu.dark-txt > .wsmenu-list > li > a {
+  color: #333;
+}
+
+.wsmenu > .wsmenu-list > li:hover > a {
+  color: #f0f0f0;
+}
+
+.white-menu .wsmenu > .wsmenu-list > li:hover > a {
+  color: #171819;
+}
+
+.wsmenu > .wsmenu-list > li a.menuhomeicon {
+  padding-left: 29px;
+  padding-right: 29px;
+}
+
+.wsmenu > .wsmenu-list > li > a i {
+  display: inline-block;
+  font-size: 16px;
+  line-height: inherit;
+  margin-right: 12px;
+  vertical-align: top;
+}
+
+.wsmenu > .wsmenu-list > li > a.menuhomeicon i {
+  margin-right: 0px;
+  font-size: 15px;
+}
+
+.wsmenu > .wsmenu-list > li > a .wsarrow:after {
+  border-left: 4px solid rgba(0, 0, 0, 0);
+  border-right: 4px solid rgba(0, 0, 0, 0);
+  border-top: 4px solid;
+  content: "";
+  float: right;
+  right: 15px;
+  height: 0;
+  margin: 0 0 0 14px;
+  position: absolute;
+  text-align: right;
+  top: 33px;
+  width: 0;
+}
+
+/* Desktop Search Bar */
+.wsmenu > .wsmenu-list > li.rightmenu {
+  float: right;
+}
+
+.wsmenu > .wsmenu-list > li.rightmenu a {
+  padding: 0px 30px 0px 20px;
+  border-right: none;
+}
+
+.wsmenu > .wsmenu-list > li.rightmenu a i {
+  font-size: 15px;
+}
+
+.wsmenu > .wsmenu-list > li.rightmenu {
+  float: right;
+}
+
+.wsmenu > .wsmenu-list > li.rightmenu:before,
+.wsmenu-list > li.rightmenu:after {
+  content: "";
+  display: table;
+}
+
+.wsmenu > .wsmenu-list > li.rightmenu:after {
+  clear: both;
+}
+
+.wsmenu > .wsmenu-list > li.rightmenu > .topmenusearch {
+  float: right;
+  width: 210px;
+  height: 39px;
+  position: relative;
+  margin: 16px 0px 0px 0px;
+}
+
+.wsmenu > .wsmenu-list > li.rightmenu > .topmenusearch .searchicon {
+  -webkit-transition: all 0.7s ease 0s;
+  -moz-transition: all 0.7s ease 0s;
+  -o-transition: all 0.7s ease 0s;
+  transition: all 0.7s ease 0s;
+}
+
+.wsmenu > .wsmenu-list > li.rightmenu > .topmenusearch input {
+  width: 100%;
+  position: relative;
+  float: right;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  text-indent: 15px;
+  height: 39px;
+  z-index: 2;
+  outline: none;
+  color: #333;
+  background-color: #efefef;
+  -webkit-transition: all 0.7s ease 0s;
+  -moz-transition: all 0.7s ease 0s;
+  -o-transition: all 0.7s ease 0s;
+  transition: all 0.7s ease 0s;
+  font-size: 12px;
+}
+
+.wsmenu > .wsmenu-list > li.rightmenu > .topmenusearch input::placeholder {
+  color: #a9a9a9;
+}
+
+.wsmenu > .wsmenu-list > li.rightmenu > .topmenusearch input:focus {
+  color: #333;
+  width: 220px;
+}
+
+.wsmenu > .wsmenu-list > li.rightmenu > .topmenusearch input:focus~.btnstyle i {
+  color: #000;
+  opacity: 1;
+}
+
+.wsmenu > .wsmenu-list > li.rightmenu > .topmenusearch input:focus~.searchicon {
+  opacity: 1;
+  z-index: 3;
+  color: #FFFFFF;
+}
+
+.wsmenu > .wsmenu-list > li.rightmenu > .topmenusearch .btnstyle {
+  top: 0px;
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 40px;
+  line-height: 30px;
+  z-index: 1;
+  cursor: pointer;
+  opacity: 0.3;
+  color: #333;
+  z-index: 1000;
+  background-color: transparent;
+  border: solid 0px;
+  -webkit-transition: all 0.7s ease 0s;
+  -moz-transition: all 0.7s ease 0s;
+  -o-transition: all 0.7s ease 0s;
+  transition: all 0.7s ease 0s;
+}
+
+.wsmenu > .wsmenu-list > li.rightmenu > .topmenusearch .btnstyle i {
+  line-height: 37px;
+  margin: 0;
+  padding: 0;
+  text-align: center;
+}
+
+.wsmenu > .wsmenu-list > li.rightmenu > .topmenusearch .btnstyle:hover i {
+  opacity: 1;
+}
+
+.wsmenu > .wsmenu-list > li.rightmenu {
+  zoom: 1;
+}
+
+/*------------------------------------------*/
+/*  Desktop Drop Down Menu CSS
+--------------------------------------------*/
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu {
+  position: absolute;
+  top: 70px;
+  z-index: 1000;
+  margin: 0px;
+  padding: 12px;
+  min-width: 200px;
+  background-color: #fff;
+  border: solid 1px #eee;
+  -webkit-border-radius: 4px;
+  -moz-border-radius: 4px;
+  border-radius: 4px;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu.last-sub-menu {
+  min-width: 160px;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li {
+  position: relative;
+  margin: 0px;
+  padding: 0px;
+  display: block;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li > a {
+  position: relative;
+  background-image: none;  
+  border-right: 0 none;
+  text-align: left;
+  display: block;
+  padding: 9px;
+  text-transform: none;
+  color: #888;
+  font-size: 15px;
+  line-height: 22px;
+  font-weight: 400;
+  letter-spacing: 0;
+  border-right: 0px solid;
+  -webkit-border-radius: 4px;
+  -moz-border-radius: 4px;
+  border-radius: 4px; 
+  -webkit-transition: all 400ms ease-in-out;
+  -moz-transition: all 400ms ease-in-out;
+  -o-transition: all 400ms ease-in-out;
+  -ms-transition: all 400ms ease-in-out;
+  transition: all 400ms ease-in-out;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu.last-sub-menu > li > a {
+  padding: 11px 0;  
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li > a:hover {
+  padding: 9px 9px 9px 10px;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu.last-sub-menu > li > a:hover {
+  padding: 11px 0 11px 8px;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li > a > i {
+  position: absolute;
+  top: 12px;
+  right: 0;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li > ul.sub-menu {
+  min-width: 200px;
+  position: absolute;
+  left: 100%;
+  top: 0;
+  margin: 0;
+  padding: 0 15px;
+  list-style: none;
+  background-color: #fff;
+  border: solid 1px #eee;
+  -webkit-border-radius: 4px;
+  -moz-border-radius: 4px;
+  border-radius: 4px;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li > ul.sub-menu > li {
+  position: relative;
+  margin: 0px;
+  padding: 0px;
+  display: block;
+  border-bottom: 1px dashed #c0c0c0;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li > ul.sub-menu > li:last-child {
+  border-bottom: none;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li > ul.sub-menu > li > a {
+  position: relative;
+  background-image: none;
+  border-right: 0 none;
+  text-align: left;
+  display: block;
+  padding: 9px;
+  text-transform: none;
+  color: #888;
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 400;
+  letter-spacing: normal;
+  border-right: 0px solid;
+  -webkit-transition: all 400ms ease-in-out;
+  -moz-transition: all 400ms ease-in-out;
+  -o-transition: all 400ms ease-in-out;
+  -ms-transition: all 400ms ease-in-out;
+  transition: all 400ms ease-in-out;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li > ul.sub-menu > li > a:hover {
+  padding: 8px 15px 8px 23px;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li > ul.sub-menu > li > a > i {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li > ul.sub-menu > li > ul.sub-menu {
+  min-width: 200px;
+  position: absolute;
+  left: 100%;
+  top: 0;
+  margin: 0px;
+  list-style: none;
+  padding: 0px;
+  background-color: #fff;
+  border: solid 1px #eee;
+  -webkit-border-radius: 4px;
+  -moz-border-radius: 4px;
+  border-radius: 4px;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li > ul.sub-menu > li > ul.sub-menu > li {
+  position: relative;
+  margin: 0px;
+  padding: 0px;
+  display: block;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li > ul.sub-menu > li > ul.sub-menu > li > a {
+  background-image: none;
+  border-right: 0 none;
+  text-align: left;
+  display: block;
+  padding: 9px;
+  text-transform: none;
+  color: #888;
+  font-size: 16px;
+  font-family: 'Roboto', sans-serif; 
+  line-height: 22px;
+  font-weight: 400;
+  letter-spacing: normal;
+  border-right: 0px solid;
+  -webkit-transition: all 400ms ease-in-out;
+  -moz-transition: all 400ms ease-in-out;
+  -o-transition: all 400ms ease-in-out;
+  -ms-transition: all 400ms ease-in-out;
+  transition: all 400ms ease-in-out;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li > ul.sub-menu > li > ul.sub-menu > li > a:hover {
+  padding: 9px 9px 9px 20px;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li > ul.sub-menu > li > ul.sub-menu > li > a > i {
+  margin-left: 9px;
+}
+
+/*------------------------------------------*/
+/*  Desktop Mega Menus CSS
+--------------------------------------------*/
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu {
+  width: 100%;
+  left: 0px;
+  position: absolute;
+  top: 70px;
+  color: #000;
+  z-index: 1000;
+  margin: 0px;
+  text-align: left;
+  padding: 20px 30px;
+  border: solid 1px #eee;
+  background-color: #fff;
+  -webkit-border-radius: 4px;
+  -moz-border-radius: 4px;
+  border-radius: 4px;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu.halfmenu {
+  padding: 20px 20px;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu .carousel-control-next {
+  opacity: 0.8;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu .carousel-control-prev {
+  opacity: 0.8;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu .carousel-caption {
+  bottom: 0px;
+  background-color: rgba(0, 0, 0, 0.7);
+  font-size: 13px;
+  height: 31px;
+  left: 0;
+  padding: 7px 0;
+  right: 0;
+  width: 100%;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu .wsmwnutxt {
+  width: 100%;
+  color: #888;
+  font-size: 16px;
+  font-weight: 400;
+  text-align: justify;
+  margin-top: 0;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu .link-list li {
+  display: block;
+  text-align: center;
+  text-align: left;
+  border-bottom: 1px dashed #c0c0c0;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu .link-list li.title,
+.wsmenu > .wsmenu-list > li > .wsmegamenu .link-list li:last-child {
+  border-bottom: none;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu .link-list li a {
+  line-height: 22px;
+  border-right: none;
+  text-align: left;
+  padding: 13px 0px;
+  background: #fff;
+  background-image: none;
+  border-right: 0 none;
+  display: block;
+  background-color: #fff;
+  color: #888;
+  font-size: 16px;
+  font-weight: 400;
+  -webkit-transition: all 400ms ease-in-out;
+  -moz-transition: all 400ms ease-in-out;
+  -o-transition: all 400ms ease-in-out;
+  -ms-transition: all 400ms ease-in-out;
+  transition: all 400ms ease-in-out;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu .mrgtop {
+  margin-top: 15px;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu .show-grid div {
+  padding-bottom: 10px;
+  padding-top: 10px;
+  background-color: #dbdbdb;
+  border: 1px solid #e7e7e7;
+  color: #6a6a6a;
+  margin: 2px 0px;
+  font-size: 13px;
+}
+
+/*= Desktop Half Menu CSS =*/
+.wsmenu > .wsmenu-list > li > .wsmegamenu.halfmenu {
+  width: 40%;
+  right: auto;
+  left: auto;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu.halfmenu.ext-halfmenu {
+  width: 50%;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu.halfdiv {
+  width: 35%;
+  right: auto;
+  left: auto;
+}
+
+/*= Desktop HTML Form Menu CSS =*/
+.wsmenu > .wsmenu-list > li > .wsmegamenu .menu_form {
+  width: 100%;
+  display: block;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu .menu_form input[type="text"] {
+  width: 100%;
+  border: 1px solid #e2e2e2;
+  color: #000;
+  font-size: 13px;
+  padding: 8px 5px;
+  margin-bottom: 8px;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu .menu_form textarea {
+  width: 100%;
+  border: 1px solid #e2e2e2;
+  color: #000;
+  font-size: 13px;
+  padding: 8px 5px;
+  margin-bottom: 8px;
+  min-height: 122px;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu .menu_form input[type="submit"] {
+  width: 25%;
+  display: block;
+  height: 32px;
+  float: right;
+  border: none;
+  margin-right: 15px;
+  cursor: pointer;
+  background-color: #e1e1e1;
+  -webkit-border-radius: 2px;
+  -moz-border-radius: 2px;
+  border-radius: 2px;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu .menu_form input[type="button"] {
+  width: 25%;
+  display: block;
+  height: 32px;
+  float: right;
+  border: none;
+  cursor: pointer;
+  background-color: #e1e1e1;
+  -webkit-border-radius: 2px;
+  -moz-border-radius: 2px;
+  border-radius: 2px;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu .carousel-inner .item img {
+  width: 100%;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu .carousel-caption {
+  bottom: 0px;
+  background-color: rgba(0, 0, 0, 0.7);
+  font-size: 13px;
+  height: 31px;
+  left: 0;
+  padding: 7px 0;
+  right: 0;
+  width: 100%;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu .typography-text {
+  padding: 0px 0px;
+  font-size: 14px;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu .typography-text ul {
+  padding: 0px 0px;
+  margin: 0px;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu .typography-text p {
+  text-align: justify;
+  line-height: 24px;
+  color: #656565;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu .typography-text ul li {
+  display: block;
+  padding: 2px 0px;
+  line-height: 22px;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu .typography-text ul li a {
+  color: #656565;
+}
+
+/*------------------------------------------*/
+/*  Desktop Extra CSS
+--------------------------------------------*/
+
+.wsmobileheader {
+  display: none;
+}
+
+.overlapblackbg {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.wsmenu .wsmenu-click {
+  display: none;
+}
+
+.wsmenu .wsmenu-click02 {
+  display: none;
+}
+
+.hometext {
+  display: none;
+}
+
+/*==============================================================================
+                              Start Mobile CSS
+===============================================================================*/
+
+/* ================== Mobile Menu Change Brake Point ================== */
+
+@media only screen and (max-width: 991px) {
+
+/* ================== Mobile Base CSS ================== */
+
+html {
+  overflow: hidden;
+  height: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+body {
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+body.wsactive {
+  overflow: hidden;
+}
+
+/* ================== Mobile Main Menu CSS ================== */
+
+.desktoplogo {
+  display: none;
+}
+
+.wsmainfull {
+  height: 0;
+}
+
+.wsmenu {
+  width: 100%;
+  background: rgba(0, 0, 0, 0) none repeat scroll 0 0;
+  right: 0;
+  overflow-y: hidden;
+  padding: 0;
+  top: 0;
+  visibility: hidden;
+  position: fixed;
+  margin: 0px;
+}
+
+.wsmenu > .wsmenu-list {
+  height: auto;
+  min-height: 100%;
+  width: 350px;
+  background: #fff;
+  padding-bottom: 0;
+  margin-right: -350px;
+  display: block;
+  text-align: center;
+  -webkit-transition: all 0.25s ease-in-out;
+  -moz-transition: all 0.25s ease-in-out;
+  -o-transition: all 0.25s ease-in-out;
+  -ms-transition: all 0.25s ease-in-out;
+  transition: all 0.25s ease-in-out;
+}
+
+.wsmenu > .wsmenu-list > li {
+  width: 100%;
+  display: block;
+  float: none;
+  border-right: none;
+  background-color: transparent;
+  position: relative;
+  white-space: inherit;
+  clear: right;
+}
+
+@supports (-webkit-overflow-scrolling: touch) {
+  .wsmenu > .wsmenu-list > li:last-child {
+    padding-bottom: 110px;
+  }
+}
+
+.wsmenu > .wsmenu-list > li >a {
+  padding: 12px 32px 12px 17px;
+  font-size: 15px;
+  text-align: left;
+  border-right: solid 0px;
+  color: #666666;
+  line-height: 25px;
+  border-bottom: 1px solid;
+  border-bottom-color: rgba(0, 0, 0, 0.13);
+  position: static;
+}
+
+.wsmenu > .wsmenu-list > li a.menuhomeicon {
+  padding-left: 17px;
+  padding-right: 17px;
+  border-top: solid 1px rgba(0, 0, 0, 0.13);
+}
+
+.wsmenu > .wsmenu-list > li >a.menuhomeicon i {
+  margin-right: 2px;
+  font-size: 13px;
+}
+
+.wsmenu > .wsmenu-list > li > a >i {
+  font-size: 14px;
+  color: #bfbfbf;
+}
+
+.wsmenu > .wsmenu-list > li >a .wsarrow:after {
+  display: none;
+}
+
+.wsmenu > .wsmenu-list > li:hover>a {
+  background-color: rgba(0, 0, 0, 0.08);
+  text-decoration: none;
+}
+
+.wsmenu > .wsmenu-list > li > a > .hometext {
+  display: inline-block;
+}
+
+/* ================== Mobile Slide Down Links CSS ================== */
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu {
+  display: none;
+  position: relative;
+  top: 0px;
+  background-color: #fff;
+  border: none;
+  padding: 0px;
+  opacity: 1;
+  visibility: visible;
+  -webkit-transform: none;
+  -moz-transform: none;
+  -ms-transform: none;
+  -o-transform: none;
+  transform: none;
+  -webkit-transition: inherit;
+  -moz-transition: inherit;
+  transition: inherit;
+  -webkit-transform-style: flat;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li > a {
+  line-height: 20px;
+  font-size: 13px;
+  padding: 10px 0px 10px 16px;
+  color: #383838;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li span + a {
+  padding-right: 30px;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li > a > i {
+  display: none;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li > a:hover {
+  background-color: #e7e7e7;
+  text-decoration: underline;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu li:hover > a {
+  background-color: #e7e7e7;
+  color: #666666;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li > ul.sub-menu {
+  width: 100%;
+  position: static;
+  left: 100%;
+  top: 0;
+  display: none;
+  margin: 0px;
+  padding: 0px;
+  border: solid 0px;
+  transform: none;
+  opacity: 1;
+  visibility: visible;
+  -webkit-transform: none;
+  -moz-transform: none;
+  -ms-transform: none;
+  -o-transform: none;
+  transform: none;
+  -webkit-transition: inherit;
+  -moz-transition: inherit;
+  transition: inherit;
+  -webkit-transform-style: flat;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li > ul.sub-menu > li {
+  margin: 0px 0px 0px 0px;
+  padding: 0px;
+  position: relative;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li > ul.sub-menu > li > a {
+  line-height: 20px;
+  font-size: 13px;
+  padding: 10px 0px 10px 26px;
+  color: #383838;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li > ul.sub-menu > li span + a {
+  padding-right: 30px;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li > ul.sub-menu > li > a > i {
+  display: none;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li > ul.sub-menu > li > a:hover {
+  background-color: #e7e7e7;
+  color: #666666;
+  text-decoration: underline;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li > ul.sub-menu > li > a.active {
+  color: #000;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li > ul.sub-menu > li:hover > a {
+  color: #000;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li > ul.sub-menu > li > ul.sub-menu {
+  width: 100%;
+  position: static;
+  left: 100%;
+  top: 0;
+  display: none;
+  margin: 0px;
+  padding: 0px;
+  border: solid 0px;
+  transform: none;
+  opacity: 1;
+  visibility: visible;
+  -webkit-transform: none;
+  -moz-transform: none;
+  -ms-transform: none;
+  -o-transform: none;
+  transform: none;
+  -webkit-transition: inherit;
+  -moz-transition: inherit;
+  transition: inherit;
+  -webkit-transform-style: flat;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li > ul.sub-menu > li > ul.sub-menu > li {
+  margin: 0px 0px 0px 0px;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li > ul.sub-menu > li > ul.sub-menu > li >a {
+  line-height: 20px;
+  font-size: 13px;
+  padding: 10px 0px 10px 34px;
+  color: #383838;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li > ul.sub-menu > li > ul.sub-menu > li span+a {
+  padding-right: 30px;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li > ul.sub-menu > li > ul.sub-menu > li > a >i {
+  display: none;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li > ul.sub-menu > li > ul.sub-menu > li >a:hover {
+  background-color: #e7e7e7;
+  color: #666666;
+  text-decoration: underline;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li > ul.sub-menu > li > ul.sub-menu > li >a.active {
+  color: #000;
+}
+
+/* ================== Mobile Mega Menus CSS  ================== */
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu {
+  color: #666666;
+  display: none;
+  position: relative;
+  top: 0px;
+  padding: 10px 0px;
+  border: solid 0px;
+  transform: none;
+  opacity: 1;
+  visibility: visible;
+  -webkit-transform: none;
+  -moz-transform: none;
+  -ms-transform: none;
+  -o-transform: none;
+  transform: none;
+  -webkit-transition: inherit;
+  -moz-transition: inherit;
+  transition: inherit;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.13);
+  -webkit-transform-style: flat;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu.halfmenu {
+  width: 100%;
+  margin: 0px;
+  padding: 5px 0px 10px 0px;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu .title {
+  color: #666666;
+  font-size: 15px;
+  padding: 10px 8px 10px 0px;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu> ul {
+  width: 100%;
+  margin: 0px;
+  padding: 0px;
+  font-size: 15px;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu> ul > li > a {
+  padding: 9px 14px;
+  line-height: normal;
+  font-size: 13px;
+  background-color: #e7e7e7;
+  color: #666666;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu> ul> li >a:hover {
+  background-color: #000000;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu ul li.title {
+  line-height: 26px;
+  color: #666666;
+  margin: 0px;
+  font-size: 15px;
+  padding: 7px 0px;
+  background-color: transparent;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu.halfdiv {
+  width: 100%;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu .menu_form {
+  padding: 5px 0px 62px 0px;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu .show-grid div {
+  margin: 0px;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu .menu_form input[type="button"] {
+  width: 46%;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu .menu_form input[type="submit"] {
+  width: 46%;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmegamenu .menu_form textarea {
+  min-height: 100px;
+}
+
+/* ================== Mobile Header CSS ================== */
+
+.wsmobileheader {
+  width: 100%;
+  display: block;
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 10002;
+  height: 54px;
+  -webkit-transition: all 0.25s ease-in-out;
+  -moz-transition: all 0.25s ease-in-out;
+  -o-transition: all 0.25s ease-in-out;
+  -ms-transition: all 0.25s ease-in-out;
+  transition: all 0.25s ease-in-out;
+  box-shadow: 0 0 1px rgba(0, 0, 0, .3);
+}
+
+.wsactive .wsmobileheader {
+  margin-right: 240px;
+  margin-right: 300px;
+  margin-right: 350px;
+  -webkit-transition: all 0.25s ease-in-out;
+  -moz-transition: all 0.25s ease-in-out;
+  -o-transition: all 0.25s ease-in-out;
+  -ms-transition: all 0.25s ease-in-out;
+  transition: all 0.25s ease-in-out;
+}
+
+.wsmobileheader .smllogo {
+  display: inline-block;
+  margin-top: 12px;
+  padding-left: 18px;
+}
+
+/* Mobile Search Bar*/
+.wsmenu > .wsmenu-list > li.rightmenu > .topmenusearch {
+  width: 86%;
+  margin: 7% 7%;
+  padding: 0px;
+}
+
+.wsmenu > .wsmenu-list > li.rightmenu > .topmenusearch input {
+  border-radius: 50px
+}
+
+.wsmenu > .wsmenu-list > li.rightmenu > .topmenusearch input:focus {
+  width: 100%;
+}
+
+.callusbtn {
+  color: #a9a9a9;
+  font-size: 18px;
+  position: absolute;
+  right: 5px;
+  top: 0px;
+  transition: all 0.4s ease-in-out 0s;
+  z-index: 102;
+  padding: 12px 14px;
+}
+
+.callusbtn i {
+  vertical-align: top;
+  margin-top: 4px;
+}
+
+.callusbtn:hover i {
+  color: #a9a9a9;
+}
+
+/* Mobile Toggle Menu icon (X ICON) */
+.wsanimated-arrow {
+  position: absolute;
+  right: 0;
+  top: 0;
+  z-index: 102;
+  -webkit-transition: all 0.4s ease-in-out;
+  -moz-transition: all 0.4s ease-in-out;
+  -o-transition: all 0.4s ease-in-out;
+  -ms-transition: all 0.4s ease-in-out;
+  transition: all 0.4s ease-in-out;
+}
+
+.wsanimated-arrow {
+  cursor: pointer;
+  padding: 16px 35px 16px 0px;
+  margin: 7px 0 0 15px;
+}
+
+.wsanimated-arrow span,
+.wsanimated-arrow span:before,
+.wsanimated-arrow span:after {
+  cursor: pointer;
+  height: 3px;
+  width: 22px;
+  background: #a9a9a9;
+  position: absolute;
+  display: block;
+  content: '';
+}
+
+.wsanimated-arrow span:before {
+  top: -7px;
+  width: 26px;
+}
+
+.wsanimated-arrow span:after {
+  bottom: -7px;
+  width: 20px;
+}
+
+.wsanimated-arrow span,
+.wsanimated-arrow span:before,
+.wsanimated-arrow span:after {
+  transition: all 500ms ease-in-out;
+}
+
+.wsactive .wsanimated-arrow span:after {
+  width: 23px;
+}
+
+.wsactive .wsanimated-arrow span {
+  background-color: transparent;
+}
+
+.wsactive .wsanimated-arrow span:before,
+.wsactive .wsanimated-arrow.active span:after {
+  top: 7px;
+}
+
+.wsactive .wsanimated-arrow span:before {
+  transform: rotate(45deg);
+  -moz-transform: rotate(45deg);
+  -ms-transform: rotate(45deg);
+  -o-transform: rotate(45deg);
+  -webkit-transform: rotate(45deg);
+  bottom: 0px;
+}
+
+.wsactive .wsanimated-arrow span:after {
+  transform: rotate(-45deg);
+  -moz-transform: rotate(-45deg);
+  -ms-transform: rotate(-45deg);
+  -o-transform: rotate(-45deg);
+  -webkit-transform: rotate(-45deg);
+}
+
+/* ================== Mobile Overlay/Drawer CSS ================== */
+
+.overlapblackbg {
+  left: 0;
+  width: calc(100% - 350px);
+  height: 100vh;
+  min-height: 100%;
+  position: fixed;
+  top: 0;
+  opacity: 0;
+  visibility: hidden;
+  background-color: rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+}
+
+.wsactive .wsmenu .overlapblackbg {
+  opacity: 1;
+  visibility: visible;
+  -webkit-transition: opacity 1.5s ease-in-out;
+  -moz-transition: opacity 1.5s ease-in-out;
+  -ms-transition: opacity 1.5s ease-in-out;
+  -o-transition: opacity 1.5s ease-in-out;
+  z-index: 8888!important;
+}
+
+.wsmenucontainer {
+  -webkit-transition: all 0.25s ease-in-out;
+  -moz-transition: all 0.25s ease-in-out;
+  -o-transition: all 0.25s ease-in-out;
+  -ms-transition: all 0.25s ease-in-out;
+  transition: all 0.25s ease-in-out;
+}
+
+.wsactive .wsmenucontainer {
+  margin-right: 300px;
+  -webkit-transition: all 0.25s ease-in-out;
+  -moz-transition: all 0.25s ease-in-out;
+  -o-transition: all 0.25s ease-in-out;
+  -ms-transition: all 0.25s ease-in-out;
+  transition: all 0.25s ease-in-out;
+}
+
+.wsactive .wsmenu {
+  overflow-y: scroll;
+  -webkit-overflow-scrolling: touch;
+  visibility: visible;
+  z-index: 1000;
+  top: 0;
+}
+
+.wsactive .wsmenu > .wsmenu-list {
+  -webkit-transition: all 0.25s ease-in-out;
+  -moz-transition: all 0.25s ease-in-out;
+  -o-transition: all 0.25s ease-in-out;
+  -ms-transition: all 0.25s ease-in-out;
+  transition: all 0.25s ease-in-out;
+  margin-right: 0;
+}
+
+/* ================== Mobile Sub Menu Expander Arrows  ================== */
+
+.wsmenu > .wsmenu-list > li > .wsmenu-click {
+  height: 49px;
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: block;
+  cursor: pointer;
+  width: 100%;
+}
+
+.wsmenu > .wsmenu-list > li .wsmenu-click.ws-activearrow > i {
+  transform: rotate(-45deg);
+  margin-top: 23px;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmenu-click > i {
+  display: block;
+  height: 8px;
+  width: 8px;
+  float: right;
+  transform: rotate(-225deg);
+  margin: 18px 18px 0px 0px;
+}
+
+.wsmenu > .wsmenu-list > li > .wsmenu-click > i:before {
+  content: "";
+  width: 100%;
+  height: 100%;
+  border-width: 1.5px 1.5px 0 0;
+  border-style: solid;
+  border-color: rgba(0, 0, 0, 0.40);
+  transition: 0.2s ease;
+  display: block;
+  transform-origin: 100% 0;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li .wsmenu-click02 {
+  height: 41px;
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: block;
+  cursor: pointer;
+  width: 100%;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li .wsmenu-click02>i {
+  display: block;
+  height: 8px;
+  width: 8px;
+  float: right;
+  transform: rotate(-225deg);
+  margin: 14px 18px 0px 0px;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li .wsmenu-click02 > i:before {
+  content: "";
+  width: 100%;
+  height: 100%;
+  border-width: 1.5px 1.5px 0 0;
+  border-style: solid;
+  border-color: rgba(0, 0, 0, 0.40);
+  transition: 0.2s ease;
+  display: block;
+  transform-origin: 100% 0;
+}
+
+.wsmenu > .wsmenu-list > li > ul.sub-menu > li .wsmenu-click02>i.wsmenu-rotate {
+  transform: rotate(-45deg);
+  margin-top: 19px;
+}
+
+/*End Media Query*/
+}
+
+/* Extra @Media Query*/
+@media only screen and (min-width: 992px) and (max-width:1162px) {
+.desktoplogo {
+  margin-left: 12px;
+}
+
+.wsmenu > .wsmenu-list > li > a {
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+.wsmenu > .wsmenu-list > li a.menuhomeicon {
+  padding-left: 22px;
+  padding-right: 22px;
+}
+}

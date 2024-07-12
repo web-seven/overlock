@@ -1,0 +1,12 @@
+.menu {
+  overflow-x: unset;
+}
+
+.brands-carousel-5  {
+  display: flex !important;
+  justify-content: center;
+}
+
+a.contrast {
+  color: #353f4f;
+}

@@ -1,0 +1,29 @@
+---
+type: overview
+title: CLI Installation
+sidebar_label: Installation
+sidebar_position: 1
+pagination_next: null
+pagination_prev: null
+---
+import RenderCodeblock from './codeblock'
+
+# Install the KNDP command-line
+
+### Prerequisites
+
+1. Linux-based operating system. This script is designed for Linux-based operating systems, specifically tested on Ubuntu.
+1. Internet access for package downloads.
+1. Kubernetes engine installed locally, supported: KinD, k3s, k3d
+
+### Installing from GitHub Releases
+
+Install the latest version of the KNDP command-line via shell script by downloading the install script from KNDP GitHub Releases.
+Downloading packages requires both the version and CPU architecture (linux-amd64).
+
+<RenderCodeblock/>
+
+### Verify installation
+```bash
+kndp --version
+```

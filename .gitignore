@@ -19,3 +19,25 @@
 
 # Go workspace file
 go.work
+
+# Website related sources:
+# Dependencies
+docs/website/node_modules
+
+# Production
+docs/website/build
+
+# Generated files
+docs/website/.docusaurus
+docs/website/.cache-loader
+
+# Misc
+docs/website/.DS_Store
+docs/website/.env.local
+docs/website/.env.development.local
+docs/website/.env.test.local
+docs/website/.env.production.local
+
+docs/website/npm-debug.log*
+docs/website/yarn-debug.log*
+docs/website/yarn-error.log*
