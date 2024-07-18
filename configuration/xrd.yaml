@@ -1,0 +1,86 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: environments.web7.md
+spec:
+  group: web7.md
+  names:
+    kind: Environment
+    plural: environments
+    singular: environment
+  versions:
+    - name: v1alpha1
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                environment:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+                    context:
+                      type: string
+                    registry:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        server:
+                          type: string
+                        username:
+                          type: string
+                        password:
+                          type: string
+                        email:
+                          type: string
+                    policy:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                    configuration:
+                      type: object
+                      properties:
+                        packages:
+                          type: array
+                          items:
+                            type: string
+                    provider:
+                      type: object
+                      properties:
+                        packages:
+                          type: array
+                          items:
+                            type: string
+                    helmProviderCgfRef:
+                      type: string
+                    kubernetesProviderCgfRef:
+                      type: string
+            status:
+              type: object
+              description: Status information.
+              properties:
+                providers:
+                  type: object
+                  description: Providers details.
+                  properties:
+                    kubernetes:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                          description: Kubernetes provider config name.
+                    helm: 
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                          description: Helm provider config name.
+      served: true
+      referenceable: true

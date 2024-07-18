@@ -1,0 +1,22 @@
+apiVersion: web7.md/v1alpha1
+kind: Environment
+metadata:
+  name: environment-test
+spec:
+  environment:
+    name: "kndp-crossplane"
+    namespace: "kndp-system"
+    registry: 
+      name: "test"
+      password: "test"
+      username: "test"
+      server: "test"
+      email: "test"
+    policy:
+      name: "test"
+    configuration:
+      packages: []
+    provider:
+      packages: []
+    helmProviderCgfRef: kndp-helm-provider-config
+    kubernetesProviderCgfRef: kndp-kubernetes-provider-config
