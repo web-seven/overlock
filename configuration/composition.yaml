@@ -4,28 +4,9 @@ metadata:
   name: configuration-environment
 spec:
   compositeTypeRef:
-    apiVersion: web7.md/v1alpha1
+    apiVersion: kndp.io/v1alpha1
     kind: Environment
   resources:
-
-
-    - name: helm-provider
-      base:
-        apiVersion: helm.crossplane.io/v1beta1
-        kind: ProviderConfig
-        metadata:
-          name: helm-provider
-        spec:
-          credentials:
-            source: InjectedIdentity
-      patches:
-      - type: ToCompositeFieldPath
-        fromFieldPath: "metadata.name"
-        toFieldPath: "status.providers.helm.name"
-      - type: FromCompositeFieldPath
-        fromFieldPath: "spec.environment.name"
-        toFieldPath: "metadata.name"
-
 
     - name: crossplane-release
       base:
@@ -42,27 +23,44 @@ spec:
             - name: provider.packages
               value: "xpkg.upbound.io/crossplane-contrib/provider-kubernetes:v0.13.0"
             values:
+              extraObjects:
+              - apiVersion: kndp.io/v1alpha1
+                kind: Environment
+                metadata:
+                  name: environment-test
+                spec:
+                  name: "kndp-crossplane"
+                  namespace: "kndp-system"
+                  registry: 
+                    name: ""
+                    server: ""
+                    token: ""
+                  configuration:
+                    packages: []
+                  provider:
+                    packages: []
+                  helmProviderCfgRef: kndp-helm-provider-config
+                  kubernetesProviderCfgRef: kndp-kubernetes-provider-config
               provider:
                 packages: []
               configuration:
                 packages: []
       patches:
       - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.helmProviderCgfRef
+        fromFieldPath: spec.helmProviderCfgRef
         toFieldPath: spec.providerConfigRef.name
       - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.namespace
+        fromFieldPath: spec.namespace
         toFieldPath: spec.forProvider.namespace
       - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.name
+        fromFieldPath: spec.name
         toFieldPath: metadata.name
       - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.configuration.packages
+        fromFieldPath: spec.configuration.packages
         toFieldPath: spec.forProvider.values.configuration.packages
       - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.provider.packages
+        fromFieldPath: spec.provider.packages
         toFieldPath: spec.forProvider.values.provider.packages
-
 
     - name: kyverno-release
       base:
@@ -88,98 +86,11 @@ spec:
                 value: "true"
       patches:
       - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.helmProviderCgfRef
+        fromFieldPath: spec.helmProviderCfgRef
         toFieldPath: spec.providerConfigRef.name
       - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.namespace
+        fromFieldPath: spec.namespace
         toFieldPath: spec.forProvider.namespace
-   
-
-    - name: kubernetes-provider-remote
-      base:
-        apiVersion: kubernetes.crossplane.io/v1alpha1
-        kind: Object
-        spec:
-          forProvider:
-            manifest:
-              apiVersion: kubernetes.crossplane.io/v1alpha1
-              kind: ProviderConfig
-              spec:
-                credentials:
-                  source: InjectedIdentity
-      patches:
-      - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.kubernetesProviderCgfRef
-        toFieldPath: spec.providerConfigRef.name
-      - type: FromCompositeFieldPath
-        fromFieldPath: "spec.environment.name"
-        toFieldPath: "metadata.name"
-      - type: FromCompositeFieldPath
-        fromFieldPath: "spec.environment.name"
-        toFieldPath: "spec.forProvider.manifest.metadata.name"
-
-
-    - name: registry-deployment
-      base:
-        apiVersion: kubernetes.crossplane.io/v1alpha1
-        kind: Object
-        metadata:
-          name: registry-deployment
-        spec:
-          forProvider:
-            manifest:
-              apiVersion: apps/v1
-              kind: Deployment
-              metadata:
-                name: ""
-                namespace: ""
-              spec:
-                selector:
-                  matchLabels:
-                    app: ""
-                template:
-                  metadata:
-                    labels:
-                      app: ""
-                  spec:
-                    containers:
-                    - image: registry:2
-                      imagePullPolicy: IfNotPresent
-                      name: registry
-                      ports:
-                      - containerPort: 5000
-                        name: oci
-                        protocol: TCP
-      patches:
-      - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.kubernetesProviderCgfRef
-        toFieldPath: spec.providerConfigRef.name
-      - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.namespace
-        toFieldPath: spec.forProvider.manifest.metadata.namespace
-      - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.registry.name
-        toFieldPath: spec.forProvider.manifest.spec.selector.matchLabels.app
-      - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.registry.name
-        toFieldPath: spec.forProvider.manifest.spec.template.metadata.labels.app
-      - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.registry.name
-        transforms:
-          - type: string
-            string:
-              type: Format
-              fmt: "%s-registry"
-        toFieldPath: spec.forProvider.manifest.metadata.name
-      - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.registry.name
-        transforms:
-          - type: string
-            string:
-              type: Format
-              fmt: "%s-registry-deployment"
-        toFieldPath: metadata.name
-
 
     - name: registry-secret
       base:
@@ -191,41 +102,64 @@ spec:
               apiVersion: v1
               kind: Secret
               metadata:
-                namespace: default
-              type: Opaque
-              stringData:
-                password: ""
-                username: ""
-                server: ""
-                email: ""
+                namespace: ""
+                name: ""
+              type: kubernetes.io/dockerconfigjson
+              data:
+                .dockerconfigjson: ""
       patches:
-      - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.kubernetesProviderCgfRef
-        toFieldPath: spec.providerConfigRef.name
-      - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.namespace
-        toFieldPath: spec.forProvider.manifest.metadata.namespace
-      - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.registry.name
-        transforms:
-          - type: string
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.kubernetesProviderCfgRef
+          toFieldPath: spec.providerConfigRef.name
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.namespace
+          toFieldPath: spec.forProvider.manifest.metadata.namespace
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.registry.name
+          transforms:
+            - type: string
+              string:
+                type: Format
+                fmt: "%s-registry"
+          toFieldPath: spec.forProvider.manifest.metadata.name
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.registry.name
+          transforms:
+            - type: string
+              string:
+                type: Format
+                fmt: "%s-registry"
+          toFieldPath: metadata.name
+        - type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: spec.registry.token
+            strategy: string
             string:
-              type: Format
-              fmt: "%s-registry"
-        toFieldPath: spec.forProvider.manifest.metadata.name
-      - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.registry.username
-        toFieldPath: spec.forProvider.manifest.stringData.username
-      - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.registry.password
-        toFieldPath: spec.forProvider.manifest.stringData.password
-      - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.registry.server
-        toFieldPath: spec.forProvider.manifest.stringData.server
-      - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.registry.email
-        toFieldPath: spec.forProvider.manifest.stringData.email
-
+              fmt: "user:%s"
+          transforms:
+            - type: string
+              string:
+                type: Convert
+                convert: "ToBase64"
+          toFieldPath: metadata.annotations[auth]
+        - type: ToCompositeFieldPath
+          fromFieldPath: metadata.annotations[auth]
+          toFieldPath: status.registry.auth
+        - type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: spec.registry.server
+              - fromFieldPath: status.registry.auth
+            strategy: string
+            string:
+              fmt: '{"auths":{"%s":{"auth":"%s"}}}'
+          transforms:
+            - type: string
+              string:
+                type: Convert
+                convert: "ToBase64"
+          toFieldPath: spec.forProvider.manifest.data[.dockerconfigjson]
 
     - name: kyverno-policy-scplc
       base:
@@ -257,10 +191,10 @@ spec:
                         name: ""
       patches:
       - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.kubernetesProviderCgfRef
+        fromFieldPath: spec.kubernetesProviderCfgRef
         toFieldPath: spec.providerConfigRef.name
       - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.registry.name
+        fromFieldPath: spec.registry.name
         transforms:
           - type: string
             string:
@@ -268,10 +202,10 @@ spec:
               fmt: "%s-scplc"
         toFieldPath: metadata.name
       - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.namespace
+        fromFieldPath: spec.namespace
         toFieldPath: spec.forProvider.manifest.metadata.namespace
       - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.registry.name
+        fromFieldPath: spec.registry.name
         transforms:
           - type: string
             string:
@@ -279,7 +213,7 @@ spec:
               fmt: "%s-scplc"
         toFieldPath: spec.forProvider.manifest.metadata.name
       - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.registry.name
+        fromFieldPath: spec.registry.name
         transforms:
           - type: string
             string:
@@ -287,7 +221,7 @@ spec:
               fmt: "%s-scplc"
         toFieldPath: spec.forProvider.manifest.spec.rules[0].generate.name
       - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.registry.name
+        fromFieldPath: spec.registry.name
         transforms:
           - type: string
             string:
@@ -295,7 +229,7 @@ spec:
               fmt: "%s-scplc"
         toFieldPath: spec.forProvider.manifest.spec.rules[0].generate.clone.name
       - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.namespace
+        fromFieldPath: spec.namespace
         transforms:
           - type: string
             string:
@@ -303,14 +237,13 @@ spec:
               fmt: "%s-scplc"
         toFieldPath: spec.forProvider.manifest.spec.rules[0].generate.clone.namespace
       - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.namespace
+        fromFieldPath: spec.namespace
         transforms:
           - type: string
             string:
               type: Format
               fmt: "%s-scplc"
         toFieldPath: spec.forProvider.manifest.spec.rules[0].generate.namespace
-
 
     - name: kyverno-policy-regplc
       base:
@@ -343,10 +276,10 @@ spec:
                                   image: "{{ regex_replace_all_literal('^[^/]+', '{{element.image}}', 'localhost:30100') }}"
       patches:
       - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.kubernetesProviderCgfRef
+        fromFieldPath: spec.kubernetesProviderCfgRef
         toFieldPath: spec.providerConfigRef.name
       - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.registry.name
+        fromFieldPath: spec.registry.name
         transforms:
           - type: string
             string:
@@ -354,10 +287,10 @@ spec:
               fmt: "%s-scplc"
         toFieldPath: spec.forProvider.manifest.metadata.name
       - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.namespace
+        fromFieldPath: spec.namespace
         toFieldPath: spec.forProvider.manifest.metadata.namespace
       - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.registry.name
+        fromFieldPath: spec.registry.name
         transforms:
           - type: string
             string:
@@ -365,7 +298,7 @@ spec:
               fmt: "%s-regplc"
         toFieldPath: spec.forProvider.manifest.metadata.name
       - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.registry.name
+        fromFieldPath: spec.registry.name
         transforms:
           - type: string
             string:
@@ -373,7 +306,7 @@ spec:
               fmt: "%s-regplc"
         toFieldPath: spec.forProvider.manifest.spec.rules[0].name
       - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.registry.name
+        fromFieldPath: spec.registry.name
         transforms:
           - type: string
             string:
@@ -381,57 +314,11 @@ spec:
               fmt: "*%s*"
         toFieldPath: spec.forProvider.manifest.spec.rules[0].mutate.foreach[0].patchStrategicMerge.spec.containers[0].(image)
       - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.registry.name
+        fromFieldPath: spec.registry.name
         transforms:
           - type: string
             string:
               type: Format
               fmt: "%s-regplc"
         toFieldPath: metadata.name
-
-    - name: registry-service
-      base:
-        apiVersion: kubernetes.crossplane.io/v1alpha1
-        kind: Object
-        spec:
-          forProvider:
-            manifest:
-              apiVersion: v1
-              kind: Service
-              metadata:
-                name: ""
-                namespace: ""
-              spec:
-                ports:
-                - name: oci
-                  port: 80
-                  nodePort: 30100
-                  protocol: TCP
-                  targetPort: 5000
-                selector:
-                  app: kndp-registry
-                type: NodePort
-      patches:
-      - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.kubernetesProviderCgfRef
-        toFieldPath: spec.providerConfigRef.name
-      - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.registry.name
-        transforms:
-          - type: string
-            string:
-              type: Format
-              fmt: "%s-registry"
-        toFieldPath: metadata.name
-      - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.namespace
-        toFieldPath: spec.forProvider.manifest.metadata.namespace
-      - type: FromCompositeFieldPath
-        fromFieldPath: spec.environment.registry.name
-        transforms:
-          - type: string
-            string:
-              type: Format
-              fmt: "%s-registry"
-        toFieldPath: spec.forProvider.manifest.metadata.name
 

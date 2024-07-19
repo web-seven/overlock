@@ -1,9 +1,9 @@
 apiVersion: apiextensions.crossplane.io/v1
 kind: CompositeResourceDefinition
 metadata:
-  name: environments.web7.md
+  name: environments.kndp.io
 spec:
-  group: web7.md
+  group: kndp.io
   names:
     kind: Environment
     plural: environments
@@ -17,55 +17,46 @@ spec:
             spec:
               type: object
               properties:
-                environment:
+                registry:
                   type: object
                   properties:
                     name:
                       type: string
-                    namespace:
+                    server:
                       type: string
-                    context:
+                    token:
                       type: string
-                    registry:
-                      type: object
-                      properties:
-                        name:
-                          type: string
-                        server:
-                          type: string
-                        username:
-                          type: string
-                        password:
-                          type: string
-                        email:
-                          type: string
-                    policy:
-                      type: object
-                      properties:
-                        name:
-                          type: string
-                    configuration:
-                      type: object
-                      properties:
-                        packages:
-                          type: array
-                          items:
-                            type: string
-                    provider:
-                      type: object
-                      properties:
-                        packages:
-                          type: array
-                          items:
-                            type: string
-                    helmProviderCgfRef:
-                      type: string
-                    kubernetesProviderCgfRef:
-                      type: string
+                name:
+                  type: string
+                namespace:
+                  type: string
+                configuration:
+                  type: object
+                  properties:
+                    packages:
+                      type: array
+                      items:
+                        type: string
+                provider:
+                  type: object
+                  properties:
+                    packages:
+                      type: array
+                      items:
+                        type: string
+                helmProviderCfgRef:
+                  type: string
+                kubernetesProviderCfgRef:
+                  type: string
             status:
               type: object
               description: Status information.
               properties:
+                registry:
+                  type: object
+                  properties:
+                    auth:
+                      type: string
                 providers:
                   type: object
                   description: Providers details.
@@ -82,5 +73,6 @@ spec:
                         name:
                           type: string
                           description: Helm provider config name.
+
       served: true
       referenceable: true
