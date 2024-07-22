@@ -6,5 +6,7 @@ spec:
   dependsOn:
     - provider: xpkg.upbound.io/crossplane-contrib/provider-helm
       version: ">=v0.16.0"
+    - provider: xpkg.upbound.io/crossplane-contrib/provider-kubernetes
+      version: ">=v0.13.0"
   crossplane:
     version: ">=v1.14.1-0"

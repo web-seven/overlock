@@ -355,11 +355,6 @@ func (a *SecretReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 			"spec": map[string]interface{}{
 				"name":      ReleaseName,
 				"namespace": namespace.Namespace,
-				"registry": map[string]interface{}{
-					"name":   "",
-					"server": "",
-					"token":  "",
-				},
 				"configuration": map[string]interface{}{
 					"packages": []interface{}{},
 				},

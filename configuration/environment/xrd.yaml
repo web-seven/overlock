@@ -17,17 +17,30 @@ spec:
             spec:
               type: object
               properties:
-                registry:
+                crossplane:
                   type: object
                   properties:
-                    name:
-                      type: string
-                    namespace:
-                      type: string
-                    server:
-                      type: string
-                    token:
-                      type: string
+                  chart:
+                    type: string
+                    default: crossplane
+                  repository:
+                    type: string
+                    default: https://charts.crossplane.io/stable
+                  version:
+                    type: string
+                    default: "1.15.2"
+                kyverno:
+                  type: object
+                  properties:
+                  chart:
+                    type: string
+                    default: kyverno
+                  repository:
+                    type: string
+                    default: "https://kyverno.github.io/kyverno/"
+                  version:
+                    type: string
+                    default: "3.2.5"
                 name:
                   type: string
                 namespace:
@@ -48,8 +61,10 @@ spec:
                         type: string
                 helmProviderCfgRef:
                   type: string
+                  default: kndp-helm-provider-config
                 kubernetesProviderCfgRef:
                   type: string
+                  default: kndp-kubernetes-provider-config
             status:
               type: object
               description: Status information.

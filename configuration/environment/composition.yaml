@@ -14,14 +14,7 @@ spec:
         kind: Release
         spec:
           forProvider:
-            chart:
-              name: crossplane
-              repository: "https://charts.crossplane.io/stable"
-              version: "1.15.2"
             namespace: ""
-            set:
-            - name: provider.packages
-              value: "xpkg.upbound.io/crossplane-contrib/provider-kubernetes:v0.13.0"
             values:
               extraObjects:
               - apiVersion: kndp.io/v1alpha1
@@ -38,8 +31,6 @@ spec:
                     packages: []
                   provider:
                     packages: []
-                  helmProviderCfgRef: kndp-helm-provider-config
-                  kubernetesProviderCfgRef: kndp-kubernetes-provider-config
               provider:
                 packages: []
               configuration:
@@ -60,6 +51,15 @@ spec:
       - type: FromCompositeFieldPath
         fromFieldPath: spec.provider.packages
         toFieldPath: spec.forProvider.values.provider.packages
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.crossplane.chart
+        toFieldPath: spec.forProvider.chart.name
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.crossplane.repository
+        toFieldPath: spec.forProvider.chart.repository
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.crossplane.version
+        toFieldPath: spec.forProvider.chart.version
 
 
     - name: kyverno-release
@@ -72,10 +72,6 @@ spec:
             crossplane.io/external-name: kyverno
         spec:
           forProvider:
-            chart:
-              name: kyverno
-              repository: "https://kyverno.github.io/kyverno/"
-              version: "3.2.5"
             namespace: ""
             set:
               - name: features.admissionReports.enabled
@@ -91,61 +87,12 @@ spec:
       - type: FromCompositeFieldPath
         fromFieldPath: spec.namespace
         toFieldPath: spec.forProvider.namespace
-
-
-
-    - name: registry
-      base:
-        apiVersion: kubernetes.crossplane.io/v1alpha1
-        kind: Object
-        spec:
-          forProvider:
-            manifest:
-              apiVersion: kndp.io/v1alpha1
-              kind: Registry
-              spec:
-                  server: ""
-                  token: ""
-      patches:
       - type: FromCompositeFieldPath
-        fromFieldPath: spec.kubernetesProviderCfgRef
-        toFieldPath: spec.providerConfigRef.name
+        fromFieldPath: spec.kyverno.chart
+        toFieldPath: spec.forProvider.chart.name
       - type: FromCompositeFieldPath
-        fromFieldPath: spec.kubernetesProviderCfgRef
-        toFieldPath: spec.forProvider.manifest.spec.kubernetesProviderCfgRef
+        fromFieldPath: spec.kyverno.repository
+        toFieldPath: spec.forProvider.chart.repository
       - type: FromCompositeFieldPath
-        fromFieldPath: spec.registry.name
-        transforms:
-          - type: string
-            string:
-              type: Format
-              fmt: "%s-registry"
-        toFieldPath: spec.forProvider.manifest.metadata.name
-      - type: FromCompositeFieldPath
-        fromFieldPath: spec.registry.name
-        transforms:
-          - type: string
-            string:
-              type: Format
-              fmt: "%s-registry"
-        toFieldPath: metadata.name
-      - type: FromCompositeFieldPath
-        fromFieldPath: spec.registry.name
-        transforms:
-          - type: string
-            string:
-              type: Format
-              fmt: "%s-registry"
-        toFieldPath: spec.forProvider.manifest.spec.name
-      - type: FromCompositeFieldPath
-        fromFieldPath: spec.namespace
-        toFieldPath: spec.forProvider.manifest.metadata.namespace
-      - type: FromCompositeFieldPath
-        fromFieldPath: spec.namespace
-        toFieldPath: spec.forProvider.manifest.spec.namespace
-      - type: FromCompositeFieldPath
-        fromFieldPath: spec.registry.server
-        toFieldPath: spec.forProvider.manifest.spec.server
-      - type: FromCompositeFieldPath
-        fromFieldPath: spec.registry.token
-        toFieldPath: spec.forProvider.manifest.spec.token
+        fromFieldPath: spec.kyverno.version
+        toFieldPath: spec.forProvider.chart.version
