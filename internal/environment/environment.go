@@ -101,7 +101,7 @@ func (e *Environment) Upgrade(ctx context.Context, logger *zap.SugaredLogger) er
 }
 
 // confirmationPrompt prompts the user with a yes/no choice.
-func confirmationPrompt(s string, logger  *zap.SugaredLogger) bool {
+func confirmationPrompt(s string, logger *zap.SugaredLogger) bool {
 	reader := bufio.NewReader(os.Stdin)
 	for {
 		fmt.Printf("%s [y/n]: ", s)
@@ -121,7 +121,7 @@ func confirmationPrompt(s string, logger  *zap.SugaredLogger) bool {
 }
 
 // Delete environment cluster
-func (e *Environment) Delete(f bool, logger  *zap.SugaredLogger) error {
+func (e *Environment) Delete(f bool, logger *zap.SugaredLogger) error {
 	var err error
 	if !f && !confirmationPrompt(fmt.Sprintf("Do you really want to delete environment %s ?", e.name), logger) {
 		return nil

@@ -1,0 +1,231 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: configuration-registry
+spec:
+  compositeTypeRef:
+    apiVersion: kndp.io/v1alpha1
+    kind: Registry
+  resources:
+
+
+    - name: registry-secret
+      base:
+        apiVersion: kubernetes.crossplane.io/v1alpha1
+        kind: Object
+        spec:
+          forProvider:
+            manifest:
+              apiVersion: v1
+              kind: Secret
+              type: kubernetes.io/dockerconfigjson
+              data:
+                .dockerconfigjson: ""
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.kubernetesProviderCfgRef
+          toFieldPath: spec.providerConfigRef.name
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.namespace
+          toFieldPath: spec.forProvider.manifest.metadata.namespace
+        - type: FromCompositeFieldPath
+          fromFieldPath: metadata.name
+          transforms:
+            - type: string
+              string:
+                type: Format
+                fmt: "%s-registry"
+          toFieldPath: spec.forProvider.manifest.metadata.name
+        - type: FromCompositeFieldPath
+          fromFieldPath: metadata.name
+          transforms:
+            - type: string
+              string:
+                type: Format
+                fmt: "%s-registry"
+          toFieldPath: metadata.name
+        - type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: spec.token
+            strategy: string
+            string:
+              fmt: "user:%s"
+          transforms:
+            - type: string
+              string:
+                type: Convert
+                convert: "ToBase64"
+          toFieldPath: metadata.annotations[auth]
+        - type: ToCompositeFieldPath
+          fromFieldPath: metadata.annotations[auth]
+          toFieldPath: status.auth
+        - type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: spec.server
+              - fromFieldPath: status.auth
+            strategy: string
+            string:
+              fmt: '{"auths":{"%s":{"auth":"%s"}}}'
+          transforms:
+            - type: string
+              string:
+                type: Convert
+                convert: "ToBase64"
+          toFieldPath: spec.forProvider.manifest.data[.dockerconfigjson]
+
+
+    - name: kyverno-policy-scplc
+      base:
+        apiVersion: kubernetes.crossplane.io/v1alpha1
+        kind: Object
+        spec:
+          forProvider:
+            manifest:
+              apiVersion: kyverno.io/v1
+              kind: ClusterPolicy
+              spec:
+                generateExisting: true
+                rules:
+                  - name: kndp-sync-registry-secrets
+                    match:
+                      resources:
+                        kinds:
+                          - Namespace
+                    generate:
+                      apiVersion: v1
+                      kind: Secret
+                      synchronize: true
+      patches:
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.kubernetesProviderCfgRef
+        toFieldPath: spec.providerConfigRef.name
+      - type: FromCompositeFieldPath
+        fromFieldPath: metadata.name
+        transforms:
+          - type: string
+            string:
+              type: Format
+              fmt: "%s-scplc"
+        toFieldPath: metadata.name
+      - type: FromCompositeFieldPath
+        fromFieldPath: metadata.namespace
+        toFieldPath: spec.forProvider.manifest.metadata.namespace
+      - type: FromCompositeFieldPath
+        fromFieldPath: metadata.name
+        transforms:
+          - type: string
+            string:
+              type: Format
+              fmt: "%s-scplc"
+        toFieldPath: spec.forProvider.manifest.metadata.name
+      - type: FromCompositeFieldPath
+        fromFieldPath: metadata.name
+        transforms:
+          - type: string
+            string:
+              type: Format
+              fmt: "%s-scplc"
+        toFieldPath: spec.forProvider.manifest.spec.rules[0].generate.name
+      - type: FromCompositeFieldPath
+        fromFieldPath: metadata.name
+        transforms:
+          - type: string
+            string:
+              type: Format
+              fmt: "%s-scplc"
+        toFieldPath: spec.forProvider.manifest.spec.rules[0].generate.clone.name
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.namespace
+        transforms:
+          - type: string
+            string:
+              type: Format
+              fmt: "%s-scplc"
+        toFieldPath: spec.forProvider.manifest.spec.rules[0].generate.clone.namespace
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.namespace
+        transforms:
+          - type: string
+            string:
+              type: Format
+              fmt: "%s-scplc"
+        toFieldPath: spec.forProvider.manifest.spec.rules[0].generate.namespace
+
+
+    - name: kyverno-policy-regplc
+      base:
+        apiVersion: kubernetes.crossplane.io/v1alpha1
+        kind: Object
+        spec:
+          forProvider:
+            manifest:
+              apiVersion: kyverno.io/v1
+              kind: ClusterPolicy
+              spec:
+                generateExisting: true
+                rules:
+                  - name: ""
+                    match:
+                      any:
+                        - resources:
+                            kinds:
+                              - Pod
+                    skipBackgroundRequests: false
+                    mutate:
+                      foreach:
+                        - list: request.object.spec.containers
+                          patchStrategicMerge:
+                            spec:
+                              containers:
+                                - (image): ""
+                                  image: "{{ regex_replace_all_literal('^[^/]+', '{{element.image}}', 'localhost:30100') }}"
+      patches:
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.kubernetesProviderCfgRef
+        toFieldPath: spec.providerConfigRef.name
+      - type: FromCompositeFieldPath
+        fromFieldPath: metadata.name
+        transforms:
+          - type: string
+            string:
+              type: Format
+              fmt: "%s-scplc"
+        toFieldPath: spec.forProvider.manifest.metadata.name
+      - type: FromCompositeFieldPath
+        fromFieldPath: metadata.namespace
+        toFieldPath: spec.forProvider.manifest.metadata.namespace
+      - type: FromCompositeFieldPath
+        fromFieldPath: metadata.name
+        transforms:
+          - type: string
+            string:
+              type: Format
+              fmt: "%s-regplc"
+        toFieldPath: spec.forProvider.manifest.metadata.name
+      - type: FromCompositeFieldPath
+        fromFieldPath: metadata.name
+        transforms:
+          - type: string
+            string:
+              type: Format
+              fmt: "%s-regplc"
+        toFieldPath: spec.forProvider.manifest.spec.rules[0].name
+      - type: FromCompositeFieldPath
+        fromFieldPath: metadata.name
+        transforms:
+          - type: string
+            string:
+              type: Format
+              fmt: "*%s*"
+        toFieldPath: spec.forProvider.manifest.spec.rules[0].mutate.foreach[0].patchStrategicMerge.spec.containers[0].(image)
+      - type: FromCompositeFieldPath
+        fromFieldPath: metadata.name
+        transforms:
+          - type: string
+            string:
+              type: Format
+              fmt: "%s-regplc"
+        toFieldPath: metadata.name
+

@@ -1,0 +1,98 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: configuration-environment
+spec:
+  compositeTypeRef:
+    apiVersion: kndp.io/v1alpha1
+    kind: Environment
+  resources:
+
+    - name: crossplane-release
+      base:
+        apiVersion: helm.crossplane.io/v1beta1
+        kind: Release
+        spec:
+          forProvider:
+            namespace: ""
+            values:
+              extraObjects:
+              - apiVersion: kndp.io/v1alpha1
+                kind: Environment
+                metadata:
+                  name: environment-test
+                spec:
+                  name: "kndp-crossplane"
+                  namespace: "kndp-system"
+                  registry: 
+                    server: ""
+                    token: ""
+                  configuration:
+                    packages: []
+                  provider:
+                    packages: []
+              provider:
+                packages: []
+              configuration:
+                packages: []
+      patches:
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.helmProviderCfgRef
+        toFieldPath: spec.providerConfigRef.name
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.namespace
+        toFieldPath: spec.forProvider.namespace
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.name
+        toFieldPath: metadata.name
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.configuration.packages
+        toFieldPath: spec.forProvider.values.configuration.packages
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.provider.packages
+        toFieldPath: spec.forProvider.values.provider.packages
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.crossplane.chart
+        toFieldPath: spec.forProvider.chart.name
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.crossplane.repository
+        toFieldPath: spec.forProvider.chart.repository
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.crossplane.version
+        toFieldPath: spec.forProvider.chart.version
+
+
+    - name: kyverno-release
+      base:
+        apiVersion: helm.crossplane.io/v1beta1
+        kind: Release
+        metadata:
+          name: kyverno
+          annotations:
+            crossplane.io/external-name: kyverno
+        spec:
+          forProvider:
+            namespace: ""
+            set:
+              - name: features.admissionReports.enabled
+                value: "true"
+              - name: aggregateReports.enabled
+                value: "true"
+              - name: policyReports.enabled
+                value: "true"
+      patches:
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.helmProviderCfgRef
+        toFieldPath: spec.providerConfigRef.name
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.namespace
+        toFieldPath: spec.forProvider.namespace
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.kyverno.chart
+        toFieldPath: spec.forProvider.chart.name
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.kyverno.repository
+        toFieldPath: spec.forProvider.chart.repository
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.kyverno.version
+        toFieldPath: spec.forProvider.chart.version
