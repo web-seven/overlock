@@ -20,27 +20,27 @@ spec:
                 crossplane:
                   type: object
                   properties:
-                  chart:
-                    type: string
-                    default: crossplane
-                  repository:
-                    type: string
-                    default: https://charts.crossplane.io/stable
-                  version:
-                    type: string
-                    default: "1.15.2"
+                    chart:
+                      type: string
+                      default: crossplane
+                    repository:
+                      type: string
+                      default: https://charts.crossplane.io/stable
+                    version:
+                      type: string
+                      default: "1.15.2"
                 kyverno:
                   type: object
                   properties:
-                  chart:
-                    type: string
-                    default: kyverno
-                  repository:
-                    type: string
-                    default: "https://kyverno.github.io/kyverno/"
-                  version:
-                    type: string
-                    default: "3.2.5"
+                    chart:
+                      type: string
+                      default: kyverno
+                    repository:
+                      type: string
+                      default: "https://kyverno.github.io/kyverno/"
+                    version:
+                      type: string
+                      default: "3.2.5"
                 name:
                   type: string
                 namespace:
