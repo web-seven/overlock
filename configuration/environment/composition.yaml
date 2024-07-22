@@ -1,0 +1,151 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: configuration-environment
+spec:
+  compositeTypeRef:
+    apiVersion: kndp.io/v1alpha1
+    kind: Environment
+  resources:
+
+    - name: crossplane-release
+      base:
+        apiVersion: helm.crossplane.io/v1beta1
+        kind: Release
+        spec:
+          forProvider:
+            chart:
+              name: crossplane
+              repository: "https://charts.crossplane.io/stable"
+              version: "1.15.2"
+            namespace: ""
+            set:
+            - name: provider.packages
+              value: "xpkg.upbound.io/crossplane-contrib/provider-kubernetes:v0.13.0"
+            values:
+              extraObjects:
+              - apiVersion: kndp.io/v1alpha1
+                kind: Environment
+                metadata:
+                  name: environment-test
+                spec:
+                  name: "kndp-crossplane"
+                  namespace: "kndp-system"
+                  registry: 
+                    server: ""
+                    token: ""
+                  configuration:
+                    packages: []
+                  provider:
+                    packages: []
+                  helmProviderCfgRef: kndp-helm-provider-config
+                  kubernetesProviderCfgRef: kndp-kubernetes-provider-config
+              provider:
+                packages: []
+              configuration:
+                packages: []
+      patches:
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.helmProviderCfgRef
+        toFieldPath: spec.providerConfigRef.name
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.namespace
+        toFieldPath: spec.forProvider.namespace
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.name
+        toFieldPath: metadata.name
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.configuration.packages
+        toFieldPath: spec.forProvider.values.configuration.packages
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.provider.packages
+        toFieldPath: spec.forProvider.values.provider.packages
+
+
+    - name: kyverno-release
+      base:
+        apiVersion: helm.crossplane.io/v1beta1
+        kind: Release
+        metadata:
+          name: kyverno
+          annotations:
+            crossplane.io/external-name: kyverno
+        spec:
+          forProvider:
+            chart:
+              name: kyverno
+              repository: "https://kyverno.github.io/kyverno/"
+              version: "3.2.5"
+            namespace: ""
+            set:
+              - name: features.admissionReports.enabled
+                value: "true"
+              - name: aggregateReports.enabled
+                value: "true"
+              - name: policyReports.enabled
+                value: "true"
+      patches:
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.helmProviderCfgRef
+        toFieldPath: spec.providerConfigRef.name
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.namespace
+        toFieldPath: spec.forProvider.namespace
+
+
+
+    - name: registry
+      base:
+        apiVersion: kubernetes.crossplane.io/v1alpha1
+        kind: Object
+        spec:
+          forProvider:
+            manifest:
+              apiVersion: kndp.io/v1alpha1
+              kind: Registry
+              spec:
+                  server: ""
+                  token: ""
+      patches:
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.kubernetesProviderCfgRef
+        toFieldPath: spec.providerConfigRef.name
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.kubernetesProviderCfgRef
+        toFieldPath: spec.forProvider.manifest.spec.kubernetesProviderCfgRef
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.registry.name
+        transforms:
+          - type: string
+            string:
+              type: Format
+              fmt: "%s-registry"
+        toFieldPath: spec.forProvider.manifest.metadata.name
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.registry.name
+        transforms:
+          - type: string
+            string:
+              type: Format
+              fmt: "%s-registry"
+        toFieldPath: metadata.name
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.registry.name
+        transforms:
+          - type: string
+            string:
+              type: Format
+              fmt: "%s-registry"
+        toFieldPath: spec.forProvider.manifest.spec.name
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.namespace
+        toFieldPath: spec.forProvider.manifest.metadata.namespace
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.namespace
+        toFieldPath: spec.forProvider.manifest.spec.namespace
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.registry.server
+        toFieldPath: spec.forProvider.manifest.spec.server
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.registry.token
+        toFieldPath: spec.forProvider.manifest.spec.token

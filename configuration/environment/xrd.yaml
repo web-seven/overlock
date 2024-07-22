@@ -1,0 +1,75 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: environments.kndp.io
+spec:
+  group: kndp.io
+  names:
+    kind: Environment
+    plural: environments
+    singular: environment
+  versions:
+    - name: v1alpha1
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                registry:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+                    server:
+                      type: string
+                    token:
+                      type: string
+                name:
+                  type: string
+                namespace:
+                  type: string
+                configuration:
+                  type: object
+                  properties:
+                    packages:
+                      type: array
+                      items:
+                        type: string
+                provider:
+                  type: object
+                  properties:
+                    packages:
+                      type: array
+                      items:
+                        type: string
+                helmProviderCfgRef:
+                  type: string
+                kubernetesProviderCfgRef:
+                  type: string
+            status:
+              type: object
+              description: Status information.
+              properties:
+                providers:
+                  type: object
+                  description: Providers details.
+                  properties:
+                    kubernetes:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                          description: Kubernetes provider config name.
+                    helm: 
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                          description: Helm provider config name.
+
+      served: true
+      referenceable: true

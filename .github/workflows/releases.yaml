@@ -48,3 +48,10 @@ jobs:
       run: |
         echo "${auth_token}" | ko login ${{ env.OCI_DOMAIN }} --username ${{ github.actor }} --password-stdin
         ko build ./cmd/kndp/ --tags=${{ env.VERSION }} --bare
+
+    - name: Install crossplane CLI
+      id: crossplane
+      run: curl -sL "https://raw.githubusercontent.com/crossplane/crossplane/master/install.sh" | sh
+
+    - name: Build and push crossplane packages
+      run: ./crossplane xpkg build -f package -o configuration-environment  && ./crossplane xpkg push -f configuration-environment ${REGISTRY}/${{ github.repository }}/configuration-environment:${{ env.VERSION }} || true' || true;

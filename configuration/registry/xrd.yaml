@@ -1,0 +1,43 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: registrys.kndp.io
+spec:
+  group: kndp.io
+  names:
+    kind: Registry
+    plural: registrys
+    singular: registry
+  versions:
+    - name: v1alpha1
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                name:
+                  type: string
+                namespace:
+                  type: string
+                server:
+                  type: string
+                token:
+                  type: string
+                helmProviderCfgRef:
+                  type: string
+                kubernetesProviderCfgRef:
+                  type: string
+            status:
+              type: object
+              description: Status information.
+              properties:
+                registry:
+                  type: object
+                  properties:
+                    auth:
+                      type: string
+
+      served: true
+      referenceable: true

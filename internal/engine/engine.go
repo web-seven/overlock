@@ -63,6 +63,11 @@ var (
 				"xpkg.upbound.io/crossplane-contrib/provider-helm:v0.19.0",
 			},
 		},
+		"configuration": map[string]any{
+			"packages": []string{
+				"ghcr.io/kndpio/configuration-environment:0.0.1",
+			},
+		},
 		"args": []string{},
 	}
 )
@@ -340,6 +345,33 @@ func (a *SecretReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 		},
 	}
 
+	envObj := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "kndp.io/v1alpha1",
+			"kind":       "Environment",
+			"metadata": map[string]interface{}{
+				"name": "environment",
+			},
+			"spec": map[string]interface{}{
+				"name":      ReleaseName,
+				"namespace": namespace.Namespace,
+				"registry": map[string]interface{}{
+					"name":   "",
+					"server": "",
+					"token":  "",
+				},
+				"configuration": map[string]interface{}{
+					"packages": []interface{}{},
+				},
+				"provider": map[string]interface{}{
+					"packages": []interface{}{},
+				},
+				"helmProviderCfgRef":       helmProviderConfigName,
+				"kubernetesProviderCfgRef": providerConfigName,
+			},
+		},
+	}
+
 	if _, err = controllerutil.CreateOrUpdate(ctx, a.Client, pc, func() error {
 		pc.Object["spec"] = map[string]interface{}{
 			"credentials": map[string]interface{}{
@@ -369,6 +401,10 @@ func (a *SecretReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 		}
 		return nil
 	}); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	if _, err = controllerutil.CreateOrUpdate(ctx, a.Client, envObj, func() error { return nil }); err != nil {
 		return reconcile.Result{}, err
 	}
 
