@@ -354,8 +354,10 @@ func (a *SecretReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 				"name": "environment",
 			},
 			"spec": map[string]interface{}{
-				"name":      ReleaseName,
-				"namespace": namespace.Namespace,
+				"crossplane:": map[string]interface{}{},
+				"kyverno:":    map[string]interface{}{},
+				"name":        ReleaseName,
+				"namespace":   namespace.Namespace,
 				"configuration": map[string]interface{}{
 					"packages": []interface{}{},
 				},
