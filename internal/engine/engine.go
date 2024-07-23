@@ -5,6 +5,7 @@ import (
 	b64 "encoding/base64"
 	"fmt"
 	"net/url"
+	"os"
 	"strings"
 
 	v1 "github.com/crossplane/crossplane/apis/pkg/v1"
@@ -65,7 +66,7 @@ var (
 		},
 		"configuration": map[string]any{
 			"packages": []string{
-				"ghcr.io/kndpio/configuration-environment:0.0.1",
+				"ghcr.io/kndpio/cli/configuration-environment:" + os.Getenv("VERSION"),
 			},
 		},
 		"args": []string{},
