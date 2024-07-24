@@ -10,6 +10,7 @@ import (
 	"github.com/kndpio/kndp/cmd/kndp/environment"
 	"github.com/kndpio/kndp/cmd/kndp/generate"
 	"github.com/kndpio/kndp/cmd/kndp/provider"
+	"github.com/kndpio/kndp/cmd/kndp/version"
 	"github.com/kndpio/kndp/internal/kube"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -27,8 +28,6 @@ type Globals struct {
 }
 
 type VersionFlag string
-
-var Version = "development"
 
 func (v VersionFlag) Decode(ctx *kong.DecodeContext) error { return nil }
 func (v VersionFlag) IsBool() bool                         { return true }
@@ -85,7 +84,7 @@ func main() {
 
 	c := cli{
 		Globals: Globals{
-			Version: VersionFlag(Version),
+			Version: VersionFlag(version.Version),
 		},
 	}
 
@@ -96,7 +95,7 @@ func main() {
 			return kong.DefaultHelpPrinter(options, ctx)
 		}),
 		kong.Vars{
-			"version": Version,
+			"version": version.Version,
 		},
 		kong.ConfigureHelp(kong.HelpOptions{
 			Tree: true,

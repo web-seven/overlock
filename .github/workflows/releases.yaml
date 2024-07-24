@@ -24,7 +24,7 @@ jobs:
         goarch: amd64
         project_path: "./cmd/kndp"
         binary_name: "kndp"
-        ldflags: -X "main.Version=${{ env.APP_VERSION }}"
+        ldflags: -X "version.Version=${{ env.APP_VERSION }}"
   oci-builds:
     name: build OCI images
     runs-on: ubuntu-latest

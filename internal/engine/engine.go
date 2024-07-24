@@ -5,11 +5,11 @@ import (
 	b64 "encoding/base64"
 	"fmt"
 	"net/url"
-	"os"
 	"strings"
 
 	v1 "github.com/crossplane/crossplane/apis/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/kndpio/kndp/cmd/kndp/version"
 	"github.com/kndpio/kndp/internal/install"
 	"github.com/kndpio/kndp/internal/install/helm"
 	"github.com/kndpio/kndp/internal/namespace"
@@ -66,7 +66,7 @@ var (
 		},
 		"configuration": map[string]any{
 			"packages": []string{
-				"ghcr.io/kndpio/cli/configuration-environment:" + os.Getenv("VERSION"),
+				"ghcr.io/kndpio/cli/configuration-environment:" + version.Version,
 			},
 		},
 		"args": []string{},
