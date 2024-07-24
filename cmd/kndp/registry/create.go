@@ -21,12 +21,14 @@ type createCmd struct {
 	Email          string `help:"is your Email."`
 	Default        bool   `help:"Set registry as default."`
 	Local          bool   `help:"Create local registry."`
+	Context        string `short:"c" help:"Kubernetes context where registry will be created."`
 }
 
 func (c *createCmd) Run(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, logger *zap.SugaredLogger) error {
 	reg := registry.New(c.RegistryServer, c.Username, c.Password, c.Email)
 	reg.SetDefault(c.Default)
 	reg.SetLocal(c.Local)
+	reg.WithContext(c.Context)
 	err := reg.Validate(ctx, client, logger)
 	if err != nil {
 		return err

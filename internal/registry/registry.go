@@ -18,6 +18,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	kv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
+	cfg "sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 const (
@@ -44,6 +45,7 @@ type Registry struct {
 	Config  RegistryConfig
 	Default bool
 	Local   bool
+	Context string
 	corev1.Secret
 }
 
@@ -138,6 +140,13 @@ func (r *Registry) SecretSpec() corev1.Secret {
 
 // Creates registry in requested context and assign it to engine
 func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.SugaredLogger) error {
+	var err error
+	if r.Context != "" {
+		config, err = cfg.GetConfigWithContext(r.Context)
+		if err != nil {
+			return err
+		}
+	}
 
 	client, err := kube.Client(config)
 	if err != nil {
@@ -348,6 +357,11 @@ func (r *Registry) SetDefault(d bool) {
 // Make local registry
 func (r *Registry) SetLocal(l bool) {
 	r.Local = l
+}
+
+// Kubernetes context where registry will be created
+func (r *Registry) WithContext(c string) {
+	r.Context = c
 }
 
 // Domain of primary registry
