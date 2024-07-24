@@ -9,6 +9,7 @@ import (
 
 	v1 "github.com/crossplane/crossplane/apis/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/kndpio/kndp/cmd/kndp/version"
 	"github.com/kndpio/kndp/internal/install"
 	"github.com/kndpio/kndp/internal/install/helm"
 	"github.com/kndpio/kndp/internal/namespace"
@@ -65,7 +66,7 @@ var (
 		},
 		"configuration": map[string]any{
 			"packages": []string{
-				"ghcr.io/kndpio/configuration-environment:0.0.1",
+				"ghcr.io/kndpio/cli/configuration-environment:" + version.Version,
 			},
 		},
 		"args": []string{},
@@ -353,8 +354,10 @@ func (a *SecretReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 				"name": "environment",
 			},
 			"spec": map[string]interface{}{
-				"name":      ReleaseName,
-				"namespace": namespace.Namespace,
+				"crossplane:": map[string]interface{}{},
+				"kyverno:":    map[string]interface{}{},
+				"name":        ReleaseName,
+				"namespace":   namespace.Namespace,
 				"configuration": map[string]interface{}{
 					"packages": []interface{}{},
 				},
