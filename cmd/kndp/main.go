@@ -6,6 +6,7 @@ import (
 	"os/signal"
 
 	"github.com/alecthomas/kong"
+	"github.com/go-logr/logr"
 	"github.com/kndpio/kndp/cmd/kndp/configuration"
 	"github.com/kndpio/kndp/cmd/kndp/environment"
 	"github.com/kndpio/kndp/cmd/kndp/generate"
@@ -60,6 +61,7 @@ func (c *cli) AfterApply(ctx *kong.Context) error { //nolint:unparam
 		cfg.Level = zap.NewAtomicLevelAt(zapcore.DebugLevel)
 	}
 	logger, _ := cfg.Build()
+	ctrl.SetLogger(logr.Logger{})
 	ctx.Bind(logger.Sugar())
 	return nil
 }
