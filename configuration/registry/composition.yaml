@@ -30,11 +30,6 @@ spec:
           toFieldPath: spec.forProvider.manifest.metadata.namespace
         - type: FromCompositeFieldPath
           fromFieldPath: metadata.name
-          transforms:
-            - type: string
-              string:
-                type: Format
-                fmt: "%s-registry"
           toFieldPath: spec.forProvider.manifest.metadata.name
         - type: FromCompositeFieldPath
           fromFieldPath: metadata.name
@@ -97,12 +92,17 @@ spec:
                       apiVersion: v1
                       kind: Secret
                       synchronize: true
+                      name: ""
+                      namespace: "{{request.object.metadata.name}}"
+                      clone:
+                        name: ""
+                        namespace: ""
       patches:
       - type: FromCompositeFieldPath
         fromFieldPath: spec.kubernetesProviderCfgRef
         toFieldPath: spec.providerConfigRef.name
       - type: FromCompositeFieldPath
-        fromFieldPath: metadata.name
+        fromFieldPath: spec.name
         transforms:
           - type: string
             string:
@@ -110,10 +110,10 @@ spec:
               fmt: "%s-scplc"
         toFieldPath: metadata.name
       - type: FromCompositeFieldPath
-        fromFieldPath: metadata.namespace
+        fromFieldPath: spec.namespace
         toFieldPath: spec.forProvider.manifest.metadata.namespace
       - type: FromCompositeFieldPath
-        fromFieldPath: metadata.name
+        fromFieldPath: spec.name
         transforms:
           - type: string
             string:
@@ -121,7 +121,7 @@ spec:
               fmt: "%s-scplc"
         toFieldPath: spec.forProvider.manifest.metadata.name
       - type: FromCompositeFieldPath
-        fromFieldPath: metadata.name
+        fromFieldPath: spec.name
         transforms:
           - type: string
             string:
@@ -129,7 +129,7 @@ spec:
               fmt: "%s-scplc"
         toFieldPath: spec.forProvider.manifest.spec.rules[0].generate.name
       - type: FromCompositeFieldPath
-        fromFieldPath: metadata.name
+        fromFieldPath: spec.name
         transforms:
           - type: string
             string:
@@ -144,17 +144,9 @@ spec:
               type: Format
               fmt: "%s-scplc"
         toFieldPath: spec.forProvider.manifest.spec.rules[0].generate.clone.namespace
-      - type: FromCompositeFieldPath
-        fromFieldPath: spec.namespace
-        transforms:
-          - type: string
-            string:
-              type: Format
-              fmt: "%s-scplc"
-        toFieldPath: spec.forProvider.manifest.spec.rules[0].generate.namespace
 
 
-    - name: kyverno-policy-regplc
+    - name: kyverno-policy-imgplc
       base:
         apiVersion: kubernetes.crossplane.io/v1alpha1
         kind: Object
@@ -163,10 +155,12 @@ spec:
             manifest:
               apiVersion: kyverno.io/v1
               kind: ClusterPolicy
+              metadata:
+                name: ""
               spec:
                 generateExisting: true
                 rules:
-                  - name: ""
+                  - name: kndp-add-imagepullsecret
                     match:
                       any:
                         - resources:
@@ -174,58 +168,38 @@ spec:
                               - Pod
                     skipBackgroundRequests: false
                     mutate:
-                      foreach:
-                        - list: request.object.spec.containers
-                          patchStrategicMerge:
-                            spec:
-                              containers:
-                                - (image): ""
-                                  image: "{{ regex_replace_all_literal('^[^/]+', '{{element.image}}', 'localhost:30100') }}"
+                      patchStrategicMerge:
+                        spec:
+                          containers: []
+                          imagePullSecrets:
+                            - name: ""
       patches:
       - type: FromCompositeFieldPath
         fromFieldPath: spec.kubernetesProviderCfgRef
         toFieldPath: spec.providerConfigRef.name
       - type: FromCompositeFieldPath
-        fromFieldPath: metadata.name
+        fromFieldPath: spec.name
         transforms:
           - type: string
             string:
               type: Format
-              fmt: "%s-scplc"
-        toFieldPath: spec.forProvider.manifest.metadata.name
+              fmt: "%s-imgplc"
+        toFieldPath: metadata.name
       - type: FromCompositeFieldPath
-        fromFieldPath: metadata.namespace
+        fromFieldPath: spec.namespace
         toFieldPath: spec.forProvider.manifest.metadata.namespace
       - type: FromCompositeFieldPath
-        fromFieldPath: metadata.name
+        fromFieldPath: spec.name
         transforms:
           - type: string
             string:
               type: Format
-              fmt: "%s-regplc"
+              fmt: "%s-imgplc"
         toFieldPath: spec.forProvider.manifest.metadata.name
       - type: FromCompositeFieldPath
-        fromFieldPath: metadata.name
-        transforms:
-          - type: string
-            string:
-              type: Format
-              fmt: "%s-regplc"
-        toFieldPath: spec.forProvider.manifest.spec.rules[0].name
+        fromFieldPath: spec.images
+        toFieldPath: spec.forProvider.manifest.spec.rules[0].mutate.patchStrategicMerge.spec.containers
       - type: FromCompositeFieldPath
-        fromFieldPath: metadata.name
-        transforms:
-          - type: string
-            string:
-              type: Format
-              fmt: "*%s*"
-        toFieldPath: spec.forProvider.manifest.spec.rules[0].mutate.foreach[0].patchStrategicMerge.spec.containers[0].(image)
-      - type: FromCompositeFieldPath
-        fromFieldPath: metadata.name
-        transforms:
-          - type: string
-            string:
-              type: Format
-              fmt: "%s-regplc"
-        toFieldPath: metadata.name
+        fromFieldPath: spec.imagePullSecrets
+        toFieldPath: spec.forProvider.manifest.spec.rules[0].mutate.patchStrategicMerge.spec.imagePullSecrets
 

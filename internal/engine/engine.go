@@ -46,7 +46,7 @@ const (
 	ReleaseName            = "kndp-crossplane"
 	Version                = "1.15.2"
 	kindClusterRole        = "ClusterRole"
-	providerConfigName     = "kndp-kubernetes-provider-config"
+	ProviderConfigName     = "kndp-kubernetes-provider-config"
 	helmProviderConfigName = "kndp-helm-provider-config"
 	aggregateToAdmin       = "rbac.crossplane.io/aggregate-to-admin"
 	trueVal                = "true"
@@ -163,7 +163,7 @@ func ManagedSelector(m map[string]string) string {
 // Setup Kubernetes provider which has crossplane admin aggregation role assigned
 func SetupPrivilegedKubernetesProvider(ctx context.Context, configClient *rest.Config, logger *zap.SugaredLogger) error {
 
-	pcn := providerConfigName
+	pcn := ProviderConfigName
 
 	sa := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
@@ -244,16 +244,16 @@ func SetupPrivilegedKubernetesProvider(ctx context.Context, configClient *rest.C
 		For(&corev1.ServiceAccount{}).
 		WithEventFilter(predicate.Funcs{
 			UpdateFunc: func(e event.UpdateEvent) bool {
-				return e.ObjectNew.GetName() == providerConfigName
+				return e.ObjectNew.GetName() == ProviderConfigName
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
-				return e.Object.GetName() == providerConfigName
+				return e.Object.GetName() == ProviderConfigName
 			},
 			CreateFunc: func(e event.CreateEvent) bool {
-				return e.Object.GetName() == providerConfigName
+				return e.Object.GetName() == ProviderConfigName
 			},
 			GenericFunc: func(e event.GenericEvent) bool {
-				return e.Object.GetName() == providerConfigName
+				return e.Object.GetName() == ProviderConfigName
 			},
 		},
 		).
@@ -275,7 +275,7 @@ func (a *SecretReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 	err := a.Get(ctx, req.NamespacedName, sec)
 	if err != nil {
 		return reconcile.Result{}, err
-	} else if sec.GetName() != providerConfigName {
+	} else if sec.GetName() != ProviderConfigName {
 		return reconcile.Result{Requeue: true}, nil
 	}
 
@@ -331,7 +331,7 @@ func (a *SecretReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 			"apiVersion": "kubernetes.crossplane.io/v1alpha1",
 			"kind":       "ProviderConfig",
 			"metadata": map[string]interface{}{
-				"name": providerConfigName,
+				"name": ProviderConfigName,
 			},
 		},
 	}
@@ -365,7 +365,7 @@ func (a *SecretReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 					"packages": []interface{}{},
 				},
 				"helmProviderCfgRef":       helmProviderConfigName,
-				"kubernetesProviderCfgRef": providerConfigName,
+				"kubernetesProviderCfgRef": ProviderConfigName,
 			},
 		},
 	}
@@ -375,7 +375,7 @@ func (a *SecretReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 			"credentials": map[string]interface{}{
 				"secretRef": map[string]interface{}{
 					"key":       "kubeconfig",
-					"name":      providerConfigName,
+					"name":      ProviderConfigName,
 					"namespace": namespace.Namespace,
 				},
 				"source": "Secret",
@@ -391,7 +391,7 @@ func (a *SecretReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 			"credentials": map[string]interface{}{
 				"secretRef": map[string]interface{}{
 					"key":       "kubeconfig",
-					"name":      providerConfigName,
+					"name":      ProviderConfigName,
 					"namespace": namespace.Namespace,
 				},
 				"source": "Secret",
