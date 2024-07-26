@@ -168,7 +168,7 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.
 		gvr := schema.GroupVersionResource{
 			Group:    "kndp.io",
 			Version:  "v1alpha1",
-			Resource: "localregistrys",
+			Resource: "localregistries",
 		}
 
 		_, err = dynamicClient.Resource(gvr).Create(ctx, localRegistry, metav1.CreateOptions{})
@@ -228,7 +228,7 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.
 		gvr := schema.GroupVersionResource{
 			Group:    "kndp.io",
 			Version:  "v1alpha1",
-			Resource: "registrys",
+			Resource: "registries",
 		}
 
 		_, err = dynamicClient.Resource(gvr).Create(ctx, registry, metav1.CreateOptions{})
