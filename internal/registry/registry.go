@@ -2,7 +2,6 @@ package registry
 
 import (
 	"context"
-	b64 "encoding/base64"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -15,6 +14,9 @@ import (
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	kv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
@@ -33,7 +35,6 @@ type RegistryAuth struct {
 	Username string `json:"username" validate:"required"`
 	Password string `json:"password" validate:"required"`
 	Email    string `json:"email" validate:"required,email"`
-	Auth     string `json:"auth"`
 	Server   string `json:"server" validate:"required,http_url"`
 }
 
@@ -65,16 +66,15 @@ func Registries(ctx context.Context, client *kubernetes.Clientset) ([]*Registry,
 }
 
 // Creates new Registry by required parameters
-func New(server string, username string, password string, email string) Registry {
+func New(server string, password string, username string, email string) Registry {
 	registry := Registry{
 		Default: false,
 		Config: RegistryConfig{
 			Auths: map[string]RegistryAuth{
-				server: {
-					Username: username,
+				"server": {
 					Password: password,
+					Username: username,
 					Email:    email,
-					Auth:     b64.StdEncoding.EncodeToString([]byte(username + ":" + password)),
 					Server:   server,
 				},
 			},
@@ -120,24 +120,6 @@ func (r *Registry) Exists(ctx context.Context, client *kubernetes.Clientset) boo
 	return false
 }
 
-// Creates specs of Secret base on Registry data
-func (r *Registry) SecretSpec() corev1.Secret {
-	regConf, _ := json.Marshal(r.Config)
-	secretSpec := corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "registry-server-auth-",
-			Labels: engine.ManagedLabels(map[string]string{
-				AuthConfigLabel: "true",
-			}),
-			Annotations: r.Annotations,
-		},
-		Data: map[string][]byte{".dockerconfigjson": regConf},
-		Type: "kubernetes.io/dockerconfigjson",
-	}
-
-	return secretSpec
-}
-
 // Creates registry in requested context and assign it to engine
 func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.SugaredLogger) error {
 	var err error
@@ -159,29 +141,48 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.
 
 	release, _ := installer.GetRelease()
 
-	logger.Debug("Added policies")
-
 	if r.Local {
+		logger.Debug("Create Local Registry")
 		err := r.CreateLocal(ctx, client)
 		if err != nil {
 			return err
 		}
-		logger.Debugf("Adding registry policies %s", r.Domain())
-		err = policy.AddLocalRegistryPolicy(ctx, config, &policy.RegistryPolicy{Name: r.Domain()})
+		r.Name = r.Domain()
+		localRegistry := &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "kndp.io/v1alpha1",
+				"kind":       "LocalRegistry",
+				"metadata": map[string]interface{}{
+					"name": r.Name,
+				},
+				"spec": map[string]interface{}{
+					"name":                     r.Name,
+					"namespace":                namespace.Namespace,
+					"nodePort":                 fmt.Sprint(nodePort),
+					"kubernetesProviderCfgRef": engine.ProviderConfigName,
+				},
+			},
+		}
+
+		dynamicClient, err := dynamic.NewForConfig(config)
 		if err != nil {
 			return err
 		}
-		logger.Debug("Done")
+
+		gvr := schema.GroupVersionResource{
+			Group:    "kndp.io",
+			Version:  "v1alpha1",
+			Resource: "localregistries",
+		}
+
+		_, err = dynamicClient.Resource(gvr).Create(ctx, localRegistry, metav1.CreateOptions{})
+		if err != nil {
+			return err
+		}
+
 	} else {
-		secretSpec := r.SecretSpec()
-		secret, err := secretClient(client).Create(ctx, &secretSpec, metav1.CreateOptions{})
-		if err != nil {
-			return err
-		}
-
-		r.Secret = *secret
-		logger.Debugf("Created registry secret %s", r.Secret.ObjectMeta.Name)
-
+		logger.Debug("Create Registry")
+		r.Name = r.Domain()
 		serverUrls := []string{}
 		for _, auth := range r.Config.Auths {
 			serverUrls = append(
@@ -189,12 +190,57 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.
 				strings.Replace(auth.Server, "https://", "", -1),
 			)
 		}
-		logger.Debugf("Adding registry policies %s", r.Secret.ObjectMeta.Name)
-		err = policy.AddRegistryPolicy(ctx, config, &policy.RegistryPolicy{Name: r.Name, Urls: serverUrls})
+
+		images := []map[string]interface{}{}
+		for _, url := range serverUrls {
+			images = append(
+				images,
+				map[string]interface{}{
+					"<(image)": strings.Replace(url, "https://", "", -1) + "/*",
+				},
+			)
+		}
+
+		registry := &unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "kndp.io/v1alpha1",
+				"kind":       "Registry",
+				"metadata": map[string]interface{}{
+					"name": r.Name,
+				},
+				"spec": map[string]interface{}{
+					"name":      r.Name,
+					"namespace": namespace.Namespace,
+					"server":    r.Config.Auths["server"].Server,
+					"username":  r.Config.Auths["server"].Username,
+					"password":  r.Config.Auths["server"].Password,
+					"email":     r.Config.Auths["server"].Email,
+					"images":    images,
+					"imagePullSecrets": []interface{}{
+						map[string]interface{}{
+							"name": r.Name,
+						},
+					},
+					"kubernetesProviderCfgRef": engine.ProviderConfigName,
+				},
+			},
+		}
+
+		dynamicClient, err := dynamic.NewForConfig(config)
 		if err != nil {
 			return err
 		}
-		logger.Debug("Done")
+		policy.DeleteRegistryPolicy(ctx, config, &policy.RegistryPolicy{Name: r.Name, Urls: serverUrls})
+		gvr := schema.GroupVersionResource{
+			Group:    "kndp.io",
+			Version:  "v1alpha1",
+			Resource: "registries",
+		}
+
+		_, err = dynamicClient.Resource(gvr).Create(ctx, registry, metav1.CreateOptions{})
+		if err != nil {
+			return err
+		}
 
 		if release.Config == nil {
 			release.Config = map[string]interface{}{
@@ -206,7 +252,7 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.
 		}
 		release.Config["imagePullSecrets"] = append(
 			release.Config["imagePullSecrets"].([]interface{}),
-			secret.ObjectMeta.Name,
+			r.Name,
 		)
 	}
 
@@ -370,10 +416,7 @@ func (r *Registry) Domain() string {
 		return DefaultLocalDomain
 	}
 	domain := DefaultRemoteDomain
-	for server := range r.Config.Auths {
-		domain = strings.Split(server, "/")[2]
-		break
-	}
+	domain = strings.Split(r.Config.Auths["server"].Server, "/")[2]
 	return domain
 }
 
