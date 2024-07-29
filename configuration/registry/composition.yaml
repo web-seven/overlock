@@ -42,10 +42,11 @@ spec:
         - type: CombineFromComposite
           combine:
             variables:
-              - fromFieldPath: spec.token
+              - fromFieldPath: spec.username
+              - fromFieldPath: spec.password
             strategy: string
             string:
-              fmt: "user:%s"
+              fmt: "%s:%s"
           transforms:
             - type: string
               string:
@@ -59,10 +60,13 @@ spec:
           combine:
             variables:
               - fromFieldPath: spec.server
+              - fromFieldPath: spec.username
+              - fromFieldPath: spec.password
+              - fromFieldPath: spec.email
               - fromFieldPath: status.auth
             strategy: string
             string:
-              fmt: '{"auths":{"%s":{"auth":"%s"}}}'
+              fmt: '{"auths":{"%s":{"username":"%s","password":"%s","email":"%s","auth":"%s"}}}'
           transforms:
             - type: string
               string:

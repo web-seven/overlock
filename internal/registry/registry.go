@@ -32,8 +32,10 @@ const (
 )
 
 type RegistryAuth struct {
-	Token  string `json:"token" validate:"required"`
-	Server string `json:"server" validate:"required,http_url"`
+	Username string `json:"username" validate:"required"`
+	Password string `json:"password" validate:"required"`
+	Email    string `json:"email" validate:"required,email"`
+	Server   string `json:"server" validate:"required,http_url"`
 }
 
 type RegistryConfig struct {
@@ -64,14 +66,16 @@ func Registries(ctx context.Context, client *kubernetes.Clientset) ([]*Registry,
 }
 
 // Creates new Registry by required parameters
-func New(server string, token string) Registry {
+func New(server string, password string, username string, email string) Registry {
 	registry := Registry{
 		Default: false,
 		Config: RegistryConfig{
 			Auths: map[string]RegistryAuth{
 				"server": {
-					Token:  token,
-					Server: server,
+					Password: password,
+					Username: username,
+					Email:    email,
+					Server:   server,
 				},
 			},
 		},
@@ -208,7 +212,9 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.
 					"name":      r.Name,
 					"namespace": namespace.Namespace,
 					"server":    r.Config.Auths["server"].Server,
-					"token":     r.Config.Auths["server"].Token,
+					"username":  r.Config.Auths["server"].Username,
+					"password":  r.Config.Auths["server"].Password,
+					"email":     r.Config.Auths["server"].Email,
 					"images":    images,
 					"imagePullSecrets": []interface{}{
 						map[string]interface{}{

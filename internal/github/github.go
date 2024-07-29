@@ -31,7 +31,7 @@ func getAllPackages(ctx context.Context, client *github.Client, org string, opts
 func GetPackages(ctx context.Context, query string, version bool, r *registry.Registry, registryUrl string, org string, logger *zap.SugaredLogger) (pterm.TableData, error) {
 	auth := registry.RegistryConfig{}
 	json.Unmarshal([]byte(r.Data[".dockerconfigjson"]), &auth)
-	clientgh := github.NewClient(nil).WithAuthToken(auth.Auths[registryUrl].Token)
+	clientgh := github.NewClient(nil).WithAuthToken(auth.Auths[registryUrl].Password)
 	tableRegs := pterm.TableData{
 		{"URL", "VERSION"},
 	}

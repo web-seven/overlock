@@ -23,7 +23,11 @@ spec:
                   type: string
                 server:
                   type: string
-                token:
+                password:
+                  type: string
+                username:
+                  type: string
+                email:
                   type: string
                 images:
                   type: array
