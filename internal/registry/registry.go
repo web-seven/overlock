@@ -158,7 +158,7 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.
 				"spec": map[string]interface{}{
 					"name":                     r.Name,
 					"namespace":                namespace.Namespace,
-					"nodePort":                 string(nodePort),
+					"nodePort":                 fmt.Sprint(nodePort),
 					"kubernetesProviderCfgRef": engine.ProviderConfigName,
 				},
 			},
