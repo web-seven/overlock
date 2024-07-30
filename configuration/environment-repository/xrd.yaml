@@ -1,0 +1,87 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: environmentrepositorys.kndp.io
+spec:
+  group: kndp.io
+  names:
+    kind: EnvironmentRepository
+    plural: environmentrepositorys
+    singular: environmentrepository
+  versions:
+    - name: v1alpha1
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                namespace:
+                  type: string
+                argocd:
+                  type: object
+                  properties:
+                    chart:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                          default: "argo-cd"
+                        repository:
+                          type: string
+                          default: "https://argoproj.github.io/argo-helm"
+                        version:
+                          type: string
+                          default: "7.3.10"
+                    project:
+                      type: string
+                github:
+                  type: object
+                  properties:
+                    token:
+                      type: string
+                    username:
+                      type: string
+                    repo:
+                      type: object
+                      properties:
+                        url:
+                          type: string
+                        path:
+                          type: string
+                helmProviderCfgRef:
+                  type: string
+                kubernetesProviderCfgRef:
+                  type: string
+            status:
+              type: object
+              description: Status information.
+              properties:
+                providerCfgs:
+                  type: object
+                  properties:
+                    argocd:
+                      type: string
+                passwordRef:
+                  type: object
+                  properties:
+                    key:
+                      type: string
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+                github:
+                  type: object
+                  properties:
+                    secretRef:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        namespace:
+                          type: string
+
+      served: true
+      referenceable: true
