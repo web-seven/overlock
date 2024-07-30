@@ -1,0 +1,266 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: configuration-environment-repository
+spec:
+  compositeTypeRef:
+    apiVersion: kndp.io/v1alpha1
+    kind: EnvironmentRepository
+  resources:
+
+
+    - name: argocd-release
+      base:
+        apiVersion: helm.crossplane.io/v1beta1
+        kind: Release
+        spec:
+          forProvider:
+            chart:
+              name: "argo-cd"
+              repository: "https://argoproj.github.io/argo-helm"
+              version: "7.3.10"
+            namespace: ""
+            set:
+            - name: configs.cm."accounts\.provider\.enabled"
+              value: "true"
+            - name: configs.cm."accounts\.provider"
+              value: "apiKey"
+            values:
+              configs:
+                rbac:
+                  policy.csv: |
+                        p, provider, repositories, *, *, allow
+                        p, provider, applications, *, *, allow
+              controller:
+                initContainers:
+                  - name: argocd-application-controller
+                    image: "quay.io/argoproj/argocd:v2.11.6"
+                    imagePullPolicy: "IfNotPresent"
+                    command: ["bash","-c"]
+                    args: 
+                     - "-c"
+                     -  |
+                        argocd account --core --account provider generate-token  > /tokens/token
+                    volumeMounts:
+                      - name: argocd-token
+                        mountPath: /tokens
+                  - name: kubectl
+                    image: "bitnami/kubectl:1.21.0"
+                    imagePullPolicy: "IfNotPresent"
+                    command: ["bash","-c"]
+                    args: 
+                     - "-c"
+                     -  |
+                        kubectl create secret generic $SECRET_NAME --namespace $ARGOCD_NS --from-file=/tokens/token --dry-run=client -o yaml | kubectl apply -f -
+                    volumeMounts:
+                      - name: argocd-token
+                        mountPath: /tokens
+                    env:
+                      - name: ARGOCD_NS
+                        value: ""
+                      - name: SECRET_NAME
+                        value: ""
+                volumes:
+                  - name: argocd-token
+                    emptyDir: {}
+      patches:
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.helmProviderCfgRef
+        toFieldPath: spec.providerConfigRef.name
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.namespace
+        toFieldPath: spec.forProvider.namespace
+      - type: FromCompositeFieldPath
+        fromFieldPath: metadata.name
+        toFieldPath: metadata.name
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.namespace
+        toFieldPath: spec.forProvider.values.controller.initContainers[1].env[0].value
+      - type: FromCompositeFieldPath
+        fromFieldPath: metadata.name
+        transforms:
+          - type: string
+            string:
+              type: Format
+              fmt: "%s-argocd-token"
+        toFieldPath: spec.forProvider.values.controller.initContainers[1].env[1].value
+      - type: ToCompositeFieldPath
+        fromFieldPath: spec.forProvider.values.controller.initContainers[1].env[1].value
+        toFieldPath: status.passwordRef.name
+      - type: ToCompositeFieldPath
+        fromFieldPath: spec.forProvider.values.controller.initContainers[1].env[0].value
+        toFieldPath: status.passwordRef.namespace 
+
+
+    - name: argocd-provider-config
+      base:
+        apiVersion: argocd.crossplane.io/v1alpha1
+        kind: ProviderConfig
+        metadata:
+          name: ""
+        spec:
+          credentials:
+            secretRef:
+              key: "token"
+              name: ""
+              namespace: ""
+            source: Secret
+          insecure: true
+          plainText: false
+          serverAddr: ""
+      patches:
+      - type: FromCompositeFieldPath
+        fromFieldPath: metadata.name
+        transforms:
+          - type: string
+            string:
+              type: Format
+              fmt: "%s-provider-config"
+        toFieldPath: metadata.name
+      - type: FromCompositeFieldPath
+        fromFieldPath: status.passwordRef.name
+        toFieldPath: spec.credentials.secretRef.name
+      - type: FromCompositeFieldPath
+        fromFieldPath: status.passwordRef.namespace
+        toFieldPath: spec.credentials.secretRef.namespace
+      - type: ToCompositeFieldPath
+        fromFieldPath: metadata.name
+        toFieldPath: status.providerCfgs.argocd
+      - type: CombineFromComposite
+        combine:
+          variables:
+            - fromFieldPath: metadata.name
+            - fromFieldPath: spec.namespace
+          strategy: string
+          string:
+            fmt: "%s-argocd-server.%s.svc:443"
+        toFieldPath: spec.serverAddr
+
+
+    - name: github-secret
+      base:
+        apiVersion: kubernetes.crossplane.io/v1alpha1
+        kind: Object
+        spec:
+          forProvider:
+            manifest:
+              apiVersion: v1
+              kind: Secret
+              type: Opaque
+              data:
+                token: ""
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.kubernetesProviderCfgRef
+          toFieldPath: spec.providerConfigRef.name
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.namespace
+          toFieldPath: spec.forProvider.manifest.metadata.namespace
+        - type: FromCompositeFieldPath
+          fromFieldPath: metadata.name
+          transforms:
+          - type: string
+            string:
+              type: Format
+              fmt: "%s-github-secret"
+          toFieldPath: spec.forProvider.manifest.metadata.name
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.github.token
+          transforms:
+            - type: string
+              string:
+                type: Convert
+                convert: "ToBase64"
+          toFieldPath: spec.forProvider.manifest.data.token
+        - type: ToCompositeFieldPath
+          fromFieldPath: spec.forProvider.manifest.metadata.name
+          toFieldPath: status.github.secretRef.name
+        - type: ToCompositeFieldPath
+          fromFieldPath: spec.forProvider.manifest.metadata.namespace
+          toFieldPath: status.github.secretRef.namespace
+
+
+    - name: argocd-repository
+      base:
+        apiVersion: repositories.argocd.crossplane.io/v1alpha1
+        kind: Repository
+        metadata:
+          name: ""
+        spec:
+          forProvider:
+            passwordRef:
+              key: token
+              name: ""
+              namespace: ""
+            repo: ""
+            type: git
+            username: ""
+          providerConfigRef:
+            name: ""
+      patches:
+      - type: FromCompositeFieldPath
+        fromFieldPath: metadata.name
+        toFieldPath: metadata.name
+      - type: FromCompositeFieldPath
+        fromFieldPath: status.providerCfgs.argocd
+        toFieldPath: spec.providerConfigRef.name
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.github.repo.url
+        toFieldPath: spec.forProvider.repo
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.github.username
+        toFieldPath: spec.forProvider.username
+      - type: FromCompositeFieldPath
+        fromFieldPath: status.github.secretRef.name
+        toFieldPath: spec.forProvider.passwordRef.name
+      - type: FromCompositeFieldPath
+        fromFieldPath: status.github.secretRef.namespace
+        toFieldPath: spec.forProvider.passwordRef.namespace
+
+
+    - name: argocd-application
+      base:
+        apiVersion: applications.argocd.crossplane.io/v1alpha1
+        kind: Application
+        metadata:
+          name: ""
+        spec:
+          forProvider:
+            destination:
+              namespace: ""
+              server: https://kubernetes.default.svc
+            project: ""
+            source:
+              path: ""
+              repoURL: ""
+              targetRevision: HEAD
+          providerConfigRef:
+            name: ""
+      patches:
+      - type: FromCompositeFieldPath
+        fromFieldPath: status.providerCfgs.argocd
+        toFieldPath: spec.providerConfigRef.name
+      - type: FromCompositeFieldPath
+        fromFieldPath: metadata.name
+        transforms:
+          - type: string
+            string:
+              type: Format
+              fmt: "%s-argocd-application"
+        toFieldPath: metadata.name
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.github.repo.url
+        toFieldPath: spec.forProvider.source.repoURL
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.github.repo.path
+        toFieldPath: spec.forProvider.source.path
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.namespace
+        toFieldPath: spec.forProvider.destination.namespace
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.namespace
+        toFieldPath: metadata.namespace
+      - type: FromCompositeFieldPath
+        fromFieldPath: spec.argocd.project
+        toFieldPath: spec.forProvider.project
+
