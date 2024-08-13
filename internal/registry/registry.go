@@ -86,6 +86,15 @@ func New(server string, password string, username string, email string) Registry
 	return registry
 }
 
+// Creates new local Registry
+func NewLocal() Registry {
+	registry := Registry{
+		Default: false,
+		Local:   true,
+	}
+	return registry
+}
+
 // Validate data in Registry object
 func (r *Registry) Validate(ctx context.Context, client *kubernetes.Clientset, logger *zap.SugaredLogger) error {
 	if r.Local {
@@ -134,12 +143,6 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.
 	if err != nil {
 		return err
 	}
-	installer, err := engine.GetEngine(config)
-	if err != nil {
-		return err
-	}
-
-	release, _ := installer.GetRelease()
 
 	if r.Local {
 		logger.Debug("Create Local Registry")
@@ -147,41 +150,14 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.
 		if err != nil {
 			return err
 		}
-		r.Name = r.Domain()
-		localRegistry := &unstructured.Unstructured{
-			Object: map[string]interface{}{
-				"apiVersion": "kndp.io/v1alpha1",
-				"kind":       "LocalRegistry",
-				"metadata": map[string]interface{}{
-					"name": r.Name,
-				},
-				"spec": map[string]interface{}{
-					"name":                     r.Name,
-					"namespace":                namespace.Namespace,
-					"nodePort":                 fmt.Sprint(nodePort),
-					"kubernetesProviderCfgRef": engine.ProviderConfigName,
-				},
-			},
-		}
-
-		dynamicClient, err := dynamic.NewForConfig(config)
-		if err != nil {
-			return err
-		}
-
-		gvr := schema.GroupVersionResource{
-			Group:    "kndp.io",
-			Version:  "v1alpha1",
-			Resource: "localregistries",
-		}
-
-		_, err = dynamicClient.Resource(gvr).Create(ctx, localRegistry, metav1.CreateOptions{})
-		if err != nil {
-			return err
-		}
-
 	} else {
 		logger.Debug("Create Registry")
+
+		installer, err := engine.GetEngine(config)
+		if err != nil {
+			return err
+		}
+		release, _ := installer.GetRelease()
 		r.Name = r.Domain()
 		serverUrls := []string{}
 		for _, auth := range r.Config.Auths {
@@ -254,28 +230,29 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.
 			release.Config["imagePullSecrets"].([]interface{}),
 			r.Name,
 		)
-	}
-
-	if r.Default {
-		if release.Config["args"] == nil {
-			release.Config["args"] = []interface{}{}
-		}
-		args := []string{}
-		for _, arg := range release.Config["args"].([]interface{}) {
-			if !strings.Contains(arg.(string), "--registry") {
-				args = append(args, arg.(string))
+		if r.Default {
+			logger.Debug("Set registry as default.")
+			if release.Config["args"] == nil {
+				release.Config["args"] = []interface{}{}
 			}
+			args := []string{}
+			for _, arg := range release.Config["args"].([]interface{}) {
+				if !strings.Contains(arg.(string), "--registry") {
+					args = append(args, arg.(string))
+				}
+			}
+
+			release.Config["args"] = append(
+				args,
+				"--registry="+r.Domain(),
+			)
 		}
 
-		release.Config["args"] = append(
-			args,
-			"--registry="+r.Domain(),
-		)
+		logger.Debug("Upgrade Corssplane chart", "Values", release.Config)
+
+		return installer.Upgrade(engine.Version, release.Config)
 	}
-
-	logger.Debug("Upgrade Corssplane chart", "Values", release.Config)
-
-	return installer.Upgrade(engine.Version, release.Config)
+	return nil
 }
 
 func (r *Registry) FromSecret(sec corev1.Secret) *Registry {

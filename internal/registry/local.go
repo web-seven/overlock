@@ -148,8 +148,17 @@ func (r *Registry) DeleteLocal(ctx context.Context, client *kubernetes.Clientset
 	return nil
 }
 
-func IsLocalRegistry(ctx context.Context, client *kubernetes.Clientset) bool {
-	return true
+func IsLocalRegistry(ctx context.Context, client *kubernetes.Clientset) (bool, error) {
+
+	pods := client.CoreV1().Pods(namespace.Namespace)
+	regs, err := pods.List(ctx, v1.ListOptions{Limit: 1, LabelSelector: "app=" + deployName})
+	if err != nil {
+		return false, err
+	}
+	if len(regs.Items) == 0 {
+		return false, fmt.Errorf("not found local registry")
+	}
+	return true, nil
 }
 
 func PushLocalRegistry(ctx context.Context, imageName string, image regv1.Image, config *rest.Config, logger *zap.SugaredLogger) error {
