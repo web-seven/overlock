@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 
+	"github.com/kndpio/kndp/internal/kube"
 	"github.com/kndpio/kndp/internal/loader"
 	"github.com/kndpio/kndp/internal/packages"
 	"github.com/kndpio/kndp/internal/registry"
@@ -14,6 +15,24 @@ import (
 // Load Provider package from TAR archive path
 func (p *Provider) LoadProvider(ctx context.Context, path string, config *rest.Config, dc *dynamic.DynamicClient, logger *zap.SugaredLogger) error {
 	logger.Debugf("Loading image to: %s", p.Name)
+
+	client, err := kube.Client(config)
+	if err != nil {
+		return err
+	}
+
+	isLocal, err := registry.IsLocalRegistry(ctx, client)
+	if !isLocal || err != nil {
+		logger.Warn("Local registry not found try to install.")
+		if err != nil {
+			logger.Debug(err)
+		}
+		reg := registry.NewLocal()
+		err := reg.Create(ctx, config, logger)
+		if err != nil {
+			return err
+		}
+	}
 
 	p.Image, _ = loader.LoadPathArchive(path)
 	providers := ListProviders(ctx, dc, logger)
@@ -30,7 +49,7 @@ func (p *Provider) LoadProvider(ctx context.Context, path string, config *rest.C
 		p.Name = p.UpgradeVersion(ctx, dc, p.Name, pkgs)
 	}
 	logger.Debug("Pushing to local registry")
-	err := registry.PushLocalRegistry(ctx, p.Name, p.Image, config, logger)
+	err = registry.PushLocalRegistry(ctx, p.Name, p.Image, config, logger)
 	if p.Apply {
 		logger.Debug("Apply provider")
 		return p.ApplyProvider(ctx, []string{p.Name}, config, logger)

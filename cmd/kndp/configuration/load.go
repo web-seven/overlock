@@ -30,16 +30,14 @@ func (c *loadCmd) Run(ctx context.Context, config *rest.Config, dc *dynamic.Dyna
 		return err
 	}
 
-	if !registry.IsLocalRegistry(ctx, client) {
-		logger.Warn("Local registry is not installed.")
-		return nil
+	isLocal, err := registry.IsLocalRegistry(ctx, client)
+	if !isLocal || err != nil {
+		reg := registry.NewLocal()
+		err := reg.Create(ctx, config, logger)
+		if err != nil {
+			return err
+		}
 	}
-
-	reg := registry.Registry{
-		Local:   true,
-		Default: true,
-	}
-	reg.Create(ctx, config, logger)
 
 	cfg := configuration.Configuration{}
 	cfg.Name = c.Name
