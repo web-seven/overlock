@@ -13,10 +13,8 @@ import (
 	"github.com/docker/docker/api/types/container"
 	docker "github.com/docker/docker/client"
 	"github.com/kndpio/kndp/internal/engine"
-	"github.com/kndpio/kndp/internal/ingress"
 	"github.com/kndpio/kndp/internal/kube"
 	"github.com/kndpio/kndp/internal/namespace"
-	"github.com/kndpio/kndp/internal/policy"
 	"github.com/kndpio/kndp/internal/registry"
 	"github.com/kndpio/kndp/internal/resources"
 	"github.com/pterm/pterm"
@@ -149,21 +147,6 @@ func (e *Environment) Setup(ctx context.Context, logger *zap.SugaredLogger) erro
 	if err != nil {
 		return err
 	}
-
-	logger.Debug("Start installing options")
-	logger.Debugf("Option Ingress controller: %s", e.options.ingressController)
-	err = ingress.AddIngressConroller(ctx, configClient, e.options.ingressController)
-	if err != nil {
-		return err
-	}
-	logger.Debug("Done")
-
-	logger.Debugf("Option Policy controller: %s", e.options.policyController)
-	err = policy.AddPolicyConroller(ctx, configClient, e.options.policyController)
-	if err != nil {
-		return err
-	}
-	logger.Debug("Done")
 
 	logger.Debug("Preparing engine")
 	installer, err := engine.GetEngine(configClient)
@@ -332,16 +315,6 @@ func (e *Environment) WithHttpsPort(port int) *Environment {
 
 func (e *Environment) WithContext(context string) *Environment {
 	e.context = context
-	return e
-}
-
-func (e *Environment) WithIngressController(icname string) *Environment {
-	e.options.ingressController = icname
-	return e
-}
-
-func (e *Environment) WithPolicyController(pcname string) *Environment {
-	e.options.policyController = pcname
 	return e
 }
 
