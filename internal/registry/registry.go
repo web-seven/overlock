@@ -144,6 +144,12 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.
 		return err
 	}
 
+	installer, err := engine.GetEngine(config)
+	if err != nil {
+		return err
+	}
+	release, _ := installer.GetRelease()
+
 	if r.Local {
 		logger.Debug("Create Local Registry")
 		err := r.CreateLocal(ctx, client)
@@ -153,11 +159,6 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.
 	} else {
 		logger.Debug("Create Registry")
 
-		installer, err := engine.GetEngine(config)
-		if err != nil {
-			return err
-		}
-		release, _ := installer.GetRelease()
 		r.Name = r.Domain()
 		serverUrls := []string{}
 		for _, auth := range r.Config.Auths {
@@ -217,42 +218,41 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.
 		if err != nil {
 			return err
 		}
-
-		if release.Config == nil {
-			release.Config = map[string]interface{}{
-				"imagePullSecrets": []interface{}{},
-			}
-		}
-		if release.Config["imagePullSecrets"] == nil {
-			release.Config["imagePullSecrets"] = []interface{}{}
-		}
-		release.Config["imagePullSecrets"] = append(
-			release.Config["imagePullSecrets"].([]interface{}),
-			r.Name,
-		)
-		if r.Default {
-			logger.Debug("Set registry as default.")
-			if release.Config["args"] == nil {
-				release.Config["args"] = []interface{}{}
-			}
-			args := []string{}
-			for _, arg := range release.Config["args"].([]interface{}) {
-				if !strings.Contains(arg.(string), "--registry") {
-					args = append(args, arg.(string))
-				}
-			}
-
-			release.Config["args"] = append(
-				args,
-				"--registry="+r.Domain(),
-			)
-		}
-
-		logger.Debug("Upgrade Corssplane chart", "Values", release.Config)
-
-		return installer.Upgrade(engine.Version, release.Config)
 	}
-	return nil
+
+	if release.Config == nil {
+		release.Config = map[string]interface{}{
+			"imagePullSecrets": []interface{}{},
+		}
+	}
+	if release.Config["imagePullSecrets"] == nil {
+		release.Config["imagePullSecrets"] = []interface{}{}
+	}
+	release.Config["imagePullSecrets"] = append(
+		release.Config["imagePullSecrets"].([]interface{}),
+		r.Name,
+	)
+	if r.Default {
+		logger.Debug("Set registry as default.")
+		if release.Config["args"] == nil {
+			release.Config["args"] = []interface{}{}
+		}
+		args := []string{}
+		for _, arg := range release.Config["args"].([]interface{}) {
+			if !strings.Contains(arg.(string), "--registry") {
+				args = append(args, arg.(string))
+			}
+		}
+
+		release.Config["args"] = append(
+			args,
+			"--registry="+r.Domain(),
+		)
+	}
+
+	logger.Debug("Upgrade Corssplane chart", "Values", release.Config)
+
+	return installer.Upgrade(engine.Version, release.Config)
 }
 
 func (r *Registry) FromSecret(sec corev1.Secret) *Registry {
