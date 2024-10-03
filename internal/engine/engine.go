@@ -9,7 +9,6 @@ import (
 
 	v1 "github.com/crossplane/crossplane/apis/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/kndpio/kndp/cmd/kndp/version"
 	"github.com/kndpio/kndp/internal/install"
 	"github.com/kndpio/kndp/internal/install/helm"
 	"github.com/kndpio/kndp/internal/namespace"
@@ -59,15 +58,10 @@ var (
 	}
 	initParameters = map[string]any{
 		"provider": map[string]any{
-			"packages": []string{
-				"xpkg.upbound.io/crossplane-contrib/provider-kubernetes:v0.13.0",
-				"xpkg.upbound.io/crossplane-contrib/provider-helm:v0.19.0",
-			},
+			"packages": []string{},
 		},
 		"configuration": map[string]any{
-			"packages": []string{
-				"ghcr.io/kndpio/cli/configuration-environment:" + version.Version,
-			},
+			"packages": []string{},
 		},
 		"args": []string{},
 	}
@@ -115,13 +109,7 @@ func InstallEngine(ctx context.Context, configClient *rest.Config, params map[st
 		params = initParameters
 	}
 	logger.Debug("Upgrade Crossplane release")
-	err = engine.Upgrade(Version, params)
-	if err != nil {
-		return err
-	}
-	logger.Debug("Done")
-
-	return SetupPrivilegedKubernetesProvider(ctx, configClient, logger)
+	return engine.Upgrade(Version, params)
 }
 
 // Check if engine release exists

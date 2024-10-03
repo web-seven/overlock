@@ -10,13 +10,9 @@ import (
 	"github.com/kndpio/kndp/internal/engine"
 	"github.com/kndpio/kndp/internal/kube"
 	"github.com/kndpio/kndp/internal/namespace"
-	"github.com/kndpio/kndp/internal/policy"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	kv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
@@ -168,71 +164,24 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.
 			)
 		}
 
-		images := []map[string]interface{}{}
-		for _, url := range serverUrls {
-			images = append(
-				images,
-				map[string]interface{}{
-					"<(image)": strings.Replace(url, "https://", "", -1) + "/*",
-				},
+		if release != nil {
+			if release.Config == nil {
+				release.Config = map[string]interface{}{
+					"imagePullSecrets": []interface{}{},
+				}
+			}
+			if release.Config["imagePullSecrets"] == nil {
+				release.Config["imagePullSecrets"] = []interface{}{}
+			}
+			release.Config["imagePullSecrets"] = append(
+				release.Config["imagePullSecrets"].([]interface{}),
+				r.Name,
 			)
 		}
 
-		registry := &unstructured.Unstructured{
-			Object: map[string]interface{}{
-				"apiVersion": "kndp.io/v1alpha1",
-				"kind":       "Registry",
-				"metadata": map[string]interface{}{
-					"name": r.Name,
-				},
-				"spec": map[string]interface{}{
-					"name":      r.Name,
-					"namespace": namespace.Namespace,
-					"server":    r.Config.Auths["server"].Server,
-					"username":  r.Config.Auths["server"].Username,
-					"password":  r.Config.Auths["server"].Password,
-					"email":     r.Config.Auths["server"].Email,
-					"images":    images,
-					"imagePullSecrets": []interface{}{
-						map[string]interface{}{
-							"name": r.Name,
-						},
-					},
-					"kubernetesProviderCfgRef": engine.ProviderConfigName,
-				},
-			},
-		}
-
-		dynamicClient, err := dynamic.NewForConfig(config)
-		if err != nil {
-			return err
-		}
-		policy.DeleteRegistryPolicy(ctx, config, &policy.RegistryPolicy{Name: r.Name, Urls: serverUrls})
-		gvr := schema.GroupVersionResource{
-			Group:    "kndp.io",
-			Version:  "v1alpha1",
-			Resource: "registries",
-		}
-
-		_, err = dynamicClient.Resource(gvr).Create(ctx, registry, metav1.CreateOptions{})
-		if err != nil {
-			return err
-		}
 	}
 
-	if release.Config == nil {
-		release.Config = map[string]interface{}{
-			"imagePullSecrets": []interface{}{},
-		}
-	}
-	if release.Config["imagePullSecrets"] == nil {
-		release.Config["imagePullSecrets"] = []interface{}{}
-	}
-	release.Config["imagePullSecrets"] = append(
-		release.Config["imagePullSecrets"].([]interface{}),
-		r.Name,
-	)
-	if r.Default {
+	if release != nil && r.Default {
 		logger.Debug("Set registry as default.")
 		if release.Config["args"] == nil {
 			release.Config["args"] = []interface{}{}
@@ -250,9 +199,13 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.
 		)
 	}
 
-	logger.Debug("Upgrade Corssplane chart", "Values", release.Config)
-
-	return installer.Upgrade(engine.Version, release.Config)
+	if installer != nil && release != nil {
+		logger.Debug("Upgrade Corssplane chart", "Values", release.Config)
+		return installer.Upgrade(engine.Version, release.Config)
+	} else {
+		logger.Warnf("Crossplane engine not found, in namespace %s", namespace.Namespace)
+	}
+	return nil
 }
 
 func (r *Registry) FromSecret(sec corev1.Secret) *Registry {
@@ -324,11 +277,6 @@ func (r *Registry) Delete(ctx context.Context, config *rest.Config, logger *zap.
 
 	if r.Local {
 		r.DeleteLocal(ctx, client, logger)
-	}
-
-	err = policy.DeleteRegistryPolicy(ctx, config, &policy.RegistryPolicy{Name: r.Name})
-	if err != nil {
-		return err
 	}
 
 	return secretClient(client).Delete(ctx, r.Name, metav1.DeleteOptions{})
