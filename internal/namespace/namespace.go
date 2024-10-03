@@ -9,7 +9,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-const Namespace = "kndp-system"
+const Namespace = "kube-system"
 
 // Creates system namespace
 func CreateNamespace(ctx context.Context, config *rest.Config) error {
