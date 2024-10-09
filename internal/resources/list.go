@@ -4,7 +4,7 @@ import (
 	"context"
 
 	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
-	"github.com/kndpio/kndp/internal/kube"
+	"github.com/web-seven/overlock/internal/kube"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -43,7 +43,7 @@ func GetXResources(ctx context.Context, dynamicClient *dynamic.DynamicClient, lo
 				Resource:  paramsXRs.Spec.Names.Plural,
 				Namespace: "",
 				ListOption: metav1.ListOptions{
-					LabelSelector: "app.kubernetes.io/managed-by=kndp",
+					LabelSelector: "app.kubernetes.io/managed-by=overlock",
 				},
 			})
 

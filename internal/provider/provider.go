@@ -7,8 +7,8 @@ import (
 	"go.uber.org/zap"
 
 	provider "github.com/crossplane/crossplane/apis/pkg/v1"
-	"github.com/kndpio/kndp/internal/kube"
-	"github.com/kndpio/kndp/internal/packages"
+	"github.com/web-seven/overlock/internal/kube"
+	"github.com/web-seven/overlock/internal/packages"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"

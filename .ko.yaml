@@ -1,7 +1,7 @@
 builds:
-- id: kndp-cli
+- id: overlock-cli
   dir: . 
-  main: ./cmd/kndp
+  main: ./cmd/overlock
   flags:
   - -tags
   - "{{.Env.VERSION}}"

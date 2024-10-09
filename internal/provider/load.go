@@ -3,10 +3,10 @@ package provider
 import (
 	"context"
 
-	"github.com/kndpio/kndp/internal/kube"
-	"github.com/kndpio/kndp/internal/loader"
-	"github.com/kndpio/kndp/internal/packages"
-	"github.com/kndpio/kndp/internal/registry"
+	"github.com/web-seven/overlock/internal/kube"
+	"github.com/web-seven/overlock/internal/loader"
+	"github.com/web-seven/overlock/internal/packages"
+	"github.com/web-seven/overlock/internal/registry"
 	"go.uber.org/zap"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"

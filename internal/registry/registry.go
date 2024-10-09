@@ -7,9 +7,9 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/kndpio/kndp/internal/engine"
-	"github.com/kndpio/kndp/internal/kube"
-	"github.com/kndpio/kndp/internal/namespace"
+	"github.com/web-seven/overlock/internal/engine"
+	"github.com/web-seven/overlock/internal/kube"
+	"github.com/web-seven/overlock/internal/namespace"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,11 +20,11 @@ import (
 )
 
 var (
-	RegistryServerLabel = "kndp-registry-server-url"
+	RegistryServerLabel = "overlock-registry-server-url"
 	DefaultRemoteDomain = "xpkg.upbound.io"
 	LocalServiceName    = "registry"
 	DefaultLocalDomain  = LocalServiceName + ".%s.svc.cluster.local"
-	AuthConfigLabel     = "kndp-registry-auth-config"
+	AuthConfigLabel     = "overlock-registry-auth-config"
 )
 
 type RegistryAuth struct {

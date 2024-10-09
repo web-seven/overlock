@@ -4,7 +4,7 @@ import (
 	"context"
 
 	crossv1 "github.com/crossplane/crossplane/apis/pkg/v1"
-	"github.com/kndpio/kndp/internal/kube"
+	"github.com/web-seven/overlock/internal/kube"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 )

@@ -1,11 +1,11 @@
-apiVersion: kndp.io/v1alpha1
+apiVersion: overlock.io/v1alpha1
 kind: EnvironmentRepository
 metadata:
   name: env-repo-test
 spec:
-  namespace: "kndp-system"
-  kubernetesProviderCfgRef: kndp-kubernetes-provider-config
-  helmProviderCfgRef: kndp-helm-provider-config
+  namespace: "overlock-system"
+  kubernetesProviderCfgRef: overlock-kubernetes-provider-config
+  helmProviderCfgRef: overlock-helm-provider-config
   argocd:
     project: "default"
   github:

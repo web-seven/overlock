@@ -9,10 +9,10 @@ import (
 
 	v1 "github.com/crossplane/crossplane/apis/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/kndpio/kndp/internal/install"
-	"github.com/kndpio/kndp/internal/install/helm"
-	"github.com/kndpio/kndp/internal/namespace"
 	"github.com/pkg/errors"
+	"github.com/web-seven/overlock/internal/install"
+	"github.com/web-seven/overlock/internal/install/helm"
+	"github.com/web-seven/overlock/internal/namespace"
 	"gopkg.in/yaml.v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -42,11 +42,11 @@ type SecretReconciler struct {
 const (
 	RepoUrl                = "https://charts.crossplane.io/stable"
 	ChartName              = "crossplane"
-	ReleaseName            = "kndp-crossplane"
+	ReleaseName            = "overlock-crossplane"
 	Version                = "1.15.2"
 	kindClusterRole        = "ClusterRole"
-	ProviderConfigName     = "kndp-kubernetes-provider-config"
-	helmProviderConfigName = "kndp-helm-provider-config"
+	ProviderConfigName     = "overlock-kubernetes-provider-config"
+	helmProviderConfigName = "overlock-helm-provider-config"
 	aggregateToAdmin       = "rbac.crossplane.io/aggregate-to-admin"
 	trueVal                = "true"
 	errParsePackageName    = "package name is not valid"
@@ -54,7 +54,7 @@ const (
 
 var (
 	managedLabels = map[string]string{
-		"app.kubernetes.io/managed-by": "kndp",
+		"app.kubernetes.io/managed-by": "overlock",
 	}
 	initParameters = map[string]any{
 		"provider": map[string]any{
@@ -286,7 +286,7 @@ func (a *SecretReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 					"context": map[string]interface{}{
 						"cluster":   "in-cluster",
 						"user":      "in-cluster",
-						"namespace": "kndp-system",
+						"namespace": "overlock-system",
 					},
 					"name": "in-cluster",
 				},
@@ -336,7 +336,7 @@ func (a *SecretReconciler) Reconcile(ctx context.Context, req reconcile.Request)
 
 	envObj := &unstructured.Unstructured{
 		Object: map[string]interface{}{
-			"apiVersion": "kndp.io/v1alpha1",
+			"apiVersion": "overlock.io/v1alpha1",
 			"kind":       "Environment",
 			"metadata": map[string]interface{}{
 				"name": "environment",

@@ -8,8 +8,8 @@ import (
 	"github.com/pterm/pterm"
 	"go.uber.org/zap"
 
-	"github.com/kndpio/kndp/internal/github"
-	"github.com/kndpio/kndp/internal/registry"
+	"github.com/web-seven/overlock/internal/github"
+	"github.com/web-seven/overlock/internal/registry"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -22,7 +22,7 @@ func SearchPackages(ctx context.Context, client *kubernetes.Clientset, config *r
 	}
 
 	for _, r := range registries {
-		registryUrl := r.Annotations["kndp-registry-server-url"]
+		registryUrl := r.Annotations["overlock-registry-server-url"]
 		u, _ := url.Parse(registryUrl)
 		org := strings.TrimPrefix(u.Path, "/")
 		// Switch statement to handle different registry types

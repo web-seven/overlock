@@ -12,7 +12,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 
-	"github.com/kndpio/kndp/internal/engine"
+	"github.com/web-seven/overlock/internal/engine"
 
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
 	crossv1 "github.com/crossplane/crossplane/apis/pkg/v1"

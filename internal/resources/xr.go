@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/charmbracelet/huh"
-	"github.com/kndpio/kndp/internal/engine"
-	"github.com/kndpio/kndp/internal/kube"
+	"github.com/web-seven/overlock/internal/engine"
+	"github.com/web-seven/overlock/internal/kube"
 	"go.uber.org/zap"
 
 	crossv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
@@ -229,7 +229,7 @@ func (xr *XResource) getFormGroupsByProps(schema *extv1.JSONSchemaProps, parent 
 			propertyValue := metav1.ObjectMeta{
 				Name: "",
 				Labels: map[string]string{
-					"app.kubernetes.io/managed-by": "kndp",
+					"app.kubernetes.io/managed-by": "overlock",
 					"creation-date":                time.Now().String(),
 					"update-date":                  time.Now().String(),
 				},
@@ -297,7 +297,7 @@ func ApplyResources(ctx context.Context, client *dynamic.DynamicClient, logger *
 		}
 		resource.SetLabels(engine.ManagedLabels(nil))
 		logger.Infof("Applying resource: %s", resourceId.String())
-		res, err := client.Resource(resourceId).Apply(ctx, resource.GetName(), &resource, metav1.ApplyOptions{FieldManager: "kndp"})
+		res, err := client.Resource(resourceId).Apply(ctx, resource.GetName(), &resource, metav1.ApplyOptions{FieldManager: "overlock"})
 
 		if err != nil {
 			return err
@@ -340,7 +340,7 @@ func CopyComposites(ctx context.Context, logger *zap.SugaredLogger, sourceContex
 					Resource:  paramsXRs.Spec.Names.Plural,
 					Namespace: "",
 					ListOption: metav1.ListOptions{
-						LabelSelector: "app.kubernetes.io/managed-by=kndp",
+						LabelSelector: "app.kubernetes.io/managed-by=overlock",
 					},
 				})
 				if err != nil {
