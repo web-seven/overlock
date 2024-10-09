@@ -73,13 +73,13 @@ Overlock simplifies Crossplane setup and management across different cluster typ
 - Apply a Crossplane configuration from a remote URL:
 
   ```bash
-  overlock configuration apply
+  overlock configuration apply <url>
   ```
 
 - Load and apply a Crossplane provider from an `.xpkg` file:
 
   ```bash
-  overlock provider load --apply --path=file.xpkg provider-name:version
+  overlock provider load --apply --path=<file.xpkg> provider-name:version
   ```
 
 Overlock will automatically set up Crossplane on the specified cluster type (KinD, K3s, or K3d) based on your configuration.
