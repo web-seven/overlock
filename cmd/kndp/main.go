@@ -14,6 +14,7 @@ import (
 	"github.com/kndpio/kndp/cmd/kndp/provider"
 	"github.com/kndpio/kndp/cmd/kndp/version"
 	"github.com/kndpio/kndp/internal/kube"
+	"github.com/kndpio/kndp/internal/namespace"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
@@ -25,8 +26,9 @@ import (
 )
 
 type Globals struct {
-	Debug   bool        `short:"D" help:"Enable debug mode"`
-	Version VersionFlag `name:"version" help:"Print version information and quit"`
+	Debug     bool        `short:"D" help:"Enable debug mode"`
+	Version   VersionFlag `name:"version" help:"Print version information and quit"`
+	Namespace string      `name:"namespace" help:"Namespace used for cluster resources"`
 }
 
 type VersionFlag string
@@ -62,6 +64,13 @@ func (c *cli) AfterApply(ctx *kong.Context) error { //nolint:unparam
 	if c.Globals.Debug {
 		cfg.Level = zap.NewAtomicLevelAt(zapcore.DebugLevel)
 	}
+
+	if os.Getenv(namespace.OVERLOCK_ENGINE_NAMESPACE) != "" {
+		namespace.Namespace = os.Getenv(namespace.OVERLOCK_ENGINE_NAMESPACE)
+	} else if c.Globals.Namespace != "" {
+		namespace.Namespace = c.Globals.Namespace
+	}
+
 	logger, _ := cfg.Build()
 	ctrl.SetLogger(logr.Logger{})
 	ctx.Bind(logger.Sugar())
