@@ -19,11 +19,11 @@ import (
 	cfg "sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
-const (
+var (
 	RegistryServerLabel = "kndp-registry-server-url"
 	DefaultRemoteDomain = "xpkg.upbound.io"
 	LocalServiceName    = "registry"
-	DefaultLocalDomain  = LocalServiceName + "." + namespace.Namespace + ".svc.cluster.local"
+	DefaultLocalDomain  = LocalServiceName + ".%s.svc.cluster.local"
 	AuthConfigLabel     = "kndp-registry-auth-config"
 )
 
@@ -338,10 +338,9 @@ func (r *Registry) WithContext(c string) {
 // Domain of primary registry
 func (r *Registry) Domain() string {
 	if r.Local {
-		return DefaultLocalDomain
+		return fmt.Sprintf(DefaultLocalDomain, namespace.Namespace)
 	}
-	domain := DefaultRemoteDomain
-	domain = strings.Split(r.Config.Auths["server"].Server, "/")[2]
+	domain := strings.Split(r.Config.Auths["server"].Server, "/")[2]
 	return domain
 }
 

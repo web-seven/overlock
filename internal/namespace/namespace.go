@@ -9,7 +9,9 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-const Namespace = "kube-system"
+const OVERLOCK_ENGINE_NAMESPACE = "OVERLOCK_ENGINE_NAMESPACE"
+
+var Namespace = "kube-system"
 
 // Creates system namespace
 func CreateNamespace(ctx context.Context, config *rest.Config) error {
