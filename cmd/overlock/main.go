@@ -42,7 +42,7 @@ func (v VersionFlag) BeforeApply(app *kong.Kong, vars kong.Vars) error {
 }
 
 func getDescriptionText() string {
-	bText := "Kubernetes Native Development Platform CLI.\n\n"
+	bText := "Overlock CLI.\n\n"
 	bText += "For more details open https://overlock.io \n\n"
 	return bText
 }
