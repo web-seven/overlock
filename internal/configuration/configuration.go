@@ -8,8 +8,8 @@ import (
 
 	configuration "github.com/crossplane/crossplane/apis/pkg/v1"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/kndpio/kndp/internal/kube"
-	"github.com/kndpio/kndp/internal/packages"
+	"github.com/web-seven/overlock/internal/kube"
+	"github.com/web-seven/overlock/internal/packages"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"

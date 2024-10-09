@@ -5,7 +5,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/kndpio/kndp/internal/loader"
+	"github.com/web-seven/overlock/internal/loader"
 )
 
 const (
@@ -19,7 +19,7 @@ func (c *Configuration) LoadStdinArchive(stream *bufio.Reader) error {
 	if err != nil {
 		return err
 	}
-	tmpFile, err := os.CreateTemp("", "kndp-configuration-*")
+	tmpFile, err := os.CreateTemp("", "overlock-configuration-*")
 	if err != nil {
 		return err
 	}

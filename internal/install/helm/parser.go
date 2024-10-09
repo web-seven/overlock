@@ -17,7 +17,7 @@ package helm
 import (
 	"fmt"
 
-	"github.com/kndpio/kndp/internal/install"
+	"github.com/web-seven/overlock/internal/install"
 	"helm.sh/helm/v3/pkg/strvals"
 )
 

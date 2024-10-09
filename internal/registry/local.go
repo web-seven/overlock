@@ -12,8 +12,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/kndpio/kndp/internal/kube"
-	"github.com/kndpio/kndp/internal/namespace"
+	"github.com/web-seven/overlock/internal/kube"
+	"github.com/web-seven/overlock/internal/namespace"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	deployName = "kndp-registry"
+	deployName = "overlock-registry"
 	svcName    = "registry"
 	deployPort = 5000
 	svcPort    = 80

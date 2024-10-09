@@ -1,7 +1,7 @@
 package provider
 
 import (
-	"github.com/kndpio/kndp/internal/engine"
+	"github.com/web-seven/overlock/internal/engine"
 	"go.uber.org/zap"
 
 	"k8s.io/client-go/rest"
@@ -40,6 +40,6 @@ func InstallProvider(provider string, config *rest.Config, logger *zap.SugaredLo
 		return err
 	}
 
-	logger.Info("KNDP provider installed successfully.")
+	logger.Info("Overlock provider installed successfully.")
 	return nil
 }

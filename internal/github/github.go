@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/kndpio/kndp/internal/registry"
 	"github.com/pterm/pterm"
+	"github.com/web-seven/overlock/internal/registry"
 	"go.uber.org/zap"
 
 	"github.com/google/go-github/v61/github"

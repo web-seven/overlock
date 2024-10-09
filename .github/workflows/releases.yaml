@@ -22,6 +22,6 @@ jobs:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         goos: linux
         goarch: amd64
-        project_path: "./cmd/kndp"
-        binary_name: "kndp"
-        ldflags: -X "github.com/kndpio/kndp/cmd/kndp/version.Version=${{ env.APP_VERSION }}"
+        project_path: "./cmd/overlock"
+        binary_name: "overlock"
+        ldflags: -X "github.com/web-seven/overlock/cmd/overlock/version.Version=${{ env.APP_VERSION }}"

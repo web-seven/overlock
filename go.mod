@@ -1,4 +1,4 @@
-module github.com/kndpio/kndp
+module github.com/web-seven/overlock
 
 go 1.21.4
 

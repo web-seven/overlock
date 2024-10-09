@@ -3,7 +3,7 @@ package xrd
 import (
 	"context"
 
-	"github.com/kndpio/kndp/internal/kube"
+	"github.com/web-seven/overlock/internal/kube"
 
 	"k8s.io/apimachinery/pkg/runtime"
 

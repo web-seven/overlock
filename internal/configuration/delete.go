@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	crossv1 "github.com/crossplane/crossplane/apis/pkg/v1"
-	"github.com/kndpio/kndp/internal/engine"
+	"github.com/web-seven/overlock/internal/engine"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
