@@ -3,26 +3,34 @@ package registry
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/web-seven/overlock/internal/kube"
 	"github.com/web-seven/overlock/internal/namespace"
+	"github.com/web-seven/overlock/internal/policy"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	ctrl "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
@@ -39,11 +47,21 @@ var (
 	}
 )
 
+type RegistryReconciler struct {
+	client.Client
+	context.CancelFunc
+}
+
 // Create in cluster registry
-func (r *Registry) CreateLocal(ctx context.Context, client *kubernetes.Clientset) error {
+func (r *Registry) CreateLocal(ctx context.Context, client *kubernetes.Clientset, logger *zap.SugaredLogger) error {
+	configClient, err := config.GetConfigWithContext(r.Context)
+	if err != nil {
+		return err
+	}
 	deploy := &appsv1.Deployment{
 		ObjectMeta: v1.ObjectMeta{
-			Name: deployName,
+			Name:      deployName,
+			Namespace: namespace.Namespace,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &v1.LabelSelector{
@@ -71,25 +89,11 @@ func (r *Registry) CreateLocal(ctx context.Context, client *kubernetes.Clientset
 			},
 		},
 	}
-	deployments := client.AppsV1().Deployments(namespace.Namespace)
-
-	_, err := deployments.Get(ctx, deploy.GetName(), v1.GetOptions{})
-
-	if err == nil {
-		_, err := deployments.Update(ctx, deploy, v1.UpdateOptions{})
-		if err != nil {
-			return err
-		}
-	} else {
-		_, err := deployments.Create(ctx, deploy, v1.CreateOptions{})
-		if err != nil {
-			return err
-		}
-	}
 
 	svc := &corev1.Service{
 		ObjectMeta: v1.ObjectMeta{
-			Name: svcName,
+			Name:      svcName,
+			Namespace: namespace.Namespace,
 		},
 		Spec: corev1.ServiceSpec{
 			Type:     "NodePort",
@@ -106,19 +110,51 @@ func (r *Registry) CreateLocal(ctx context.Context, client *kubernetes.Clientset
 		},
 	}
 
-	svcs := client.CoreV1().Services(namespace.Namespace)
-	_, err = svcs.Get(ctx, svc.GetName(), v1.GetOptions{})
-	if err == nil {
-		_, err := svcs.Update(ctx, svc, v1.UpdateOptions{})
-		if err != nil {
-			return err
-		}
-	} else {
-		_, err := svcs.Create(ctx, svc, v1.CreateOptions{})
+	scheme := runtime.NewScheme()
+	corev1.AddToScheme(scheme)
+	appsv1.AddToScheme(scheme)
+	ctrlClient, _ := ctrl.New(configClient, ctrl.Options{Scheme: scheme})
+	for _, res := range []ctrl.Object{deploy, svc} {
+		_, err := controllerutil.CreateOrUpdate(ctx, ctrlClient, res, func() error {
+			return nil
+		})
 		if err != nil {
 			return err
 		}
 	}
+
+	timeout := time.After(30 * time.Second)
+	ticker := time.NewTicker(1 * time.Second)
+	deployIsReady := false
+	for !deployIsReady {
+		select {
+		case <-timeout:
+			return errors.New("local registry to not comes ready")
+		case <-ticker.C:
+			deploy, err = client.AppsV1().
+				Deployments(namespace.Namespace).
+				Get(ctx, deploy.GetName(), v1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			deployIsReady = deploy.Status.ReadyReplicas > 0
+
+		}
+	}
+
+	logger.Debug("Installing policies")
+	serverUrls := []string{}
+	for _, auth := range r.Config.Auths {
+		serverUrls = append(
+			serverUrls,
+			strings.Replace(auth.Server, "https://", "", -1),
+		)
+	}
+	err = policy.AddRegistryPolicy(ctx, configClient, &policy.RegistryPolicy{Name: r.Name, Urls: serverUrls})
+	if err != nil {
+		return err
+	}
+	logger.Debug("Done")
 
 	return nil
 }

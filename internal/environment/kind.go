@@ -103,10 +103,6 @@ func (e *Environment) configYaml(logger *zap.SugaredLogger) string {
 		APIVersion: "kind.x-k8s.io/v1alpha4",
 		Nodes: []KindNode{
 			{
-				Role:        "worker",
-				ExtraMounts: []KindMount{},
-			},
-			{
 				Role: "control-plane",
 				KubeadmConfigPatches: []string{
 					`kind: InitConfiguration
