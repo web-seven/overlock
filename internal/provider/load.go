@@ -23,11 +23,11 @@ func (p *Provider) LoadProvider(ctx context.Context, path string, config *rest.C
 
 	isLocal, err := registry.IsLocalRegistry(ctx, client)
 	if !isLocal || err != nil {
-		logger.Warn("Local registry not found try to install.")
 		if err != nil {
 			logger.Debug(err)
 		}
 		reg := registry.NewLocal()
+		reg.SetDefault(true)
 		err := reg.Create(ctx, config, logger)
 		if err != nil {
 			return err
@@ -50,13 +50,13 @@ func (p *Provider) LoadProvider(ctx context.Context, path string, config *rest.C
 	}
 	logger.Debug("Pushing to local registry")
 	err = registry.PushLocalRegistry(ctx, p.Name, p.Image, config, logger)
-	if p.Apply {
-		logger.Debug("Apply provider")
-		return p.ApplyProvider(ctx, []string{p.Name}, config, logger)
-	}
 	if err != nil {
 		return err
 	}
 	logger.Infof("Image archive %s loaded to local registry.", p.Name)
-	return err
+	if p.Apply {
+		logger.Debug("Apply provider")
+		return p.ApplyProvider(ctx, []string{p.Name}, config, logger)
+	}
+	return nil
 }

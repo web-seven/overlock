@@ -16,6 +16,7 @@ import (
 	"github.com/web-seven/overlock/internal/engine"
 	"github.com/web-seven/overlock/internal/kube"
 	"github.com/web-seven/overlock/internal/namespace"
+	"github.com/web-seven/overlock/internal/policy"
 	"github.com/web-seven/overlock/internal/registry"
 	"github.com/web-seven/overlock/internal/resources"
 	"k8s.io/client-go/tools/clientcmd"
@@ -148,11 +149,19 @@ func (e *Environment) Setup(ctx context.Context, logger *zap.SugaredLogger) erro
 		return err
 	}
 
+	logger.Debug("Installing policy controller")
+	err = policy.AddPolicyConroller(ctx, configClient, "kyverno")
+	if err != nil {
+		return err
+	}
+	logger.Debug("Done")
+
 	logger.Debug("Preparing engine")
 	installer, err := engine.GetEngine(configClient)
 	if err != nil {
 		return err
 	}
+	logger.Debug("Done")
 
 	var params map[string]any
 	release, err := installer.GetRelease()

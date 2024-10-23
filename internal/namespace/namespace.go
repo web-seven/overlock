@@ -11,7 +11,7 @@ import (
 
 const OVERLOCK_ENGINE_NAMESPACE = "OVERLOCK_ENGINE_NAMESPACE"
 
-var Namespace = "kube-system"
+var Namespace = "overlock"
 
 // Creates system namespace
 func CreateNamespace(ctx context.Context, config *rest.Config) error {

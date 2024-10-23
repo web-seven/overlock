@@ -5,6 +5,7 @@ go 1.21.4
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/docker/docker v24.0.7+incompatible
+	github.com/go-logr/logr v1.4.1
 	github.com/pkg/errors v0.9.1
 	go.uber.org/zap v1.26.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -63,7 +64,6 @@ require (
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
 	github.com/go-gorp/gorp/v3 v3.1.0 // indirect
-	github.com/go-logr/logr v1.4.1 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
 	github.com/go-openapi/jsonreference v0.20.2 // indirect

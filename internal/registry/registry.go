@@ -146,16 +146,16 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.
 	}
 	release, _ := installer.GetRelease()
 
+	r.Name = r.Domain()
+
 	if r.Local {
 		logger.Debug("Create Local Registry")
-		err := r.CreateLocal(ctx, client)
+		err := r.CreateLocal(ctx, client, logger)
 		if err != nil {
 			return err
 		}
 	} else {
 		logger.Debug("Create Registry")
-
-		r.Name = r.Domain()
 		serverUrls := []string{}
 		for _, auth := range r.Config.Auths {
 			serverUrls = append(
