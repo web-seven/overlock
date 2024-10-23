@@ -33,6 +33,7 @@ func (c *loadCmd) Run(ctx context.Context, config *rest.Config, dc *dynamic.Dyna
 	isLocal, err := registry.IsLocalRegistry(ctx, client)
 	if !isLocal || err != nil {
 		reg := registry.NewLocal()
+		reg.SetDefault(true)
 		err := reg.Create(ctx, config, logger)
 		if err != nil {
 			return err
