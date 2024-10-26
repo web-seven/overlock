@@ -8,7 +8,7 @@ on:
 permissions:
     contents: write
     packages: write
-
+    
 jobs:
   releases-matrix:
     name: Release Go Binary
@@ -23,10 +23,16 @@ jobs:
             goos: darwin
           - goarch: arm64
             goos: windows
+          - goarch: "386"
+            goos: windows
     steps:
     - uses: actions/checkout@v4
     - name: Set APP_VERSION env
       run: echo APP_VERSION=$(echo ${GITHUB_REF} | rev | cut -d'/' -f 1 | rev ) >> ${GITHUB_ENV}
+    - uses: ncipollo/release-action@v1
+      with:
+        tag: ${{ vars.GITHUB_REF_NAME }}
+        skipIfReleaseExists: true
     - uses: wangyoucao577/go-release-action@v1
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
