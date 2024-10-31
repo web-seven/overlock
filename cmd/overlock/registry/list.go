@@ -24,7 +24,7 @@ func (c listCmd) Run(ctx context.Context, client *kubernetes.Clientset, logger *
 
 	for _, reg := range registries {
 		tableRegs = append(tableRegs, []string{
-			reg.Name,
+			reg.GetName(),
 			reg.Annotations["overlock-registry-server-url"],
 			reg.CreationTimestamp.String(),
 		})

@@ -2,9 +2,14 @@ package registry
 
 import (
 	"context"
+	b64 "encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log"
+	"net/url"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/web-seven/overlock/internal/engine"
@@ -32,6 +37,7 @@ type RegistryAuth struct {
 	Password string `json:"password" validate:"required"`
 	Email    string `json:"email" validate:"required,email"`
 	Server   string `json:"server" validate:"required,http_url"`
+	Auth     string `json:"auth"`
 }
 
 type RegistryConfig struct {
@@ -43,6 +49,8 @@ type Registry struct {
 	Default bool
 	Local   bool
 	Context string
+	Server  string
+	Name    string
 	corev1.Secret
 }
 
@@ -62,16 +70,19 @@ func Registries(ctx context.Context, client *kubernetes.Clientset) ([]*Registry,
 }
 
 // Creates new Registry by required parameters
-func New(server string, password string, username string, email string) Registry {
+func New(server string, username string, password string, email string) Registry {
 	registry := Registry{
 		Default: false,
+		Server:  server,
+		Name:    "registry." + strconv.FormatInt(time.Now().UnixNano(), 10),
 		Config: RegistryConfig{
 			Auths: map[string]RegistryAuth{
-				"server": {
+				server: {
 					Password: password,
 					Username: username,
 					Email:    email,
 					Server:   server,
+					Auth:     b64.StdEncoding.EncodeToString([]byte(username + ":" + password)),
 				},
 			},
 		},
@@ -146,8 +157,6 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.
 	}
 	release, _ := installer.GetRelease()
 
-	r.Name = r.Domain()
-
 	if r.Local {
 		logger.Debug("Create Local Registry")
 		err := r.CreateLocal(ctx, client, logger)
@@ -156,15 +165,12 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.
 		}
 	} else {
 		logger.Debug("Create Registry")
-		serverUrls := []string{}
-		for _, auth := range r.Config.Auths {
-			serverUrls = append(
-				serverUrls,
-				strings.Replace(auth.Server, "https://", "", -1),
-			)
-		}
-
 		if release != nil {
+			secretSpec := r.SecretSpec()
+			secret, err := secretClient(client).Create(ctx, &secretSpec, metav1.CreateOptions{})
+			if err != nil {
+				return err
+			}
 			if release.Config == nil {
 				release.Config = map[string]interface{}{
 					"imagePullSecrets": []interface{}{},
@@ -175,8 +181,10 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.
 			}
 			release.Config["imagePullSecrets"] = append(
 				release.Config["imagePullSecrets"].([]interface{}),
-				r.Name,
+				secret.ObjectMeta.Name,
 			)
+		} else {
+			logger.Debug("Crossplane engine not found!")
 		}
 
 	}
@@ -340,8 +348,29 @@ func (r *Registry) Domain() string {
 	if r.Local {
 		return fmt.Sprintf(DefaultLocalDomain, namespace.Namespace)
 	}
-	domain := strings.Split(r.Config.Auths["server"].Server, "/")[2]
-	return domain
+	url, err := url.Parse(r.Server)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return url.Hostname()
+}
+
+// Creates specs of Secret base on Registry data
+func (r *Registry) SecretSpec() corev1.Secret {
+	regConf, _ := json.Marshal(r.Config)
+	secretSpec := corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: r.Name,
+			Labels: engine.ManagedLabels(map[string]string{
+				"overlock-registry-auth-config": "true",
+			}),
+			Annotations: r.Annotations,
+		},
+		Data: map[string][]byte{".dockerconfigjson": regConf},
+		Type: "kubernetes.io/dockerconfigjson",
+	}
+
+	return secretSpec
 }
 
 func secretClient(client *kubernetes.Clientset) kv1.SecretInterface {
