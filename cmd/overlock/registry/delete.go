@@ -9,7 +9,7 @@ import (
 )
 
 type deleteCmd struct {
-	Name    string `required:"" help:"Registry name."`
+	Name    string `required:"" help:"Registry name." predictor:"registry"`
 	Default bool   `help:"Remove from default."`
 	Local   bool   `help:"Remove associated local registry."`
 }

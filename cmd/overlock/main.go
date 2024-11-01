@@ -114,6 +114,10 @@ func main() {
 			Tree: true,
 		}))
 
+	kongplete.Complete(parser,
+		kongplete.WithPredictors(registry.Predictors()),
+	)
+
 	if len(os.Args) == 1 {
 		_, err := parser.Parse([]string{"--help"})
 		parser.FatalIfErrorf(err)

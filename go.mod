@@ -7,6 +7,7 @@ require (
 	github.com/docker/docker v24.0.7+incompatible
 	github.com/go-logr/logr v1.4.1
 	github.com/pkg/errors v0.9.1
+	github.com/posener/complete v1.2.3
 	go.uber.org/zap v1.26.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.29.1
@@ -128,7 +129,6 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.0-rc5 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
-	github.com/posener/complete v1.2.3 // indirect
 	github.com/prometheus/client_golang v1.18.0 // indirect
 	github.com/prometheus/client_model v0.5.0 // indirect
 	github.com/prometheus/common v0.45.0 // indirect
