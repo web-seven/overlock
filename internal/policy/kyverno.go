@@ -83,13 +83,13 @@ func addKyvernoRegistryPolicies(ctx context.Context, config *rest.Config, regist
 			"apiVersion": "kyverno.io/v1",
 			"kind":       "ClusterPolicy",
 			"metadata": map[string]interface{}{
-				"name": "overlock-local-reg-" + registry.Name,
+				"name": "overlock." + registry.Name,
 			},
 			"spec": map[string]interface{}{
 				"generateExisting": true,
 				"rules": []interface{}{
 					map[string]interface{}{
-						"name": "overlock-local-reg-" + registry.Name,
+						"name": "overlock." + registry.Name,
 						"match": map[string]interface{}{
 							"any": []interface{}{
 								map[string]interface{}{
@@ -110,7 +110,7 @@ func addKyvernoRegistryPolicies(ctx context.Context, config *rest.Config, regist
 										"spec": map[string]interface{}{
 											"containers": []interface{}{
 												map[string]interface{}{
-													"(image)": fmt.Sprintf("*%s*", registry.Name),
+													"(image)": fmt.Sprintf("*%s*", registry.Url),
 													"image":   fmt.Sprintf("{{ regex_replace_all_literal('^[^/]+', '{{element.image}}', 'localhost:%s' )}}", nodePort),
 												},
 											},

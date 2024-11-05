@@ -28,7 +28,7 @@ var (
 	RegistryServerLabel = "overlock-registry-server-url"
 	DefaultRemoteDomain = "xpkg.upbound.io"
 	LocalServiceName    = "registry"
-	DefaultLocalDomain  = LocalServiceName + ".%s.svc.cluster.local"
+	DefaultLocalDomain  = LocalServiceName + "." + namespace.Namespace + ".svc.cluster.local"
 	AuthConfigLabel     = "overlock-registry-auth-config"
 )
 
@@ -74,7 +74,7 @@ func New(server string, username string, password string, email string) Registry
 	registry := Registry{
 		Default: false,
 		Server:  server,
-		Name:    "registry." + strconv.FormatInt(time.Now().UnixNano(), 10),
+		Name:    generateRegistryName(),
 		Config: RegistryConfig{
 			Auths: map[string]RegistryAuth{
 				server: {
@@ -98,6 +98,8 @@ func NewLocal() Registry {
 	registry := Registry{
 		Default: false,
 		Local:   true,
+		Server:  DefaultLocalDomain,
+		Name:    "registry.local",
 	}
 	return registry
 }
@@ -346,7 +348,7 @@ func (r *Registry) WithContext(c string) {
 // Domain of primary registry
 func (r *Registry) Domain() string {
 	if r.Local {
-		return fmt.Sprintf(DefaultLocalDomain, namespace.Namespace)
+		return DefaultLocalDomain
 	}
 	url, err := url.Parse(r.Server)
 	if err != nil {
@@ -375,4 +377,8 @@ func (r *Registry) SecretSpec() corev1.Secret {
 
 func secretClient(client *kubernetes.Clientset) kv1.SecretInterface {
 	return client.CoreV1().Secrets(namespace.Namespace)
+}
+
+func generateRegistryName() string {
+	return "registry." + strconv.FormatInt(time.Now().UnixNano(), 10)
 }
