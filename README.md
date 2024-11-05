@@ -1,14 +1,15 @@
 # Overlock
 
-Overlock is a lightweight CLI tool designed to simplify the management of Crossplane resources and environments. It supports KinD, K3s, and K3d clusters, making it ideal for local development and testing of Crossplane configurations and providers.
+Overlock is a lightweight CLI tool designed to simplify the management of Crossplane resources and environments. It supports KinD, K3s, and K3d clusters, making it ideal for local development and testing of Crossplane configurations, providers and functions.
 
 ## Features
 
 - **Easily manage Crossplane environments**: Create and manage Crossplane environments for local development or testing purposes.
 - **Supports multiple cluster types**: Works with KinD, K3s, and K3d, allowing you to choose the cluster type best suited for your development and testing needs.
-- **Local and remote package registries**: Manage both local and remote Crossplane registries to handle configurations and providers.
+- **Local and remote package registries**: Manage both local and remote Crossplane registries to handle configurations, providers and functions.
 - **Load and apply Crossplane configurations**: Seamlessly load Crossplane configuration packages from local `.xpkg` files or apply them directly from remote URLs.
-- **Provider management**: Easily load and apply Crossplane providers from `.xpkg` files, supporting rapid local development.
+- **Provider management**: Easily load and apply Crossplane Providers from `.xpkg` files, supporting rapid local development.
+- **Function management**: Easily load and apply Crossplane Functions from `.xpkg` files.
 - **Simplified interface**: Overlock automates Crossplane installation, ensuring the setup process is hassle-free and quick.
 
 ## Installation
@@ -22,12 +23,12 @@ To install Overlock, follow these steps:
 
 ### Install via pre-compiled binary
 
-1. Visit the [GitHub Releases page](https://github.com/web-seven/overlock/releases) and download the appropriate `.tar.gz` archive for your system (e.g., `overlock-0.1.0-linux-amd64.tar.gz`).
+1. Visit the [GitHub Releases page](https://github.com/web-seven/overlock/releases) and download the appropriate `.tar.gz` archive for your system (e.g., `overlock-0.3.0-linux-amd64.tar.gz`).
 
 2. Extract the downloaded archive:
 
    ```bash
-   tar -xvzf overlock-0.1.0-linux-amd64.tar.gz
+   tar -xvzf overlock-0.3.0-linux-amd64.tar.gz
    ```
 
 3. Move the extracted binary to a directory in your PATH (e.g., `/usr/local/bin`):
@@ -55,7 +56,7 @@ Overlock simplifies Crossplane setup and management across different cluster typ
 - Create or delete a local Crossplane package registry:
 
   ```bash
-  overlock registry create|delete [--local] [--default]
+  overlock registry create|delete --local [--default]
   ```
 
 - Create or delete a remote private Crossplane registry:
@@ -67,7 +68,7 @@ Overlock simplifies Crossplane setup and management across different cluster typ
 - Load a Crossplane configuration from a local `.xpkg` file:
 
   ```bash
-  overlock configuration load <file>
+  overlock configuration load <file.xpkg>
   ```
 
 - Apply a Crossplane configuration from a remote URL:
@@ -80,6 +81,12 @@ Overlock simplifies Crossplane setup and management across different cluster typ
 
   ```bash
   overlock provider load --apply --path=<file.xpkg> provider-name:version
+  ```
+
+- Load and apply a Crossplane function from an `.xpkg` file:
+
+  ```bash
+  overlock function load --apply --path=<file.xpkg> function-name:version
   ```
 
 Overlock will automatically set up Crossplane on the specified cluster type (KinD, K3s, or K3d) based on your configuration.
