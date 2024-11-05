@@ -8,7 +8,7 @@ import (
 
 type RegistryPolicy struct {
 	Name string
-	Urls []string
+	Url  string
 }
 
 // Add policy controller

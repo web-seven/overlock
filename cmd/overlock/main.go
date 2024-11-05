@@ -10,6 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/web-seven/overlock/cmd/overlock/configuration"
 	"github.com/web-seven/overlock/cmd/overlock/environment"
+	"github.com/web-seven/overlock/cmd/overlock/function"
 	"github.com/web-seven/overlock/cmd/overlock/generate"
 	"github.com/web-seven/overlock/cmd/overlock/provider"
 	"github.com/web-seven/overlock/cmd/overlock/version"
@@ -86,7 +87,8 @@ type cli struct {
 	Resource           resource.Cmd                 `cmd:"" name:"resource" aliases:"res" help:"Overlock Resource commands"`
 	Registry           registry.Cmd                 `cmd:"" name:"registry" aliases:"reg" help:"Packages registy commands"`
 	InstallCompletions kongplete.InstallCompletions `cmd:"" help:"Install shell completions"`
-	Provider           provider.Cmd                 `cmd:"" name:"provider" help:"Overlock Provider commands"`
+	Provider           provider.Cmd                 `cmd:"" name:"provider" aliases:"prv" help:"Overlock Provider commands"`
+	Function           function.Cmd                 `cmd:"" name:"function" aliases:"fnc" help:"Overlock Function commands"`
 	Search             registry.SearchCmd           `cmd:"" help:"Search for packages"`
 	Generate           generate.Cmd                 `cmd:"" help:"Generate example by XRD YAML file"`
 }

@@ -1,11 +1,11 @@
-package configuration
+package function
 
 import (
 	"bufio"
 	"context"
 	"os"
 
-	"github.com/web-seven/overlock/internal/configuration"
+	"github.com/web-seven/overlock/internal/function"
 	"github.com/web-seven/overlock/internal/kube"
 	"github.com/web-seven/overlock/internal/loader"
 	"github.com/web-seven/overlock/internal/packages"
@@ -16,11 +16,11 @@ import (
 )
 
 type loadCmd struct {
-	Name    string `arg:"" help:"Name of configuration."`
-	Path    string `help:"Path to configuration package archive."`
-	Stdin   bool   `help:"Load configuration package from STDIN."`
-	Apply   bool   `help:"Apply configuration after load."`
-	Upgrade bool   `help:"Upgrade existing configuration."`
+	Name    string `arg:"" help:"Name of function."`
+	Path    string `help:"Path to function package archive."`
+	Stdin   bool   `help:"Load function package from STDIN."`
+	Apply   bool   `help:"Apply function after load."`
+	Upgrade bool   `help:"Upgrade existing function."`
 }
 
 func (c *loadCmd) Run(ctx context.Context, config *rest.Config, dc *dynamic.DynamicClient, logger *zap.SugaredLogger) error {
@@ -40,12 +40,12 @@ func (c *loadCmd) Run(ctx context.Context, config *rest.Config, dc *dynamic.Dyna
 		}
 	}
 
-	cfg := configuration.Configuration{}
-	cfg.Name = c.Name
+	fnc := function.Function{}
+	fnc.Name = c.Name
 
-	cfgs := configuration.GetConfigurations(ctx, dc)
+	fncs := function.GetFunctions(ctx, dc)
 	var pkgs []packages.Package
-	for _, c := range cfgs {
+	for _, c := range fncs {
 		pkg := packages.Package{
 			Name: c.Name,
 			Url:  c.Spec.Package,
@@ -53,40 +53,40 @@ func (c *loadCmd) Run(ctx context.Context, config *rest.Config, dc *dynamic.Dyna
 		pkgs = append(pkgs, pkg)
 	}
 	if c.Upgrade {
-		cfg.Name, err = cfg.UpgradeVersion(ctx, dc, cfg.Name, pkgs)
+		fnc.Name, err = fnc.UpgradeVersion(ctx, dc, fnc.Name, pkgs)
 		if err != nil {
 			return err
 		}
 	}
 
-	logger.Debugf("Loading image to: %s", cfg.Name)
+	logger.Debugf("Loading image to: %s", fnc.Name)
 	if c.Path != "" {
 		logger.Debugf("Loading from path: %s", c.Path)
-		cfg.Image, err = loader.LoadPathArchive(c.Path)
+		fnc.Image, err = loader.LoadPathArchive(c.Path)
 		if err != nil {
 			return err
 		}
 	} else if c.Stdin {
 		logger.Debug("Loading from STDIN")
 		reader := bufio.NewReader(os.Stdin)
-		err = cfg.LoadStdinArchive(reader)
+		err = fnc.LoadStdinArchive(reader)
 		if err != nil {
 			return err
 		}
 	} else {
-		logger.Warn("Archive path or STDIN required for load configuration.")
+		logger.Warn("Archive path or STDIN required for load function.")
 		return nil
 	}
 
 	logger.Debug("Pushing to local registry")
-	err = registry.PushLocalRegistry(ctx, cfg.Name, cfg.Image, config, logger)
+	err = registry.PushLocalRegistry(ctx, fnc.Name, fnc.Image, config, logger)
 	if err != nil {
 		return err
 	}
-	logger.Infof("Image archive %s loaded to local registry.", cfg.Name)
+	logger.Infof("Image archive %s loaded to local registry.", fnc.Name)
 
 	if c.Apply {
-		return configuration.ApplyConfiguration(ctx, cfg.Name, config, logger)
+		return function.ApplyFunction(ctx, fnc.Name, config, logger)
 	}
 	return nil
 }

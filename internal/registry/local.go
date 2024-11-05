@@ -143,14 +143,7 @@ func (r *Registry) CreateLocal(ctx context.Context, client *kubernetes.Clientset
 	}
 
 	logger.Debug("Installing policies")
-	serverUrls := []string{}
-	for _, auth := range r.Config.Auths {
-		serverUrls = append(
-			serverUrls,
-			strings.Replace(auth.Server, "https://", "", -1),
-		)
-	}
-	err = policy.AddRegistryPolicy(ctx, configClient, &policy.RegistryPolicy{Name: r.Name, Urls: serverUrls})
+	err = policy.AddRegistryPolicy(ctx, configClient, &policy.RegistryPolicy{Name: r.Name, Url: r.Server})
 	if err != nil {
 		return err
 	}
