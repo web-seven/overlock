@@ -28,7 +28,7 @@ var (
 	RegistryServerLabel = "overlock-registry-server-url"
 	DefaultRemoteDomain = "xpkg.upbound.io"
 	LocalServiceName    = "registry"
-	DefaultLocalDomain  = LocalServiceName + "." + namespace.Namespace + ".svc.cluster.local"
+	defaultLocalDomain  = LocalServiceName + ".%s.svc.cluster.local"
 	AuthConfigLabel     = "overlock-registry-auth-config"
 )
 
@@ -98,9 +98,9 @@ func NewLocal() Registry {
 	registry := Registry{
 		Default: false,
 		Local:   true,
-		Server:  DefaultLocalDomain,
 		Name:    "registry.local",
 	}
+	registry.Server = registry.LocalDomain()
 	return registry
 }
 
@@ -348,13 +348,18 @@ func (r *Registry) WithContext(c string) {
 // Domain of primary registry
 func (r *Registry) Domain() string {
 	if r.Local {
-		return DefaultLocalDomain
+		return r.LocalDomain()
 	}
 	url, err := url.Parse(r.Server)
 	if err != nil {
 		log.Fatal(err)
 	}
 	return url.Hostname()
+}
+
+// Local domain composed with parameters
+func (r *Registry) LocalDomain() string {
+	return fmt.Sprintf(defaultLocalDomain, namespace.Namespace)
 }
 
 // Creates specs of Secret base on Registry data

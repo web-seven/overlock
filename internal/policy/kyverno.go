@@ -157,7 +157,7 @@ func deleteKyvernoRegistryPolicies(ctx context.Context, config *rest.Config, reg
 		Version:  "v1",
 		Resource: "clusterpolicies",
 	}
-	scplcName := "overlock-local-reg-" + registry.Name
+	scplcName := "overlock." + registry.Name
 	err = dynamicClient.Resource(gvr).Delete(ctx, scplcName, metav1.DeleteOptions{})
 	if err != nil {
 		return err
