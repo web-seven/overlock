@@ -14,6 +14,9 @@ import (
 	"github.com/web-seven/overlock/internal/namespace"
 	"k8s.io/client-go/rest"
 
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"go.uber.org/zap"
 )
 
@@ -38,6 +41,11 @@ var (
 			"packages": []string{},
 		},
 		"args": []string{},
+	}
+	apis = []string{
+		"configurations.pkg.crossplane.io",
+
+		"functions.pkg.crossplane.io",
 	}
 )
 
@@ -84,6 +92,21 @@ func InstallEngine(ctx context.Context, configClient *rest.Config, params map[st
 	}
 	logger.Debug("Upgrade Crossplane release")
 	return engine.Upgrade(Version, params)
+}
+
+// Verify if Crossplane API exists
+func VerifyApi(ctx context.Context, configClient *rest.Config, apiName string) (bool, error) {
+	crdClientSet, err := clientset.NewForConfig(configClient)
+	if err != nil {
+		return false, err
+	}
+	_, err = crdClientSet.ApiextensionsV1().
+		CustomResourceDefinitions().
+		Get(ctx, apiName, metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // Check if engine release exists
