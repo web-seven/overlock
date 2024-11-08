@@ -14,7 +14,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const apiName = "providers.pkg.crossplane.io"
+
 func (p *Provider) ApplyProvider(ctx context.Context, links []string, config *rest.Config, logger *zap.SugaredLogger) error {
+
+	_, err := engine.VerifyApi(ctx, config, apiName)
+	if err != nil {
+		logger.Debug(err)
+		logger.Infoln("Crossplane not installed in current context.")
+		logger.Infoln("Provider not applied.")
+		return nil
+	}
 	scheme := runtime.NewScheme()
 	crossv1.AddToScheme(scheme)
 	if kube, err := client.New(config, client.Options{Scheme: scheme}); err == nil {

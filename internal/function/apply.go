@@ -19,6 +19,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const apiName = "functions.pkg.crossplane.io"
+
 // RunFunctionHealthCheck performs a health check on functions defined by the links string.
 func HealthCheck(ctx context.Context, dc dynamic.Interface, links string, wait bool, timeoutChan <-chan time.Time, logger *zap.SugaredLogger) error {
 
@@ -53,6 +55,15 @@ func HealthCheck(ctx context.Context, dc dynamic.Interface, links string, wait b
 }
 
 func ApplyFunction(ctx context.Context, links string, config *rest.Config, logger *zap.SugaredLogger) error {
+
+	_, err := engine.VerifyApi(ctx, config, apiName)
+	if err != nil {
+		logger.Debug(err)
+		logger.Infoln("Crossplane not installed in current context.")
+		logger.Infoln("Function not applied.")
+		return nil
+	}
+
 	scheme := runtime.NewScheme()
 	crossv1.AddToScheme(scheme)
 	if kube, err := client.New(config, client.Options{Scheme: scheme}); err == nil {

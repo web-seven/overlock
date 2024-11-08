@@ -6,6 +6,8 @@ import (
 	"k8s.io/client-go/rest"
 )
 
+const DefaultPolicyController = "kyverno"
+
 type RegistryPolicy struct {
 	Name string
 	Url  string

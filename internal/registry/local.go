@@ -110,6 +110,11 @@ func (r *Registry) CreateLocal(ctx context.Context, client *kubernetes.Clientset
 		},
 	}
 
+	err = namespace.CreateNamespace(ctx, configClient)
+	if err != nil {
+		return err
+	}
+
 	scheme := runtime.NewScheme()
 	corev1.AddToScheme(scheme)
 	appsv1.AddToScheme(scheme)
@@ -140,6 +145,12 @@ func (r *Registry) CreateLocal(ctx context.Context, client *kubernetes.Clientset
 			deployIsReady = deploy.Status.ReadyReplicas > 0
 
 		}
+	}
+
+	err = policy.AddPolicyConroller(ctx, configClient, policy.DefaultPolicyController)
+	if err != nil {
+		logger.Warnln("Policy controller has issues, without it, local registry could not work normally.")
+		return err
 	}
 
 	logger.Debug("Installing policies")
