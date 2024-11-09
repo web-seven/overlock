@@ -1,8 +1,11 @@
 package registry
 
 import (
+	"context"
+
 	"github.com/posener/complete"
 	"github.com/web-seven/overlock/internal/registry"
+	"k8s.io/client-go/kubernetes"
 )
 
 type Cmd struct {
@@ -11,8 +14,8 @@ type Cmd struct {
 	Delete deleteCmd `cmd:"" help:"Delete registry"`
 }
 
-func Predictors() map[string]complete.Predictor {
+func Predictors(ctx context.Context, client *kubernetes.Clientset) map[string]complete.Predictor {
 	return map[string]complete.Predictor{
-		"registry": registry.PredictRegistries(),
+		"registry": registry.PredictRegistries(ctx, client),
 	}
 }
