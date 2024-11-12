@@ -19,7 +19,6 @@ const (
 	kyvernoReleaseName  = "kyverno"
 	kyvernoRepoUrl      = "https://kyverno.github.io/kyverno/"
 	kyvernoNamespace    = "kyverno"
-	nodePort            = "30100"
 )
 
 var (
@@ -60,6 +59,11 @@ func addKyvernoPolicyConroller(ctx context.Context, config *rest.Config) error {
 	)
 	if err != nil {
 		return err
+	}
+
+	release, _ := manager.GetRelease()
+	if release != nil {
+		return nil
 	}
 
 	err = manager.Upgrade(kyvernoChartVersion, chartValues)
@@ -111,7 +115,7 @@ func addKyvernoRegistryPolicies(ctx context.Context, config *rest.Config, regist
 											"containers": []interface{}{
 												map[string]interface{}{
 													"(image)": fmt.Sprintf("*%s*", registry.Url),
-													"image":   fmt.Sprintf("{{ regex_replace_all_literal('^[^/]+', '{{element.image}}', 'localhost:%s' )}}", nodePort),
+													"image":   fmt.Sprintf("{{ regex_replace_all_literal('^[^/]+', '{{element.image}}', 'localhost:%s' )}}", registry.NodePort),
 												},
 											},
 										},

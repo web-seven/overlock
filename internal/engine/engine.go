@@ -21,15 +21,17 @@ import (
 )
 
 const (
-	RepoUrl             = "https://charts.crossplane.io/stable"
-	ChartName           = "crossplane"
-	ReleaseName         = "overlock-crossplane"
-	Version             = "1.17.1"
-	trueVal             = "true"
-	errParsePackageName = "package name is not valid"
+	RepoUrl                 = "https://charts.crossplane.io/stable"
+	ChartName               = "crossplane"
+	ReleaseName             = "overlock-crossplane"
+	Version                 = "1.17.1"
+	trueVal                 = "true"
+	errParsePackageName     = "package name is not valid"
+	OVERLOCK_ENGINE_RELEASE = "OVERLOCK_ENGINE_RELEASE"
 )
 
 var (
+	AltRelease    = ""
 	managedLabels = map[string]string{
 		"app.kubernetes.io/managed-by": "overlock",
 	}
@@ -57,7 +59,8 @@ func GetEngine(configClient *rest.Config) (install.Manager, error) {
 	}
 	setWait := helm.InstallerModifierFn(helm.Wait())
 	setNamespace := helm.InstallerModifierFn(helm.WithNamespace(namespace.Namespace))
-	setUpInstall := helm.InstallerModifierFn(helm.WithUpgradeInstall(true))
+	setAlternateChart := helm.InstallerModifierFn(helm.WithAlternateChart(AltRelease))
+	setUpInstall := helm.InstallerModifierFn(helm.WithUpgradeInstall(false))
 	setCreateNs := helm.InstallerModifierFn(helm.WithCreateNamespace(true))
 	setReuseValues := helm.InstallerModifierFn(helm.WithReuseValues(true))
 
@@ -71,6 +74,7 @@ func GetEngine(configClient *rest.Config) (install.Manager, error) {
 		setUpInstall,
 		setCreateNs,
 		setReuseValues,
+		setAlternateChart,
 	)
 
 	if err != nil {
@@ -90,8 +94,8 @@ func InstallEngine(ctx context.Context, configClient *rest.Config, params map[st
 	if params == nil {
 		params = initParameters
 	}
-	logger.Debug("Upgrade Crossplane release")
-	return engine.Upgrade(Version, params)
+	logger.Debug("Install Crossplane engine")
+	return engine.Install(Version, params)
 }
 
 // Verify if Crossplane API exists
