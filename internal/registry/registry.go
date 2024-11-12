@@ -153,69 +153,102 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.
 		return err
 	}
 
-	installer, err := engine.GetEngine(config)
-	if err != nil {
-		return err
-	}
-	release, _ := installer.GetRelease()
-
 	if r.Local {
-		logger.Debug("Create Local Registry")
+		logger.Debug("Creating local registry")
 		err := r.CreateLocal(ctx, client, logger)
 		if err != nil {
 			return err
 		}
+		logger.Debug("Local registry created.")
 	} else {
-		logger.Debug("Create Registry")
-		if release != nil {
-			secretSpec := r.SecretSpec()
-			secret, err := secretClient(client).Create(ctx, &secretSpec, metav1.CreateOptions{})
-			if err != nil {
-				return err
-			}
-			if release.Config == nil {
-				release.Config = map[string]interface{}{
-					"imagePullSecrets": []interface{}{},
-				}
-			}
-			if release.Config["imagePullSecrets"] == nil {
-				release.Config["imagePullSecrets"] = []interface{}{}
-			}
-			release.Config["imagePullSecrets"] = append(
-				release.Config["imagePullSecrets"].([]interface{}),
-				secret.ObjectMeta.Name,
-			)
-		} else {
-			logger.Debug("Crossplane engine not found!")
+		logger.Debug("Creating remote registry")
+		secretSpec := r.SecretSpec()
+		_, err := secretClient(client).Create(ctx, &secretSpec, metav1.CreateOptions{})
+		if err != nil {
+			return err
 		}
-
+		err = r.SetRegistyPullSecret(ctx, config)
+		if err != nil {
+			return err
+		}
+		logger.Debug("Remote registry created.")
 	}
 
-	if release != nil && r.Default {
+	if r.Default {
 		logger.Debug("Set registry as default.")
-		if release.Config["args"] == nil {
-			release.Config["args"] = []interface{}{}
-		}
-		args := []string{}
-		for _, arg := range release.Config["args"].([]interface{}) {
-			if !strings.Contains(arg.(string), "--registry") {
-				args = append(args, arg.(string))
-			}
-		}
+		return r.SetRegistyDefault(ctx, config)
+	}
 
-		release.Config["args"] = append(
-			args,
-			"--registry="+r.Domain(),
+	return nil
+}
+
+func (r *Registry) SetRegistyPullSecret(ctx context.Context, config *rest.Config) error {
+
+	installer, err := engine.GetEngine(config)
+	if err != nil {
+		return err
+	}
+	release, err := installer.GetRelease()
+	if err != nil {
+		return err
+	}
+
+	if release.Config == nil {
+		release.Config = map[string]interface{}{}
+	}
+
+	if !r.Local {
+		if release.Config["imagePullSecrets"] == nil {
+			release.Config["imagePullSecrets"] = []interface{}{}
+		}
+		release.Config["imagePullSecrets"] = append(
+			release.Config["imagePullSecrets"].([]interface{}),
+			r.Name,
 		)
 	}
 
-	if installer != nil && release != nil {
-		logger.Debug("Upgrade Corssplane chart", "Values", release.Config)
-		return installer.Upgrade(engine.Version, release.Config)
-	} else {
-		logger.Warnf("Crossplane engine not found, in namespace %s", namespace.Namespace)
+	version, err := installer.GetCurrentVersion()
+	if err != nil {
+		return err
 	}
-	return nil
+	return installer.Upgrade(version, release.Config)
+}
+
+func (r *Registry) SetRegistyDefault(ctx context.Context, config *rest.Config) error {
+
+	installer, err := engine.GetEngine(config)
+	if err != nil {
+		return err
+	}
+	release, err := installer.GetRelease()
+	if err != nil {
+		return err
+	}
+
+	if release.Config == nil {
+		release.Config = map[string]interface{}{}
+	}
+
+	if release.Config["args"] == nil {
+		release.Config["args"] = []interface{}{}
+	}
+	args := []string{}
+	for _, arg := range release.Config["args"].([]interface{}) {
+		if !strings.Contains(arg.(string), "--registry") {
+			args = append(args, arg.(string))
+		}
+	}
+
+	release.Config["args"] = append(
+		args,
+		"--registry="+r.Domain(),
+	)
+
+	version, err := installer.GetCurrentVersion()
+	if err != nil {
+		return err
+	}
+	return installer.Upgrade(version, release.Config)
 }
 
 func (r *Registry) FromSecret(sec corev1.Secret) *Registry {
@@ -274,7 +307,12 @@ func (r *Registry) Delete(ctx context.Context, config *rest.Config, logger *zap.
 			}
 		}
 
-		err = installer.Upgrade(engine.Version, release.Config)
+		version, err := installer.GetCurrentVersion()
+		if err != nil {
+			return err
+		}
+
+		err = installer.Upgrade(version, release.Config)
 		if err != nil {
 			return err
 		}

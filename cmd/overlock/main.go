@@ -11,9 +11,9 @@ import (
 	"github.com/web-seven/overlock/cmd/overlock/configuration"
 	"github.com/web-seven/overlock/cmd/overlock/environment"
 	"github.com/web-seven/overlock/cmd/overlock/function"
-	"github.com/web-seven/overlock/cmd/overlock/generate"
 	"github.com/web-seven/overlock/cmd/overlock/provider"
 	"github.com/web-seven/overlock/cmd/overlock/version"
+	"github.com/web-seven/overlock/internal/engine"
 	"github.com/web-seven/overlock/internal/kube"
 	"github.com/web-seven/overlock/internal/namespace"
 	"go.uber.org/zap"
@@ -27,9 +27,10 @@ import (
 )
 
 type Globals struct {
-	Debug     bool        `short:"D" help:"Enable debug mode"`
-	Version   VersionFlag `name:"version" help:"Print version information and quit"`
-	Namespace string      `name:"namespace" help:"Namespace used for cluster resources"`
+	Debug         bool        `short:"D" help:"Enable debug mode"`
+	Version       VersionFlag `name:"version" help:"Print version information and quit"`
+	Namespace     string      `name:"namespace" short:"n" help:"Namespace used for cluster resources"`
+	EngineRelease string      `name:"engine-release" short:"r" help:"Crossplane Helm release name"`
 }
 
 type VersionFlag string
@@ -43,8 +44,8 @@ func (v VersionFlag) BeforeApply(app *kong.Kong, vars kong.Vars) error {
 }
 
 func getDescriptionText() string {
-	bText := "Overlock CLI.\n\n"
-	bText += "For more details open https://overlock.io \n\n"
+	bText := "Crossplane Environment CLI.\n\n"
+	bText += "For more details open https://github.com/web-seven/overlock \n\n"
 	return bText
 }
 
@@ -72,6 +73,12 @@ func (c *cli) AfterApply(ctx *kong.Context) error { //nolint:unparam
 		namespace.Namespace = c.Globals.Namespace
 	}
 
+	if os.Getenv(engine.OVERLOCK_ENGINE_RELEASE) != "" {
+		engine.AltRelease = os.Getenv(engine.OVERLOCK_ENGINE_RELEASE)
+	} else if c.Globals.EngineRelease != "" {
+		engine.AltRelease = c.Globals.EngineRelease
+	}
+
 	logger, _ := cfg.Build()
 	ctrl.SetLogger(logr.Logger{})
 	ctx.Bind(logger.Sugar())
@@ -89,8 +96,8 @@ type cli struct {
 	InstallCompletions kongplete.InstallCompletions `cmd:"" help:"Install shell completions"`
 	Provider           provider.Cmd                 `cmd:"" name:"provider" aliases:"prv" help:"Overlock Provider commands"`
 	Function           function.Cmd                 `cmd:"" name:"function" aliases:"fnc" help:"Overlock Function commands"`
-	Search             registry.SearchCmd           `cmd:"" help:"Search for packages"`
-	Generate           generate.Cmd                 `cmd:"" help:"Generate example by XRD YAML file"`
+	// Search             registry.SearchCmd           `cmd:"" help:"Search for packages"`
+	// Generate           generate.Cmd                 `cmd:"" help:"Generate example by XRD YAML file"`
 }
 
 type helpCmd struct{}

@@ -9,8 +9,9 @@ import (
 const DefaultPolicyController = "kyverno"
 
 type RegistryPolicy struct {
-	Name string
-	Url  string
+	Name     string
+	Url      string
+	NodePort string
 }
 
 // Add policy controller

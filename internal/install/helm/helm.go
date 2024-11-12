@@ -358,7 +358,6 @@ func (h *Installer) GetCurrentVersion() (string, error) {
 	}
 	if errors.Is(err, driver.ErrReleaseNotFound) {
 		if h.alternateChart != "" {
-			// TODO(hasheddan): add logging indicating fallback to crossplane.
 			if release, err = h.getClient.Run(h.alternateChart); err != nil {
 				return "", errors.Wrapf(err, errGetInstalledReleaseOrAlternateFmt, h.chartName, h.alternateChart, h.namespace)
 			}
@@ -374,6 +373,10 @@ func (h *Installer) GetCurrentVersion() (string, error) {
 }
 
 func (h *Installer) GetRelease() (*release.Release, error) {
+	_, err := h.GetCurrentVersion()
+	if err != nil {
+		return nil, err
+	}
 	return h.getClient.Run(h.releaseName)
 }
 

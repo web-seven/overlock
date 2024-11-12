@@ -35,7 +35,12 @@ func InstallProvider(provider string, config *rest.Config, logger *zap.SugaredLo
 		release.Config["provider"] = configs
 	}
 
-	err = installer.Upgrade(engine.Version, release.Config)
+	version, err := installer.GetCurrentVersion()
+	if err != nil {
+		return err
+	}
+
+	err = installer.Upgrade(version, release.Config)
 	if err != nil {
 		return err
 	}
