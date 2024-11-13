@@ -119,31 +119,7 @@ func (r *Registry) CreateLocal(ctx context.Context, client *kubernetes.Clientset
 	appsv1.AddToScheme(scheme)
 	ctrlClient, _ := ctrl.New(configClient, ctrl.Options{Scheme: scheme})
 	for _, res := range []ctrl.Object{deploy, svc} {
-		_, err := controllerutil.CreateOrUpdate(ctx, ctrlClient, res, func() error {
-			if res == svc {
-				logger.Debug("Installing policy controller")
-				err = policy.AddPolicyConroller(ctx, configClient, policy.DefaultPolicyController)
-				if err != nil {
-					logger.Warnln("Policy controller has issues, without it, local registry could not work normally.")
-					return err
-				}
-				logger.Debug("Policy controller installed.")
-				logger.Debug("Installing policies")
-				err = policy.AddRegistryPolicy(ctx,
-					configClient,
-					&policy.RegistryPolicy{
-						Name:     r.Name,
-						Url:      r.Server,
-						NodePort: fmt.Sprintf("%v", svc.Spec.Ports[0].NodePort),
-					},
-				)
-				if err != nil {
-					return err
-				}
-				logger.Debug("Policies installed.")
-			}
-			return nil
-		})
+		_, err := controllerutil.CreateOrUpdate(ctx, ctrlClient, res, func() error { return nil })
 		if err != nil {
 			return err
 		}
@@ -164,6 +140,30 @@ func (r *Registry) CreateLocal(ctx context.Context, client *kubernetes.Clientset
 				return err
 			}
 			deployIsReady = deploy.Status.ReadyReplicas > 0
+
+			if deployIsReady {
+				logger.Debug("Installing policy controller")
+				err = policy.AddPolicyConroller(ctx, configClient, policy.DefaultPolicyController)
+				if err != nil {
+					logger.Warnln("Policy controller has issues, without it, local registry could not work normally.")
+					return err
+				}
+				logger.Debug("Policy controller installed.")
+
+				logger.Debug("Installing policies")
+				err = policy.AddRegistryPolicy(ctx,
+					configClient,
+					&policy.RegistryPolicy{
+						Name:     r.Name,
+						Url:      r.Server,
+						NodePort: fmt.Sprintf("%v", svc.Spec.Ports[0].NodePort),
+					},
+				)
+				if err != nil {
+					return err
+				}
+				logger.Debug("Policies installed.")
+			}
 		}
 	}
 
