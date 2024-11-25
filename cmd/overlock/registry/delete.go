@@ -11,17 +11,16 @@ import (
 type deleteCmd struct {
 	Name    string `required:"" help:"Registry name."`
 	Default bool   `help:"Remove from default."`
-	Local   bool   `help:"Remove associated local registry."`
 }
 
 func (c deleteCmd) Run(ctx context.Context, config *rest.Config, logger *zap.SugaredLogger) error {
 	reg := registry.Registry{}
 	reg.Name = c.Name
 	reg.SetDefault(c.Default)
-	reg.SetLocal(c.Local)
+	reg.SetLocal(c.Name == registry.LocalRegistryName)
 	err := reg.Delete(ctx, config, logger)
 	if err != nil {
-		logger.Error(err)
+		logger.Info(err)
 	} else {
 		logger.Info("Registry was removed successfully.")
 	}
