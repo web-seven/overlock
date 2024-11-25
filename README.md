@@ -18,8 +18,8 @@ To install Overlock, follow these steps:
 
 ### Prerequisites
 
-- Linux-based operating system
-- Docker installed and running
+- Docker installed and running.
+- KinD, k3d or k3s installed.
 
 ### Install via pre-compiled binary
 
