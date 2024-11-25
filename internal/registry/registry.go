@@ -28,6 +28,7 @@ var (
 	RegistryServerLabel = "overlock-registry-server-url"
 	DefaultRemoteDomain = "xpkg.upbound.io"
 	LocalServiceName    = "registry"
+	LocalRegistryName   = "registry.local"
 	defaultLocalDomain  = LocalServiceName + ".%s.svc.cluster.local"
 	AuthConfigLabel     = "overlock-registry-auth-config"
 )
@@ -98,7 +99,7 @@ func NewLocal() Registry {
 	registry := Registry{
 		Default: false,
 		Local:   true,
-		Name:    "registry.local",
+		Name:    LocalRegistryName,
 	}
 	registry.Server = registry.LocalDomain()
 	return registry
@@ -153,6 +154,12 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.
 		return err
 	}
 
+	secretSpec := r.SecretSpec()
+	_, err = secretClient(client).Create(ctx, &secretSpec, metav1.CreateOptions{})
+	if err != nil {
+		return err
+	}
+
 	if r.Local {
 		logger.Debug("Creating local registry")
 		err := r.CreateLocal(ctx, client, logger)
@@ -162,11 +169,6 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.
 		logger.Debug("Local registry created.")
 	} else {
 		logger.Debug("Creating remote registry")
-		secretSpec := r.SecretSpec()
-		_, err := secretClient(client).Create(ctx, &secretSpec, metav1.CreateOptions{})
-		if err != nil {
-			return err
-		}
 		err = r.SetRegistyPullSecret(ctx, config)
 		if err != nil {
 			return err
@@ -274,9 +276,7 @@ func (r *Registry) Delete(ctx context.Context, config *rest.Config, logger *zap.
 
 	release, _ := installer.GetRelease()
 
-	if release.Config == nil || release.Config["imagePullSecrets"] == nil {
-		logger.Warn("Not found any registry in context.")
-	} else {
+	if release != nil && release.Config != nil && release.Config["imagePullSecrets"] != nil {
 		oldRegistries := release.Config["imagePullSecrets"].([]interface{})
 
 		newRegistries := []interface{}{}
