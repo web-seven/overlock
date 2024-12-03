@@ -18,7 +18,8 @@ type applyCmd struct {
 }
 
 func (c *applyCmd) Run(ctx context.Context, dc *dynamic.DynamicClient, config *rest.Config, logger *zap.SugaredLogger) error {
-	configuration.ApplyConfiguration(ctx, c.Link, config, logger)
+	cfg := configuration.New(c.Link)
+	cfg.Apply(ctx, config, logger)
 	if !c.Wait {
 		return nil
 	}

@@ -54,7 +54,7 @@ func HealthCheck(ctx context.Context, dc dynamic.Interface, links string, wait b
 	}
 }
 
-func ApplyConfiguration(ctx context.Context, links string, config *rest.Config, logger *zap.SugaredLogger) error {
+func (c *Configuration) Apply(ctx context.Context, config *rest.Config, logger *zap.SugaredLogger) error {
 
 	_, err := engine.VerifyApi(ctx, config, apiName)
 	if err != nil {
@@ -67,8 +67,9 @@ func ApplyConfiguration(ctx context.Context, links string, config *rest.Config, 
 	scheme := runtime.NewScheme()
 	crossv1.AddToScheme(scheme)
 	if kube, err := client.New(config, client.Options{Scheme: scheme}); err == nil {
-		for _, link := range strings.Split(links, ",") {
+		for _, link := range strings.Split(c.Name, ",") {
 			cfg := &crossv1.Configuration{}
+			logger.Debugf("Building package %s", link)
 			engine.BuildPack(cfg, link, map[string]string{})
 			pa := resource.NewAPIPatchingApplicator(kube)
 

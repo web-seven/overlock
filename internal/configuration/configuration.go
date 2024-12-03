@@ -30,6 +30,12 @@ type Configuration struct {
 	packages.Package
 }
 
+func New(name string) *Configuration {
+	return &Configuration{
+		Name: name,
+	}
+}
+
 func CheckHealthStatus(status []condition.Condition) bool {
 	healthStatus := false
 	for _, condition := range status {
