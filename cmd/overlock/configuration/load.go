@@ -6,10 +6,6 @@ import (
 	"os"
 
 	"github.com/web-seven/overlock/internal/configuration"
-	"github.com/web-seven/overlock/internal/kube"
-	"github.com/web-seven/overlock/internal/loader"
-	"github.com/web-seven/overlock/internal/packages"
-	"github.com/web-seven/overlock/internal/registry"
 	"go.uber.org/zap"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
@@ -24,52 +20,33 @@ type loadCmd struct {
 }
 
 func (c *loadCmd) Run(ctx context.Context, config *rest.Config, dc *dynamic.DynamicClient, logger *zap.SugaredLogger) error {
-
-	client, err := kube.Client(config)
-	if err != nil {
-		return err
-	}
-
-	isLocal, err := registry.IsLocalRegistry(ctx, client)
-	if !isLocal || err != nil {
-		reg := registry.NewLocal()
-		reg.SetDefault(true)
-		err := reg.Create(ctx, config, logger)
-		if err != nil {
-			return err
-		}
-	}
-
-	cfg := configuration.Configuration{}
-	cfg.Name = c.Name
-
-	cfgs := configuration.GetConfigurations(ctx, dc)
-	var pkgs []packages.Package
-	for _, c := range cfgs {
-		pkg := packages.Package{
-			Name: c.Name,
-			Url:  c.Spec.Package,
-		}
-		pkgs = append(pkgs, pkg)
-	}
+	cfg := configuration.New(c.Name)
 	if c.Upgrade {
-		cfg.Name, err = cfg.UpgradeVersion(ctx, dc, cfg.Name, pkgs)
+		cfg.UpgradeConfiguration(ctx, config, dc)
+	}
+	if c.Path != "" {
+		fi, err := os.Stat(c.Path)
 		if err != nil {
 			return err
 		}
-	}
-
-	logger.Debugf("Loading image to: %s", cfg.Name)
-	if c.Path != "" {
-		logger.Debugf("Loading from path: %s", c.Path)
-		cfg.Image, err = loader.LoadPathArchive(c.Path)
-		if err != nil {
-			return err
+		switch mode := fi.Mode(); {
+		case mode.IsDir():
+			logger.Debugf("Loading from directory: %s", c.Path)
+			err = cfg.LoadDirectory(ctx, config, logger, c.Path)
+			if err != nil {
+				return err
+			}
+		case mode.IsRegular():
+			logger.Debugf("Loading from file: %s", c.Path)
+			err = cfg.LoadPathArchive(ctx, config, logger, c.Path)
+			if err != nil {
+				return err
+			}
 		}
 	} else if c.Stdin {
 		logger.Debug("Loading from STDIN")
 		reader := bufio.NewReader(os.Stdin)
-		err = cfg.LoadStdinArchive(reader)
+		err := cfg.LoadStdinArchive(ctx, config, logger, reader)
 		if err != nil {
 			return err
 		}
@@ -78,15 +55,9 @@ func (c *loadCmd) Run(ctx context.Context, config *rest.Config, dc *dynamic.Dyna
 		return nil
 	}
 
-	logger.Debug("Pushing to local registry")
-	err = registry.PushLocalRegistry(ctx, cfg.Name, cfg.Image, config, logger)
-	if err != nil {
-		return err
-	}
-	logger.Infof("Image archive %s loaded to local registry.", cfg.Name)
-
 	if c.Apply {
-		return configuration.ApplyConfiguration(ctx, cfg.Name, config, logger)
+		return cfg.Apply(ctx, config, logger)
 	}
+
 	return nil
 }
