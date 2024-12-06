@@ -95,6 +95,14 @@ Overlock will automatically set up Crossplane on the specified cluster type (Kin
 
 We welcome contributions! Please see the [CONTRIBUTING.md](CONTRIBUTING.md) for more details on how to get involved.
 
+## Community
+
+This project is written in Golang but many of the community contributions so far have been through blogging, speaking engagements, helping to test and drive the backlog of Overlock. If you'd like to help in any way then that would be more than welcome whatever your level of experience.
+
+### Chat
+
+[Join Discord here](https://discord.gg/rWdY2y57)
+
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
