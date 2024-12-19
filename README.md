@@ -23,13 +23,11 @@ To install Overlock, follow these steps:
 
 ### Install via pre-compiled binary
 
-1. Visit the [GitHub Releases page](https://github.com/web-seven/overlock/releases) and download the appropriate `.tar.gz` archive for your system (e.g., `overlock-0.3.0-linux-amd64.tar.gz`).
+1. Download the latest version for your CPU architecture with the Overlock by run install script:
 
-2. Extract the downloaded archive:
-
-   ```bash
-   tar -xvzf overlock-0.3.0-linux-amd64.tar.gz
-   ```
+  ```bash
+  curl -sL "https://raw.githubusercontent.com/web-seven/overlock/refs/heads/main/scripts/install.sh" | sh
+  ```
 
 3. Move the extracted binary to a directory in your PATH (e.g., `/usr/local/bin`):
 
