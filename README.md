@@ -77,6 +77,12 @@ Overlock simplifies Crossplane setup and management across different cluster typ
   overlock configuration apply <url>
   ```
 
+- Serve a Crossplane configuration from local sources:
+
+  ```bash
+  overlock configuration serve <configuration_package_path>
+  ```
+
 - Load and apply a Crossplane provider from an `.xpkg` file:
 
   ```bash
