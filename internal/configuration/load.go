@@ -95,7 +95,7 @@ func (c *Configuration) LoadDirectory(ctx context.Context, config *rest.Config, 
 			pkgContent = append(pkgContent, fileContent)
 		}
 	}
-	os.WriteFile(pkgFile.Name(), bytes.Join(pkgContent, []byte("---\n")), fs.ModeAppend)
+	os.WriteFile(pkgFile.Name(), bytes.Join(pkgContent, []byte("\n---\n")), fs.ModeAppend)
 	err = addToArchive(createArchive(layerFile), pkgFile, "package.yaml")
 	if err != nil {
 		return err
