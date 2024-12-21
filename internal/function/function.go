@@ -26,6 +26,12 @@ type Function struct {
 	packages.Package
 }
 
+func New(name string) *Function {
+	return &Function{
+		Name: name,
+	}
+}
+
 func CheckHealthStatus(status []condition.Condition) bool {
 	healthStatus := false
 	for _, condition := range status {
