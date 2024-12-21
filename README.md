@@ -1,4 +1,8 @@
 # Overlock
+<p align="center">
+  <img width="500" src="https://raw.githubusercontent.com/web-seven/overlock/refs/heads/main/docs/overlock_galaxy_text.png"/>
+</p>
+
 
 Overlock is a lightweight CLI tool designed to simplify the management of Crossplane resources and environments. It supports KinD, K3s, and K3d clusters, making it ideal for local development and testing of Crossplane configurations, providers and functions.
 
