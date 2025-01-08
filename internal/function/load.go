@@ -1,20 +1,17 @@
 package function
 
 import (
-	"archive/tar"
 	"bufio"
-	"bytes"
 	"context"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
+	"os/exec"
 	"strings"
 
-	"github.com/google/go-containerregistry/pkg/crane"
-	"github.com/google/go-containerregistry/pkg/v1/empty"
+	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/web-seven/overlock/internal/image"
 	"github.com/web-seven/overlock/internal/kube"
-	"github.com/web-seven/overlock/internal/loader"
 	"github.com/web-seven/overlock/internal/packages"
 	"github.com/web-seven/overlock/internal/registry"
 	"go.uber.org/zap"
@@ -23,8 +20,12 @@ import (
 )
 
 const (
-	tagDelim         = ":"
-	regRepoDelimiter = "/"
+	tagDelim                      = ":"
+	regRepoDelimiter              = "/"
+	functionFileName              = "function"
+	fileMode          os.FileMode = 0o777
+	annotationKey     string      = "io.crossplane.xpkg"
+	packageAnnotation string      = "base"
 )
 
 func (c *Function) UpgradeFunction(ctx context.Context, config *rest.Config, dc *dynamic.DynamicClient) error {
@@ -56,56 +57,88 @@ func (c *Function) LoadStdinArchive(stream *bufio.Reader) error {
 		return err
 	}
 	tmpFile.Write(stdin)
-	if err != nil {
-		return err
-	}
-	c.Image, err = loader.LoadPathArchive(tmpFile.Name())
-	return err
+	return c.Image.LoadPathArchive(tmpFile.Name())
 }
 
 // Load function package from directory
 func (c *Function) LoadDirectory(ctx context.Context, config *rest.Config, logger *zap.SugaredLogger, path string) error {
-	files, err := os.ReadDir(path)
+
+	logger.Debug("Building function...")
+	fileContent, err := c.build(path)
 	if err != nil {
-		logger.Error(err)
+		logger.Infof("Error function build: %v", err)
 	}
 
-	pkgFile, err := os.CreateTemp("", "overlock-configuration-*")
-	if err != nil {
-		return err
-	}
-	layerFile, err := os.CreateTemp("", "overlock-configuration-*")
-	if err != nil {
-		return err
-	}
-
-	pkgContent := [][]byte{}
-	for _, file := range files {
-		if file.Type().IsRegular() {
-			fileContent, err := os.ReadFile(fmt.Sprintf("%s/%s", strings.TrimRight(path, "/"), file.Name()))
-			if err != nil {
-				return err
-			}
-			pkgContent = append(pkgContent, fileContent)
-		}
-	}
-	os.WriteFile(pkgFile.Name(), bytes.Join(pkgContent, []byte("\n---\n")), fs.ModeAppend)
-	err = addToArchive(createArchive(layerFile), pkgFile, "package.yaml")
+	logger.Debug("Loading function binaries...")
+	functionLayer, err := image.LoadBinaryLayer(fileContent, functionFileName, fileMode)
 	if err != nil {
 		return err
 	}
 
-	logger.Debugf("Archive %s created, loading to registry.", layerFile)
-	c.Image, err = crane.Append(empty.Image, layerFile.Name())
+	logger.Debug("Loading function package...")
+	packageLayer, err := image.LoadPackageLayerDirectory(ctx, config, logger, fmt.Sprintf("%s/%s", strings.TrimRight(path, "/"), packages.PackagePath))
+	if err != nil {
+		return err
+	}
+
+	cfg, err := c.Image.ConfigFile()
+	if err != nil {
+		return err
+	}
+	cfg = cfg.DeepCopy()
+	cfg.Config.WorkingDir = "/"
+	cfg.Config.ArgsEscaped = true
+	cfg.Config.Entrypoint = []string{
+		"/function",
+	}
+	cfg.Config.ExposedPorts = map[string]struct{}{
+		"9443": {},
+	}
+	logger.Debug("Update image configuration...")
+	c.Image.Image, err = mutate.ConfigFile(c.Image.Image, cfg)
+	if err != nil {
+		return err
+	}
+
+	c.Image.Image, err = mutate.Append(c.Image.Image,
+		mutate.Addendum{
+			Layer: packageLayer,
+		},
+		mutate.Addendum{
+			Layer: functionLayer,
+		},
+	)
 	if err != nil {
 		return err
 	}
 	return c.load(ctx, config, logger)
 }
 
-func (c *Function) build() {
+// Build Go module
+func (c *Function) build(path string) ([]byte, error) {
+
+	args := []string{
+		"build", "-C", path, "-o", functionFileName,
+	}
+	cmd := exec.Command("go", args...)
+	cmd.Env = os.Environ()
+	cmd.Env = append(cmd.Env, "CGO_ENABLED=0")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	err := cmd.Run()
+	if err != nil {
+		return nil, err
+	}
+
+	fileContent, err := os.ReadFile(fmt.Sprintf("%s/%s", strings.TrimRight(path, "/"), functionFileName))
+	if err != nil {
+		return nil, err
+	}
+	return fileContent, nil
 }
 
+// Load function to registry
 func (c *Function) load(ctx context.Context, config *rest.Config, logger *zap.SugaredLogger) error {
 	client, err := kube.Client(config)
 	if err != nil {
@@ -126,36 +159,6 @@ func (c *Function) load(ctx context.Context, config *rest.Config, logger *zap.Su
 		return err
 	}
 	logger.Infof("Image archive %s loaded to local registry.", c.Name)
-
-	return nil
-}
-
-func createArchive(buf io.Writer) *tar.Writer {
-	tw := tar.NewWriter(buf)
-	return tw
-}
-
-func addToArchive(tw *tar.Writer, file *os.File, filename string) error {
-	defer file.Close()
-
-	info, err := file.Stat()
-	if err != nil {
-		return err
-	}
-
-	header, err := tar.FileInfoHeader(info, info.Name())
-	if err != nil {
-		return err
-	}
-	header.Name = filename
-	err = tw.WriteHeader(header)
-	if err != nil {
-		return err
-	}
-	_, err = io.Copy(tw, file)
-	if err != nil {
-		return err
-	}
 
 	return nil
 }

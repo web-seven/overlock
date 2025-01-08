@@ -259,11 +259,15 @@ func PushLocalRegistry(ctx context.Context, imageName string, image regv1.Image,
 		logger.Debugf("Try to push to reference: %s", refName)
 		ref, err := name.ParseReference(refName)
 		if err != nil {
+			logger.Error(err)
 			close(stopChan)
+			return
 		}
 		err = remote.Write(ref, image)
 		if err != nil {
+			logger.Error(err)
 			close(stopChan)
+			return
 		}
 		logger.Debug("Pushed to remote registry.")
 		close(stopChan)

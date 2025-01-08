@@ -15,5 +15,5 @@ type serveCmd struct {
 }
 
 func (c *serveCmd) Run(ctx context.Context, dc *dynamic.DynamicClient, config *rest.Config, logger *zap.SugaredLogger) error {
-	return function.Watch(ctx, dc, config, logger, c.Path)
+	return function.Serve(ctx, dc, config, logger, c.Path)
 }

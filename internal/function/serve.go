@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	cmv1beta1 "github.com/crossplane/crossplane/apis/pkg/meta/v1beta1"
 	"github.com/fsnotify/fsnotify"
+	"github.com/web-seven/overlock/internal/packages"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
@@ -14,7 +16,7 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-func Watch(ctx context.Context, dc *dynamic.DynamicClient, config *rest.Config, logger *zap.SugaredLogger, path string) error {
+func Serve(ctx context.Context, dc *dynamic.DynamicClient, config *rest.Config, logger *zap.SugaredLogger, path string) error {
 	logger.Infof("Started serve path: %s", path)
 
 	loadServed(ctx, dc, config, logger, path)
@@ -32,10 +34,15 @@ func Watch(ctx context.Context, dc *dynamic.DynamicClient, config *rest.Config, 
 				if !ok {
 					return
 				}
-				if event.Has(fsnotify.Write) {
-
-					logger.Debugf("Changed file: %s", event)
-					loadServed(ctx, dc, config, logger, path)
+				if event.Has(fsnotify.Write) ||
+					event.Has(fsnotify.Create) ||
+					event.Has(fsnotify.Remove) ||
+					event.Has(fsnotify.Rename) {
+					fileExt := filepath.Ext(event.Name)
+					if fileExt == ".yaml" || fileExt == ".go" {
+						logger.Debugf("Changed file: %s", event)
+						loadServed(ctx, dc, config, logger, path)
+					}
 				}
 			case err, ok := <-watcher.Errors:
 				if !ok {
@@ -56,49 +63,53 @@ func Watch(ctx context.Context, dc *dynamic.DynamicClient, config *rest.Config, 
 }
 
 func loadServed(ctx context.Context, dc *dynamic.DynamicClient, config *rest.Config, logger *zap.SugaredLogger, path string) {
-	packFiles, err := os.ReadDir(path)
+	packagePath := fmt.Sprintf("%s/%s", path, packages.PackagePath)
+	packFiles, err := os.ReadDir(packagePath)
 	if err != nil {
 		logger.Error(err)
 	}
 
 	for _, e := range packFiles {
-		res := &metav1.TypeMeta{}
-		yamlFile, err := os.ReadFile(fmt.Sprintf("%s/%s", path, e.Name()))
-		if err != nil {
-			logger.Error(err)
-		}
-		err = yaml.Unmarshal(yamlFile, res)
-		if err != nil {
-			logger.Error(err)
-		}
-
-		if res.Kind == "function" {
-			cfnc := &cmv1beta1.Function{}
-			err = yaml.Unmarshal(yamlFile, cfnc)
+		if e.Type().IsRegular() {
+			res := &metav1.TypeMeta{}
+			yamlFile, err := os.ReadFile(fmt.Sprintf("%s/%s", packagePath, e.Name()))
 			if err != nil {
 				logger.Error(err)
 			}
-			fncName := fmt.Sprintf("%s:0.0.0", cfnc.GetName())
-			fnc := New(fncName)
-
-			logger.Debugf("Upgrade function: %s", fnc)
-			err := fnc.UpgradeFunction(ctx, config, dc)
-
-			logger.Infof("Changes detected, apply function: %s", cfnc.GetName())
+			err = yaml.Unmarshal(yamlFile, res)
 			if err != nil {
-				logger.Error(err)
-			} else {
+				logger.Infof("Found non YAML file in package directory: %s. Please move it out before build package.", e.Name())
+				continue
+			}
+			logger.Debugf("Package found with kind: %s", res.Kind)
+			if res.Kind == "Function" {
+				cfnc := &cmv1beta1.Function{}
+				err = yaml.Unmarshal(yamlFile, cfnc)
+				if err != nil {
+					logger.Error(err)
+				}
+				fncName := fmt.Sprintf("%s:0.0.0", cfnc.GetName())
+				fnc := New(fncName)
 
-				logger.Debugf("Loading function: %s", fnc)
-				err = fnc.LoadDirectory(ctx, config, logger, path)
+				logger.Debugf("Upgrade function: %s", fnc)
+				err := fnc.UpgradeFunction(ctx, config, dc)
+
+				logger.Infof("Changes detected, apply function: %s", cfnc.GetName())
 				if err != nil {
 					logger.Error(err)
 				} else {
 
 					logger.Debugf("Loading function: %s", fnc)
-					err = fnc.Apply(ctx, config, logger)
+					err = fnc.LoadDirectory(ctx, config, logger, path)
 					if err != nil {
 						logger.Error(err)
+					} else {
+
+						logger.Debugf("Loading function: %s", fnc)
+						err = fnc.Apply(ctx, config, logger)
+						if err != nil {
+							logger.Error(err)
+						}
 					}
 				}
 			}
