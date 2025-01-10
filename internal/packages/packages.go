@@ -11,7 +11,8 @@ import (
 )
 
 const (
-	tagDelim = ":"
+	tagDelim    = ":"
+	PackagePath = "package"
 )
 
 type Package struct {

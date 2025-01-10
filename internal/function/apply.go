@@ -83,3 +83,34 @@ func ApplyFunction(ctx context.Context, links string, config *rest.Config, logge
 	logger.Info("Function(s) applied successfully.")
 	return nil
 }
+
+func (c *Function) Apply(ctx context.Context, config *rest.Config, logger *zap.SugaredLogger) error {
+
+	_, err := engine.VerifyApi(ctx, config, apiName)
+	if err != nil {
+		logger.Debug(err)
+		logger.Infoln("Crossplane not installed in current context.")
+		logger.Infoln("Function not applied.")
+		return nil
+	}
+
+	scheme := runtime.NewScheme()
+	crossv1.AddToScheme(scheme)
+	if kube, err := client.New(config, client.Options{Scheme: scheme}); err == nil {
+		for _, link := range strings.Split(c.Name, ",") {
+			cfg := &crossv1.Function{}
+			logger.Debugf("Building package %s", link)
+			engine.BuildPack(cfg, link, map[string]string{})
+			pa := resource.NewAPIPatchingApplicator(kube)
+
+			if err := pa.Apply(ctx, cfg); err != nil {
+				return errors.Wrap(err, "Error apply Function(s).")
+			}
+		}
+	} else {
+		return err
+	}
+
+	logger.Info("Function(s) applied successfully.")
+	return nil
+}

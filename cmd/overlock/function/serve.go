@@ -1,11 +1,11 @@
-package configuration
+package function
 
 import (
 	"context"
 
 	"go.uber.org/zap"
 
-	"github.com/web-seven/overlock/internal/configuration"
+	"github.com/web-seven/overlock/internal/function"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 )
@@ -15,5 +15,5 @@ type serveCmd struct {
 }
 
 func (c *serveCmd) Run(ctx context.Context, dc *dynamic.DynamicClient, config *rest.Config, logger *zap.SugaredLogger) error {
-	return configuration.Serve(ctx, dc, config, logger, c.Path)
+	return function.Serve(ctx, dc, config, logger, c.Path)
 }

@@ -4,8 +4,9 @@ import (
 	"context"
 
 	condition "github.com/crossplane/crossplane-runtime/apis/common/v1"
+	"github.com/google/go-containerregistry/pkg/v1/empty"
 
-	regv1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/web-seven/overlock/internal/image"
 	"github.com/web-seven/overlock/internal/kube"
 	"github.com/web-seven/overlock/internal/packages"
 	"go.uber.org/zap"
@@ -22,8 +23,15 @@ const (
 
 type Function struct {
 	Name  string
-	Image regv1.Image
+	Image image.Image
 	packages.Package
+}
+
+func New(name string) *Function {
+	return &Function{
+		Name:  name,
+		Image: image.Image{Image: empty.Image},
+	}
 }
 
 func CheckHealthStatus(status []condition.Condition) bool {

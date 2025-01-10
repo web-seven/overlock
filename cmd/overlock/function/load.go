@@ -7,7 +7,6 @@ import (
 
 	"github.com/web-seven/overlock/internal/function"
 	"github.com/web-seven/overlock/internal/kube"
-	"github.com/web-seven/overlock/internal/loader"
 	"github.com/web-seven/overlock/internal/packages"
 	"github.com/web-seven/overlock/internal/registry"
 	"go.uber.org/zap"
@@ -62,7 +61,7 @@ func (c *loadCmd) Run(ctx context.Context, config *rest.Config, dc *dynamic.Dyna
 	logger.Debugf("Loading image to: %s", fnc.Name)
 	if c.Path != "" {
 		logger.Debugf("Loading from path: %s", c.Path)
-		fnc.Image, err = loader.LoadPathArchive(c.Path)
+		err = fnc.Image.LoadPathArchive(c.Path)
 		if err != nil {
 			return err
 		}
