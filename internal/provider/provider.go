@@ -3,24 +3,22 @@ package provider
 import (
 	"context"
 
-	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"go.uber.org/zap"
 
 	provider "github.com/crossplane/crossplane/apis/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/empty"
+	"github.com/web-seven/overlock/internal/image"
 	"github.com/web-seven/overlock/internal/kube"
 	"github.com/web-seven/overlock/internal/packages"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
-)
-
-const (
-	tagDelim = ":"
+	"k8s.io/client-go/rest"
 )
 
 type Provider struct {
 	Name    string
-	Image   regv1.Image
+	Image   image.Image
 	Upgrade bool
 	Apply   bool
 	packages.Package
@@ -29,7 +27,8 @@ type Provider struct {
 // New Provider entity
 func New(name string) *Provider {
 	return &Provider{
-		Name: name,
+		Name:  name,
+		Image: image.Image{Image: empty.Image},
 	}
 }
 
@@ -43,6 +42,7 @@ func (p *Provider) WithApply(apply bool) *Provider {
 	return p
 }
 
+// Get list of providers from k8s context
 func ListProviders(ctx context.Context, dynamicClient dynamic.Interface, logger *zap.SugaredLogger) []provider.Provider {
 
 	destConf, _ := kube.GetKubeResources(kube.ResourceParams{
@@ -64,4 +64,25 @@ func ListProviders(ctx context.Context, dynamicClient dynamic.Interface, logger 
 		providers = append(providers, paramsProvider)
 	}
 	return providers
+}
+
+// Upgrade provider patch version
+// according to providers from k8s context
+// with same package and same minor version
+func (p *Provider) UpgradeProvider(ctx context.Context, config *rest.Config, dc *dynamic.DynamicClient, logger *zap.SugaredLogger) error {
+	prvs := ListProviders(ctx, dc, logger)
+	var pkgs []packages.Package
+	for _, c := range prvs {
+		pkg := packages.Package{
+			Name: c.Name,
+			Url:  c.Spec.Package,
+		}
+		pkgs = append(pkgs, pkg)
+	}
+	var err error
+	p.Name, err = p.UpgradeVersion(ctx, dc, p.Name, pkgs)
+	if err != nil {
+		return err
+	}
+	return nil
 }

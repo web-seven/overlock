@@ -20,12 +20,10 @@ import (
 )
 
 const (
-	tagDelim                      = ":"
-	regRepoDelimiter              = "/"
-	functionFileName              = "function"
-	fileMode          os.FileMode = 0o777
-	annotationKey     string      = "io.crossplane.xpkg"
-	packageAnnotation string      = "base"
+	tagDelim                     = ":"
+	regRepoDelimiter             = "/"
+	functionFileName             = "function"
+	fileMode         os.FileMode = 0o777
 )
 
 func (c *Function) UpgradeFunction(ctx context.Context, config *rest.Config, dc *dynamic.DynamicClient) error {
@@ -76,11 +74,11 @@ func (c *Function) LoadDirectory(ctx context.Context, config *rest.Config, logge
 	}
 
 	logger.Debug("Loading function package...")
-	packageLayer, err := image.LoadPackageLayerDirectory(ctx, config, logger, fmt.Sprintf("%s/%s", strings.TrimRight(path, "/"), packages.PackagePath))
+	packageLayer, err := image.LoadPackageLayerDirectory(ctx, config, fmt.Sprintf("%s/%s", strings.TrimRight(path, "/"), packages.PackagePath))
 	if err != nil {
 		return err
 	}
-
+	logger.Debug("Function package loaded.")
 	cfg, err := c.Image.ConfigFile()
 	if err != nil {
 		return err

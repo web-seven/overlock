@@ -1,4 +1,4 @@
-package function
+package provider
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	cmv1beta1 "github.com/crossplane/crossplane/apis/pkg/meta/v1beta1"
+	cmv1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 	"github.com/rjeczalik/notify"
 	"github.com/web-seven/overlock/internal/packages"
 	"go.uber.org/zap"
@@ -16,10 +16,10 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-func Serve(ctx context.Context, dc *dynamic.DynamicClient, config *rest.Config, logger *zap.SugaredLogger, path string) error {
+func Serve(ctx context.Context, dc *dynamic.DynamicClient, config *rest.Config, logger *zap.SugaredLogger, path string, mainPath string) error {
 	logger.Infof("Started serve path: %s", path)
 
-	loadServed(ctx, dc, config, logger, path)
+	loadServed(ctx, dc, config, logger, path, mainPath)
 
 	c := make(chan notify.EventInfo, 1)
 
@@ -35,7 +35,7 @@ func Serve(ctx context.Context, dc *dynamic.DynamicClient, config *rest.Config, 
 				fileExt := filepath.Ext(ev.Path())
 				if fileExt == ".yaml" || fileExt == ".go" {
 					logger.Debugf("Changed file: %s", ev)
-					loadServed(ctx, dc, config, logger, path)
+					loadServed(ctx, dc, config, logger, path, mainPath)
 				}
 			case <-ctx.Done():
 				return
@@ -47,7 +47,8 @@ func Serve(ctx context.Context, dc *dynamic.DynamicClient, config *rest.Config, 
 	return nil
 }
 
-func loadServed(ctx context.Context, dc *dynamic.DynamicClient, config *rest.Config, logger *zap.SugaredLogger, path string) {
+// Build and load served provider into k8s context
+func loadServed(ctx context.Context, dc *dynamic.DynamicClient, config *rest.Config, logger *zap.SugaredLogger, path string, mainPath string) {
 	packagePath := fmt.Sprintf("%s/%s", path, packages.PackagePath)
 	packFiles, err := os.ReadDir(packagePath)
 	if err != nil {
@@ -67,31 +68,31 @@ func loadServed(ctx context.Context, dc *dynamic.DynamicClient, config *rest.Con
 				continue
 			}
 			logger.Debugf("Package found with kind: %s", res.Kind)
-			if res.Kind == "Function" {
-				cfnc := &cmv1beta1.Function{}
-				err = yaml.Unmarshal(yamlFile, cfnc)
+			if res.Kind == "Provider" {
+				cpvd := &cmv1.Provider{}
+				err = yaml.Unmarshal(yamlFile, cpvd)
 				if err != nil {
 					logger.Error(err)
 				}
-				fncName := fmt.Sprintf("%s:0.0.0", cfnc.GetName())
-				fnc := New(fncName)
+				pvdName := fmt.Sprintf("%s:0.0.0", cpvd.GetName())
+				pvd := New(pvdName)
 
-				logger.Debugf("Upgrade function: %s", fnc)
-				err := fnc.UpgradeFunction(ctx, config, dc)
+				logger.Debugf("Upgrade provider: %s", pvd)
+				err := pvd.UpgradeProvider(ctx, config, dc, logger)
 
-				logger.Infof("Changes detected, apply function: %s", cfnc.GetName())
+				logger.Infof("Changes detected, apply provider: %s", cpvd.GetName())
 				if err != nil {
 					logger.Error(err)
 				} else {
 
-					logger.Debugf("Loading function: %s", fnc)
-					err = fnc.LoadDirectory(ctx, config, logger, path)
+					logger.Debugf("Loading provider: %s", pvd)
+					err = pvd.LoadDirectory(ctx, config, logger, path, mainPath)
 					if err != nil {
 						logger.Error(err)
 					} else {
 
-						logger.Debugf("Loading function: %s", fnc)
-						err = fnc.Apply(ctx, config, logger)
+						logger.Debugf("Loading provider: %s", pvd)
+						err = pvd.ApplyPackage(ctx, config, logger)
 						if err != nil {
 							logger.Error(err)
 						}

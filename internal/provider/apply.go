@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"strings"
 
 	crossv1 "github.com/crossplane/crossplane/apis/pkg/v1"
 	"go.uber.org/zap"
@@ -30,6 +31,37 @@ func (p *Provider) ApplyProvider(ctx context.Context, links []string, config *re
 	if kube, err := client.New(config, client.Options{Scheme: scheme}); err == nil {
 		for _, link := range links {
 			cfg := &crossv1.Provider{}
+			engine.BuildPack(cfg, link, map[string]string{})
+			pa := resource.NewAPIPatchingApplicator(kube)
+
+			if err := pa.Apply(ctx, cfg); err != nil {
+				return errors.Wrap(err, "Error apply Provider(s).")
+			}
+		}
+	} else {
+		return err
+	}
+
+	logger.Info("Provider(s) applied successfully.")
+	return nil
+}
+
+func (p *Provider) ApplyPackage(ctx context.Context, config *rest.Config, logger *zap.SugaredLogger) error {
+
+	_, err := engine.VerifyApi(ctx, config, apiName)
+	if err != nil {
+		logger.Debug(err)
+		logger.Infoln("Crossplane not installed in current context.")
+		logger.Infoln("Provider not applied.")
+		return nil
+	}
+
+	scheme := runtime.NewScheme()
+	crossv1.AddToScheme(scheme)
+	if kube, err := client.New(config, client.Options{Scheme: scheme}); err == nil {
+		for _, link := range strings.Split(p.Name, ",") {
+			cfg := &crossv1.Provider{}
+			logger.Debugf("Building package %s", link)
 			engine.BuildPack(cfg, link, map[string]string{})
 			pa := resource.NewAPIPatchingApplicator(kube)
 
