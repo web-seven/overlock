@@ -14,7 +14,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/crane"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
-	"go.uber.org/zap"
 	"k8s.io/client-go/rest"
 )
 
@@ -72,10 +71,10 @@ func LoadBinaryLayer(content []byte, fileName string, permissions fs.FileMode) (
 }
 
 // Load configuration package from directory
-func LoadPackageLayerDirectory(ctx context.Context, config *rest.Config, logger *zap.SugaredLogger, path string) (v1.Layer, error) {
+func LoadPackageLayerDirectory(ctx context.Context, config *rest.Config, path string) (v1.Layer, error) {
 	files, err := os.ReadDir(path)
 	if err != nil {
-		logger.Error(err)
+		return nil, err
 	}
 	pkgContent := [][]byte{}
 	for _, file := range files {
@@ -94,6 +93,5 @@ func LoadPackageLayerDirectory(ctx context.Context, config *rest.Config, logger 
 	if err != nil {
 		return nil, err
 	}
-	logger.Debugf("Package layer created.")
 	return layer, nil
 }

@@ -5,6 +5,7 @@ go 1.21.4
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/docker/docker v24.0.7+incompatible
+	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-logr/logr v1.4.1
 	github.com/pkg/errors v0.9.1
 	github.com/posener/complete v1.2.3
@@ -15,6 +16,7 @@ require (
 	k8s.io/apimachinery v0.29.1
 	k8s.io/kubectl v0.29.1
 	sigs.k8s.io/controller-runtime v0.17.0
+	sigs.k8s.io/yaml v1.4.0
 )
 
 require (
@@ -60,7 +62,6 @@ require (
 	github.com/fatih/camelcase v1.0.0 // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/felixge/httpsnoop v1.0.3 // indirect
-	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/fvbommel/sortorder v1.1.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
@@ -179,7 +180,6 @@ require (
 	sigs.k8s.io/kustomize/api v0.13.5-0.20230601165947-6ce0bf390ce3 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.14.3-0.20230601165947-6ce0bf390ce3 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
-	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
 require (
@@ -195,6 +195,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/pterm/pterm v0.12.79
 	github.com/rivo/uniseg v0.4.4 // indirect
+	github.com/rjeczalik/notify v0.9.3
 	github.com/rodaine/table v1.1.1
 	github.com/spf13/afero v1.11.0
 	github.com/willabides/kongplete v0.4.0
