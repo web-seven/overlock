@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/crane"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"k8s.io/client-go/rest"
 )
@@ -27,11 +28,20 @@ type Image struct {
 
 // Load layer from TAR archive path
 func (im *Image) LoadPathArchive(path string) error {
-	image, err := crane.Append(im.Image, path)
+	image, err := crane.Load(path)
 	if err != nil {
 		return err
 	}
-	im.Image = image
+
+	layers, err := image.Layers()
+	if err != nil {
+		return err
+	}
+	im.Image, err = mutate.AppendLayers(im.Image, layers...)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
