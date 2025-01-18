@@ -109,7 +109,7 @@ This project is written in Golang but many of the community contributions so far
 
 ### Chat
 
-[Join Discord here](https://discord.gg/rWdY2y57)
+[Join Discord here](https://discord.gg/UJPGGQtu)
 
 ## License
 
