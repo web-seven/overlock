@@ -11,6 +11,7 @@ import (
 	"github.com/web-seven/overlock/cmd/overlock/configuration"
 	"github.com/web-seven/overlock/cmd/overlock/environment"
 	"github.com/web-seven/overlock/cmd/overlock/function"
+	"github.com/web-seven/overlock/cmd/overlock/network"
 	"github.com/web-seven/overlock/cmd/overlock/provider"
 	"github.com/web-seven/overlock/cmd/overlock/version"
 	"github.com/web-seven/overlock/internal/engine"
@@ -96,6 +97,7 @@ type cli struct {
 	InstallCompletions kongplete.InstallCompletions `cmd:"" help:"Install shell completions"`
 	Provider           provider.Cmd                 `cmd:"" name:"provider" aliases:"prv" help:"Overlock Provider commands"`
 	Function           function.Cmd                 `cmd:"" name:"function" aliases:"fnc" help:"Overlock Function commands"`
+	Network            network.Cmd                  `cmd:"" name:"network" aliases:"net" help:"Overlock Network commands"`
 	// Search             registry.SearchCmd           `cmd:"" help:"Search for packages"`
 	// Generate           generate.Cmd                 `cmd:"" help:"Generate example by XRD YAML file"`
 }
