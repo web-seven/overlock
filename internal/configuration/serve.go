@@ -4,11 +4,12 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"go.uber.org/zap"
 
 	cmv1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
-	"github.com/fsnotify/fsnotify"
+	"github.com/rjeczalik/notify"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
@@ -20,37 +21,27 @@ func Serve(ctx context.Context, dc *dynamic.DynamicClient, config *rest.Config, 
 
 	loadServed(ctx, dc, config, logger, path)
 
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		logger.Error(err)
+	c := make(chan notify.EventInfo, 1)
+
+	if err := notify.Watch(fmt.Sprintf("%s/%s", path, "..."), c, notify.Create, notify.Write, notify.Rename, notify.Remove); err != nil {
+		return err
 	}
-	defer watcher.Close()
+	defer notify.Stop(c)
 
 	go func() {
 		for {
 			select {
-			case event, ok := <-watcher.Events:
-				if !ok {
-					return
-				}
-				if event.Has(fsnotify.Write) {
-
-					logger.Debugf("Changed file: %s", event)
+			case ev := <-c:
+				fileExt := filepath.Ext(ev.Path())
+				if fileExt == ".yaml" {
+					logger.Debugf("Changed file: %s", ev)
 					loadServed(ctx, dc, config, logger, path)
 				}
-			case err, ok := <-watcher.Errors:
-				if !ok {
-					return
-				}
-				logger.Error(err)
+			case <-ctx.Done():
+				return
 			}
 		}
 	}()
-
-	err = watcher.Add(path)
-	if err != nil {
-		logger.Error(err)
-	}
 
 	<-make(chan struct{})
 	return nil

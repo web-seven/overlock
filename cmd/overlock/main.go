@@ -57,6 +57,8 @@ func (c *cli) AfterApply(ctx *kong.Context) error { //nolint:unparam
 		kubeClient, _ := kube.Client(config)
 		ctx.Bind(dynamicClient)
 		ctx.Bind(kubeClient)
+	} else {
+		return fmt.Errorf("kubernetes context is not accessible")
 	}
 
 	cfg := zap.NewDevelopmentConfig()
