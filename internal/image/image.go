@@ -4,17 +4,19 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
-	"fmt"
+	"errors"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
+	"slices"
 
 	"github.com/google/go-containerregistry/pkg/crane"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
+	"gopkg.in/yaml.v2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 )
 
@@ -81,20 +83,39 @@ func LoadBinaryLayer(content []byte, fileName string, permissions fs.FileMode) (
 }
 
 // Load configuration package from directory
-func LoadPackageLayerDirectory(ctx context.Context, config *rest.Config, path string) (v1.Layer, error) {
-	files, err := os.ReadDir(path)
+func LoadPackageLayerDirectory(ctx context.Context, config *rest.Config, path string, kindsFilter []string) (v1.Layer, error) {
+	var files []string
+
+	err := filepath.WalkDir(path, func(path string, d fs.DirEntry, err error) error {
+		if !d.IsDir() && filepath.Ext(path) == ".yaml" {
+			res := &metav1.TypeMeta{}
+			yamlFile, err := os.ReadFile(path)
+			if err != nil {
+				return errors.New("can't read")
+			}
+			err = yaml.Unmarshal(yamlFile, res)
+			if err != nil {
+				return errors.New("can't unmarshal")
+			}
+
+			if slices.Contains(kindsFilter, res.Kind) {
+				files = append(files, path)
+			}
+		}
+		return nil
+	})
+
 	if err != nil {
 		return nil, err
 	}
+
 	pkgContent := [][]byte{}
 	for _, file := range files {
-		if file.Type().IsRegular() && filepath.Ext(file.Name()) == ".yaml" {
-			fileContent, err := os.ReadFile(fmt.Sprintf("%s/%s", strings.TrimRight(path, "/"), file.Name()))
-			if err != nil {
-				return nil, err
-			}
-			pkgContent = append(pkgContent, fileContent)
+		fileContent, err := os.ReadFile(file)
+		if err != nil {
+			return nil, err
 		}
+		pkgContent = append(pkgContent, fileContent)
 	}
 
 	layer, err := crane.Layer(map[string][]byte{

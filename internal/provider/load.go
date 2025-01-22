@@ -92,7 +92,7 @@ func (p *Provider) LoadDirectory(ctx context.Context, config *rest.Config, logge
 	}
 
 	logger.Debug("Loading provider package...")
-	packageLayer, err := image.LoadPackageLayerDirectory(ctx, config, fmt.Sprintf("%s/%s", strings.TrimRight(path, "/"), packages.PackagePath))
+	packageLayer, err := image.LoadPackageLayerDirectory(ctx, config, fmt.Sprintf("%s/%s", strings.TrimRight(path, "/"), packages.PackagePath), []string{"Provider", "CustomResourceDefinition"})
 	if err != nil {
 		return err
 	}

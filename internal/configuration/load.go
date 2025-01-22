@@ -63,7 +63,7 @@ func (c *Configuration) LoadStdinArchive(ctx context.Context, config *rest.Confi
 
 // Load configuration package from directory
 func (c *Configuration) LoadDirectory(ctx context.Context, config *rest.Config, logger *zap.SugaredLogger, path string) error {
-	packageLayer, err := image.LoadPackageLayerDirectory(ctx, config, path)
+	packageLayer, err := image.LoadPackageLayerDirectory(ctx, config, path, []string{"Configuration", "CompositeResourceDefinition", "Composition"})
 	if err != nil {
 		return err
 	}

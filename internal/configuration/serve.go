@@ -54,43 +54,49 @@ func loadServed(ctx context.Context, dc *dynamic.DynamicClient, config *rest.Con
 	}
 
 	for _, e := range packFiles {
-		res := &metav1.TypeMeta{}
-		yamlFile, err := os.ReadFile(fmt.Sprintf("%s/%s", path, e.Name()))
-		if err != nil {
-			logger.Error(err)
-		}
-		err = yaml.Unmarshal(yamlFile, res)
-		if err != nil {
-			logger.Error(err)
-		}
+		if e.Type().IsRegular() {
+			if filepath.Ext(e.Name()) != ".yaml" {
+				continue
+			}
 
-		if res.Kind == "Configuration" {
-			ccfg := &cmv1.Configuration{}
-			err = yaml.Unmarshal(yamlFile, ccfg)
+			res := &metav1.TypeMeta{}
+			yamlFile, err := os.ReadFile(fmt.Sprintf("%s/%s", path, e.Name()))
 			if err != nil {
 				logger.Error(err)
 			}
-			cfgName := fmt.Sprintf("%s:0.0.0", ccfg.GetName())
-			cfg := New(cfgName)
-
-			logger.Debugf("Upgrade Configuration: %s", cfg)
-			err := cfg.UpgradeConfiguration(ctx, config, dc)
-
-			logger.Infof("Changes detected, apply configuration: %s", ccfg.GetName())
+			err = yaml.Unmarshal(yamlFile, res)
 			if err != nil {
 				logger.Error(err)
-			} else {
+			}
 
-				logger.Debugf("Loading Configuration: %s", cfg)
-				err = cfg.LoadDirectory(ctx, config, logger, path)
+			if res.Kind == "Configuration" {
+				ccfg := &cmv1.Configuration{}
+				err = yaml.Unmarshal(yamlFile, ccfg)
+				if err != nil {
+					logger.Error(err)
+				}
+				cfgName := fmt.Sprintf("%s:0.0.0", ccfg.GetName())
+				cfg := New(cfgName)
+
+				logger.Debugf("Upgrade Configuration: %s", cfg)
+				err := cfg.UpgradeConfiguration(ctx, config, dc)
+
+				logger.Infof("Changes detected, apply configuration: %s", ccfg.GetName())
 				if err != nil {
 					logger.Error(err)
 				} else {
 
 					logger.Debugf("Loading Configuration: %s", cfg)
-					err = cfg.Apply(ctx, config, logger)
+					err = cfg.LoadDirectory(ctx, config, logger, path)
 					if err != nil {
 						logger.Error(err)
+					} else {
+
+						logger.Debugf("Loading Configuration: %s", cfg)
+						err = cfg.Apply(ctx, config, logger)
+						if err != nil {
+							logger.Error(err)
+						}
 					}
 				}
 			}
