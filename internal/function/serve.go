@@ -56,6 +56,10 @@ func loadServed(ctx context.Context, dc *dynamic.DynamicClient, config *rest.Con
 
 	for _, e := range packFiles {
 		if e.Type().IsRegular() {
+			if filepath.Ext(e.Name()) != ".yaml" {
+				continue
+			}
+
 			res := &metav1.TypeMeta{}
 			yamlFile, err := os.ReadFile(fmt.Sprintf("%s/%s", packagePath, e.Name()))
 			if err != nil {
@@ -63,8 +67,7 @@ func loadServed(ctx context.Context, dc *dynamic.DynamicClient, config *rest.Con
 			}
 			err = yaml.Unmarshal(yamlFile, res)
 			if err != nil {
-				logger.Infof("Found non YAML file in package directory: %s. Please move it out before build package.", e.Name())
-				continue
+				logger.Error(err)
 			}
 			logger.Debugf("Package found with kind: %s", res.Kind)
 			if res.Kind == "Function" {

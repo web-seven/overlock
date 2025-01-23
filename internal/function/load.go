@@ -74,7 +74,7 @@ func (c *Function) LoadDirectory(ctx context.Context, config *rest.Config, logge
 	}
 
 	logger.Debug("Loading function package...")
-	packageLayer, err := image.LoadPackageLayerDirectory(ctx, config, fmt.Sprintf("%s/%s", strings.TrimRight(path, "/"), packages.PackagePath))
+	packageLayer, err := image.LoadPackageLayerDirectory(ctx, config, fmt.Sprintf("%s/%s", strings.TrimRight(path, "/"), packages.PackagePath), []string{"Function", "CustomResourceDefinition"})
 	if err != nil {
 		return err
 	}

@@ -57,6 +57,10 @@ func loadServed(ctx context.Context, dc *dynamic.DynamicClient, config *rest.Con
 
 	for _, e := range packFiles {
 		if e.Type().IsRegular() {
+			if filepath.Ext(e.Name()) != ".yaml" {
+				continue
+			}
+
 			res := &metav1.TypeMeta{}
 			yamlFile, err := os.ReadFile(fmt.Sprintf("%s/%s", packagePath, e.Name()))
 			if err != nil {
