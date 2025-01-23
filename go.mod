@@ -5,7 +5,6 @@ go 1.21.4
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
 	github.com/docker/docker v24.0.7+incompatible
-	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-logr/logr v1.4.1
 	github.com/pkg/errors v0.9.1
 	github.com/posener/complete v1.2.3
@@ -62,6 +61,7 @@ require (
 	github.com/fatih/camelcase v1.0.0 // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/felixge/httpsnoop v1.0.3 // indirect
+	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/fvbommel/sortorder v1.1.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
