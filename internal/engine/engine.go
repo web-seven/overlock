@@ -24,13 +24,14 @@ const (
 	RepoUrl                 = "https://charts.crossplane.io/stable"
 	ChartName               = "crossplane"
 	ReleaseName             = "overlock-crossplane"
-	Version                 = "1.17.1"
 	trueVal                 = "true"
 	errParsePackageName     = "package name is not valid"
 	OVERLOCK_ENGINE_RELEASE = "OVERLOCK_ENGINE_RELEASE"
+	OVERLOCK_ENGINE_VERSION = "OVERLOCK_ENGINE_VERSION"
 )
 
 var (
+	Version       = "1.19.0"
 	AltRelease    = ""
 	managedLabels = map[string]string{
 		"app.kubernetes.io/managed-by": "overlock",

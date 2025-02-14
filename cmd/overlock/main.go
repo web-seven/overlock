@@ -31,6 +31,7 @@ type Globals struct {
 	Version       VersionFlag `name:"version" help:"Print version information and quit"`
 	Namespace     string      `name:"namespace" short:"n" help:"Namespace used for cluster resources"`
 	EngineRelease string      `name:"engine-release" short:"r" help:"Crossplane Helm release name"`
+	EngineVersion string      `name:"engine-version" default:"1.19.0" short:"v" help:"Crossplane version"`
 }
 
 type VersionFlag string
@@ -77,6 +78,12 @@ func (c *cli) AfterApply(ctx *kong.Context) error { //nolint:unparam
 		engine.AltRelease = os.Getenv(engine.OVERLOCK_ENGINE_RELEASE)
 	} else if c.Globals.EngineRelease != "" {
 		engine.AltRelease = c.Globals.EngineRelease
+	}
+
+	if os.Getenv(engine.OVERLOCK_ENGINE_VERSION) != "" {
+		engine.Version = os.Getenv(engine.OVERLOCK_ENGINE_VERSION)
+	} else if c.Globals.EngineVersion != "" {
+		engine.Version = c.Globals.EngineVersion
 	}
 
 	logger, _ := cfg.Build()
