@@ -34,11 +34,15 @@ type KindPortMapping struct {
 }
 
 func (e *Environment) CreateKindEnvironment(logger *zap.SugaredLogger) (string, error) {
+	var cmd *exec.Cmd
 
-	clusterYaml := e.configYaml(logger)
-
-	cmd := exec.Command("kind", "create", "cluster", "--name", e.name, "--config", "-")
-	cmd.Stdin = strings.NewReader(clusterYaml)
+	if e.engineConfig != "" {
+		cmd = exec.Command("kind", "create", "cluster", "--name", e.name, "--config", e.engineConfig)
+	} else {
+		clusterYaml := e.configYaml(logger)
+		cmd = exec.Command("kind", "create", "cluster", "--name", e.name, "--config", "-")
+		cmd.Stdin = strings.NewReader(clusterYaml)
+	}
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {

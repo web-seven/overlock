@@ -26,13 +26,14 @@ import (
 )
 
 type Environment struct {
-	name      string
-	engine    string
-	httpPort  int
-	httpsPort int
-	mountPath string
-	context   string
-	options   EnvironmentOptions
+	name         string
+	engine       string
+	engineConfig string
+	httpPort     int
+	httpsPort    int
+	mountPath    string
+	context      string
+	options      EnvironmentOptions
 }
 
 // New Environment entity
@@ -329,6 +330,11 @@ func (e *Environment) WithContext(context string) *Environment {
 
 func (e *Environment) WithMountPath(path string) *Environment {
 	e.mountPath = path
+	return e
+}
+
+func (e *Environment) WithEngineConfig(engineConfig string) *Environment {
+	e.engineConfig = engineConfig
 	return e
 }
 
