@@ -1,4 +1,4 @@
-# Overlock
+[![Discord](https://img.shields.io/badge/discord-join-7289DA.svg?logo=discord&longCache=true&style=flat)](https://discord.gg/amQZEMFbTe)
 <p align="center">
   <img width="500" src="https://raw.githubusercontent.com/web-seven/overlock/refs/heads/main/docs/overlock_galaxy_text.png"/>
 </p>
@@ -109,7 +109,7 @@ This project is written in Golang but many of the community contributions so far
 
 ### Chat
 
-[Join Discord here](https://discord.gg/UJPGGQtu)
+[Join Discord here](https://discord.gg/amQZEMFbTe)
 
 ## License
 
