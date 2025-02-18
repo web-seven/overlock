@@ -2,7 +2,6 @@ package provider
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -98,9 +97,6 @@ func (p *Provider) LoadDirectory(ctx context.Context, config *rest.Config, logge
 	}
 	logger.Debugf("Package layer created.")
 	logger.Debugf("Creating image configuration...")
-
-	res2print, _ := json.MarshalIndent(p.Image.Image, "", "  ")
-	fmt.Println(string(res2print))
 
 	cfg, err := p.Image.Image.ConfigFile()
 	if err != nil {
