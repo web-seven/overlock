@@ -53,6 +53,7 @@ func addKyvernoPolicyConroller(ctx context.Context, config *rest.Config) error {
 	}
 
 	manager, err := helm.NewManager(config, kyvernoChartName, repoURL, kyvernoReleaseName,
+		helm.InstallerModifierFn(helm.Wait()),
 		helm.InstallerModifierFn(helm.WithNamespace(kyvernoNamespace)),
 		helm.InstallerModifierFn(helm.WithUpgradeInstall(true)),
 		helm.InstallerModifierFn(helm.WithCreateNamespace(true)),
