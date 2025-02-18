@@ -39,8 +39,7 @@ func (c *loadCmd) Run(ctx context.Context, config *rest.Config, dc *dynamic.Dyna
 		}
 	}
 
-	fnc := function.Function{}
-	fnc.Name = c.Name
+	fnc := function.New(c.Name)
 
 	fncs := function.GetFunctions(ctx, dc)
 	var pkgs []packages.Package
