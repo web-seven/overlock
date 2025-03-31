@@ -3,7 +3,7 @@ package environment
 import (
 	"context"
 
-	"github.com/web-seven/overlock/internal/environment"
+	"github.com/web-seven/overlock/pkg/environment"
 
 	"go.uber.org/zap"
 )

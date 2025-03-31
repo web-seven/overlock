@@ -19,6 +19,8 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
+	pluginPkg "github.com/web-seven/overlock/pkg/plugin"
+
 	"github.com/web-seven/overlock/cmd/overlock/registry"
 	"github.com/web-seven/overlock/cmd/overlock/resource"
 	"github.com/willabides/kongplete"
@@ -32,6 +34,7 @@ type Globals struct {
 	Namespace     string      `name:"namespace" short:"n" help:"Namespace used for cluster resources"`
 	EngineRelease string      `name:"engine-release" short:"r" help:"Crossplane Helm release name"`
 	EngineVersion string      `name:"engine-version" default:"1.19.0" short:"v" help:"Crossplane version"`
+	PluginPath    string      `name:"plugin-path" help:"Path to the plugin file" default:"./plugins"`
 }
 
 type VersionFlag string
@@ -113,22 +116,30 @@ func main() {
 
 	c := cli{
 		Globals: Globals{
-			Version: VersionFlag(version.Version),
+			Version:    VersionFlag(version.Version),
+			PluginPath: pluginPkg.PluginPath,
 		},
+	}
+	pluginOptions, err := pluginPkg.LoadPlugins()
+	if err != nil {
+		fmt.Println("Warning:", err)
+		pluginOptions = []kong.Option{}
 	}
 
 	parser := kong.Must(&c,
-		kong.Name("overlock"),
-		kong.Description(getDescriptionText()),
-		kong.Help(func(options kong.HelpOptions, ctx *kong.Context) error {
-			return kong.DefaultHelpPrinter(options, ctx)
-		}),
-		kong.Vars{
-			"version": version.Version,
-		},
-		kong.ConfigureHelp(kong.HelpOptions{
-			Tree: true,
-		}))
+		append([]kong.Option{
+			kong.Name("overlock"),
+			kong.Description(getDescriptionText()),
+			kong.Help(func(options kong.HelpOptions, ctx *kong.Context) error {
+				return kong.DefaultHelpPrinter(options, ctx)
+			}),
+			kong.Vars{
+				"version": version.Version,
+			},
+			kong.ConfigureHelp(kong.HelpOptions{
+				Tree: true,
+			}),
+		}, pluginOptions...)...)
 
 	kongplete.Complete(parser)
 
