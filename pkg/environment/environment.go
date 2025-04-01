@@ -17,8 +17,8 @@ import (
 	"github.com/web-seven/overlock/internal/kube"
 	"github.com/web-seven/overlock/internal/namespace"
 	"github.com/web-seven/overlock/internal/policy"
-	"github.com/web-seven/overlock/internal/registry"
 	"github.com/web-seven/overlock/internal/resources"
+	"github.com/web-seven/overlock/pkg/registry"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
@@ -34,6 +34,7 @@ type Environment struct {
 	mountPath    string
 	context      string
 	options      EnvironmentOptions
+	disablePorts bool
 }
 
 // New Environment entity
@@ -335,6 +336,11 @@ func (e *Environment) WithMountPath(path string) *Environment {
 
 func (e *Environment) WithEngineConfig(engineConfig string) *Environment {
 	e.engineConfig = engineConfig
+	return e
+}
+
+func (e *Environment) WithDisabledPorts(disablePorts bool) *Environment {
+	e.disablePorts = disablePorts
 	return e
 }
 

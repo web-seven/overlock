@@ -101,7 +101,21 @@ func (e *Environment) KindContextName() string {
 
 // Return YAML of cluster config file
 func (e *Environment) configYaml(logger *zap.SugaredLogger) string {
-
+	ports := []KindPortMapping{
+		{
+			ContainerPort: 80,
+			HostPort:      e.httpPort,
+			Protocol:      "TCP",
+		},
+		{
+			ContainerPort: 443,
+			HostPort:      e.httpsPort,
+			Protocol:      "TCP",
+		},
+	}
+	if e.disablePorts {
+		ports = []KindPortMapping{}
+	}
 	template := KindCluster{
 		Kind:       "Cluster",
 		APIVersion: "kind.x-k8s.io/v1alpha4",
@@ -114,18 +128,8 @@ nodeRegistration:
   kubeletExtraArgs:
     node-labels: "ingress-ready=true"`,
 				},
-				ExtraPortMappings: []KindPortMapping{
-					{
-						ContainerPort: 80,
-						HostPort:      e.httpPort,
-						Protocol:      "TCP",
-					},
-					{
-						ContainerPort: 443,
-						HostPort:      e.httpsPort,
-						Protocol:      "TCP",
-					},
-				},
+
+				ExtraPortMappings: ports,
 			},
 		},
 	}
