@@ -46,6 +46,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+    - name: Set APP_VERSION env
+      run: echo APP_VERSION=$(echo ${GITHUB_REF} | rev | cut -d'/' -f 1 | rev ) >> ${GITHUB_ENV}
     - uses: ko-build/setup-ko@v0.8
       env:
         KO_DOCKER_REPO: ${{ github.repository }}
