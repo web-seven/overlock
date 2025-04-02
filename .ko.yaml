@@ -11,4 +11,4 @@ builds:
   ldflags:
   - -s -w
   - -extldflags "-static"
-  - -X main.Version={{.Env.VERSION}}
+  - -X "github.com/web-seven/overlock/cmd/overlock/version.Version={{.Env.VERSION}}"
