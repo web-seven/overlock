@@ -15,51 +15,70 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
-	"github.com/web-seven/overlock-api/go/node/overlock/crossplane/v1beta1"
-	"github.com/web-seven/overlock/pkg/environment"
+	crossplanev1beta1 "github.com/web-seven/overlock-api/go/node/overlock/crossplane/v1beta1"
+	storagev1beta1 "github.com/web-seven/overlock-api/go/node/overlock/storage/v1beta1"
 	"github.com/web-seven/overlock/plugins/cosmos/pkg/types"
 
 	"go.uber.org/zap"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
-func Subscribe(engine, creator, host, port, path string) {
+func Subscribe(engine, creator, host, port, path, grpcAddress string, client *kubernetes.Clientset, config *rest.Config) {
 	logger := zap.NewExample().Sugar()
 	defer logger.Sync()
 
 	u := url.URL{Scheme: "ws", Host: fmt.Sprintf("%s:%s", host, port), Path: path}
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt)
+	go func() {
+		<-quit
+		logger.Info("Shutting down WebSocket listener...")
+		cancel()
+	}()
+
+	retryInterval := 3 * time.Second
 
 	for {
+		select {
+		case <-ctx.Done():
+			logger.Info("WebSocket listener stopped.")
+			return
+		default:
+		}
+
 		conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 		if err != nil {
 			logger.Errorf("WebSocket connection failed: %v", err)
-			time.Sleep(5 * time.Second)
+			time.Sleep(retryInterval)
 			continue
 		}
 
 		logger.Info("Connected to WebSocket")
-		query := "message.action='/overlock.crossplane.v1beta1.MsgCreateEnvironment'"
+
+		queries := []string{
+			"message.action='/overlock.crossplane.v1beta1.MsgCreateEnvironment'",
+			"message.action='/overlock.storage.v1beta1.MsgCreateRegistry'",
+		}
 		if creator != "" {
-			query += fmt.Sprintf(" AND message.sender='%s'", creator)
+			for i := range queries {
+				queries[i] += fmt.Sprintf(" AND message.sender='%s'", creator)
+			}
 		}
 
-		subscribeMsg := fmt.Sprintf(`{"jsonrpc":"2.0","method":"subscribe","id":1,"params":{"query":"%s"}}`, query)
-		err = conn.WriteMessage(websocket.TextMessage, []byte(subscribeMsg))
-		if err != nil {
-			logger.Errorf("Subscription error: %v", err)
-			conn.Close()
-			time.Sleep(3 * time.Second)
-			continue
+		for _, query := range queries {
+			subscribeMsg := fmt.Sprintf(`{"jsonrpc":"2.0","method":"subscribe","id":1,"params":{"query":"%s"}}`, query)
+			if err = conn.WriteMessage(websocket.TextMessage, []byte(subscribeMsg)); err != nil {
+				logger.Errorf("Subscription error: %v", err)
+				conn.Close()
+				time.Sleep(retryInterval)
+				continue
+			}
 		}
-
-		go func() {
-			<-quit
-			logger.Info("Shutting down WebSocket listener...")
-			conn.Close()
-			os.Exit(0)
-		}()
 
 		for {
 			_, message, err := conn.ReadMessage()
@@ -68,21 +87,23 @@ func Subscribe(engine, creator, host, port, path string) {
 				break
 			}
 
-			var msg v1beta1.MsgCreateEnvironment
-			decodedMsg, err := processMessage(message, &msg, "/overlock.crossplane.v1beta1.MsgCreateEnvironment")
-			if err != nil {
-				logger.Errorf("Error processing message: %v", err)
+			var envMsg crossplanev1beta1.MsgCreateEnvironment
+			if decodedEnvMsg, err := processMessage(message, &envMsg, "/overlock.crossplane.v1beta1.MsgCreateEnvironment"); err == nil {
+				logger.Infof("Received environment creation request: %s", decodedEnvMsg.Metadata.Name)
+				go createEnvironment(engine, context.Background(), logger, envMsg)
 				continue
 			}
 
-			logger.Infof("Received environment creation request: %s", decodedMsg.Metadata.Name)
-
-			createEnvironment(engine, context.Background(), logger, msg)
+			var regMsg storagev1beta1.MsgCreateRegistry
+			if decodedRegMsg, err := processMessage(message, &regMsg, "/overlock.storage.v1beta1.MsgCreateRegistry"); err == nil {
+				logger.Infof("Received registry creation request: %s", decodedRegMsg.Name)
+				go createRegistry(engine, context.Background(), logger, regMsg, client, config, grpcAddress)
+			}
 		}
 
 		logger.Warn("Reconnecting to WebSocket in 3 seconds...")
 		conn.Close()
-		time.Sleep(3 * time.Second)
+		time.Sleep(retryInterval)
 	}
 }
 
@@ -128,16 +149,6 @@ func processMessage[T proto.Message](message []byte, msgStruct T, typeUrl string
 	return msgStruct, fmt.Errorf("no message found for TypeUrl: %s", typeUrl)
 }
 
-func createEnvironment(engine string, ctx context.Context, logger *zap.SugaredLogger, msg v1beta1.MsgCreateEnvironment) {
-
-	err := environment.New(engine, msg.Metadata.Name).Create(ctx, logger)
-	if err != nil {
-		logger.Errorf("Error creating environment: %v", err)
-		return
-	}
-
-	logger.Infof("Successfully created environment: %s", msg.Metadata.Name)
-}
 func ValidateRequest(i interface{}) error {
 	validate := validator.New(validator.WithRequiredStructEnabled())
 

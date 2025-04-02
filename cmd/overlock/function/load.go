@@ -8,7 +8,7 @@ import (
 	"github.com/web-seven/overlock/internal/function"
 	"github.com/web-seven/overlock/internal/kube"
 	"github.com/web-seven/overlock/internal/packages"
-	"github.com/web-seven/overlock/internal/registry"
+	"github.com/web-seven/overlock/pkg/registry"
 	"go.uber.org/zap"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"

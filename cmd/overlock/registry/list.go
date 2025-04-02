@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/pterm/pterm"
-	"github.com/web-seven/overlock/internal/registry"
+	"github.com/web-seven/overlock/pkg/registry"
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
 )

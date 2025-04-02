@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/web-seven/overlock/internal/github"
-	"github.com/web-seven/overlock/internal/registry"
+	"github.com/web-seven/overlock/pkg/registry"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )

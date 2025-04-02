@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/pterm/pterm"
-	"github.com/web-seven/overlock/internal/registry"
+	"github.com/web-seven/overlock/pkg/registry"
 	"go.uber.org/zap"
 
 	"github.com/google/go-github/v61/github"
