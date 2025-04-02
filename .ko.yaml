@@ -1,5 +1,8 @@
+defaultPlatforms:
+  - linux/arm64
+  - linux/amd64
 builds:
-- id: overlock-cli
+- id: overlock
   dir: . 
   main: ./cmd/overlock
   flags:

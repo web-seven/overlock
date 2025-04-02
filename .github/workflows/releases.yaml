@@ -41,3 +41,16 @@ jobs:
         project_path: "./cmd/overlock"
         binary_name: "overlock"
         ldflags: -X "github.com/web-seven/overlock/cmd/overlock/version.Version=${{ env.APP_VERSION }}"
+  releases-images:
+    name: Release OCI Images
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: ko-build/setup-ko@v0.8
+      env:
+        KO_DOCKER_REPO: ${{ github.repository }}
+    - env:
+        auth_token: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        echo "${auth_token}" | ko login https://${{ github.repository }} --username my-username --password-stdin
+        ko build ./cmd/overlock -t ${{ env.APP_VERSION }} --bare --image-label "org.opencontainers.image.source=https://${{ github.repository }}"
