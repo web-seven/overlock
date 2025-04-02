@@ -52,9 +52,9 @@ jobs:
       run: echo APP_VERSION=$(echo ${GITHUB_REF} | rev | cut -d'/' -f 1 | rev ) >> ${GITHUB_ENV}
     - uses: ko-build/setup-ko@v0.8
       env:
-        KO_DOCKER_REPO: ${{ github.repository }}
+        KO_DOCKER_REPO: ghcr.io/${{ github.repository }}
     - env:
-        auth_token: ${{ secrets.ACCESS_TOKEN }}
+        auth_token: ${{ secrets.GITHUB_TOKEN }}
         VERSION: ${{ env.APP_VERSION }}
       run: |
         echo "${auth_token}" | ko login ghcr.io --username username --password-stdin
