@@ -54,8 +54,8 @@ jobs:
       env:
         KO_DOCKER_REPO: ${{ github.repository }}
     - env:
-        auth_token: ${{ secrets.GITHUB_TOKEN }}
+        auth_token: ${{ secrets.ACCESS_TOKEN }}
         VERSION: ${{ env.APP_VERSION }}
       run: |
-        echo "${auth_token}" | ko login ghcr.io --username my-username --password-stdin
+        echo "${auth_token}" | ko login ghcr.io --username username --password-stdin
         ko build ./cmd/overlock -t ${{ env.APP_VERSION }} --bare --image-label "org.opencontainers.image.source=https://github.com/${{ github.repository }}"
