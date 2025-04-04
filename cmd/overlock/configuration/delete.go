@@ -3,7 +3,7 @@ package configuration
 import (
 	"context"
 
-	"github.com/web-seven/overlock/internal/configuration"
+	"github.com/web-seven/overlock/pkg/configuration"
 	"go.uber.org/zap"
 	"k8s.io/client-go/dynamic"
 )
