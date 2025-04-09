@@ -17,14 +17,16 @@ import (
 	"github.com/gorilla/websocket"
 	crossplanev1beta1 "github.com/web-seven/overlock-api/go/node/overlock/crossplane/v1beta1"
 	storagev1beta1 "github.com/web-seven/overlock-api/go/node/overlock/storage/v1beta1"
+	"github.com/web-seven/overlock/plugins/cosmos/pkg/network/configuration"
 	"github.com/web-seven/overlock/plugins/cosmos/pkg/types"
 
 	"go.uber.org/zap"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
 
-func Subscribe(engine, creator, host, port, path, grpcAddress string, client *kubernetes.Clientset, config *rest.Config) {
+func Subscribe(engine, creator, host, port, path, grpcAddress string, client *kubernetes.Clientset, config *rest.Config, dc *dynamic.DynamicClient) {
 	logger := zap.NewExample().Sugar()
 	defer logger.Sync()
 
@@ -104,7 +106,7 @@ func Subscribe(engine, creator, host, port, path, grpcAddress string, client *ku
 			var confMsg crossplanev1beta1.MsgCreateConfiguration
 			if decodedConfMsg, err := processMessage(message, &confMsg, "/overlock.crossplane.v1beta1.MsgCreateConfiguration"); err == nil {
 				logger.Infof("Received configuration creation request: %s", decodedConfMsg.Metadata.Name)
-				go createConfiguration(context.Background(), logger, confMsg, config)
+				go configuration.CreateConfiguration(context.Background(), logger, confMsg, config, dc)
 				continue
 			}
 		}

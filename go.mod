@@ -3,6 +3,7 @@ module github.com/web-seven/overlock
 go 1.24.0
 
 require (
+	github.com/Masterminds/semver v1.5.0
 	github.com/Masterminds/semver/v3 v3.3.0
 	github.com/cosmos/cosmos-sdk v0.50.13
 	github.com/docker/docker v24.0.7+incompatible
@@ -12,7 +13,7 @@ require (
 	github.com/iancoleman/strcase v0.3.0
 	github.com/pkg/errors v0.9.1
 	github.com/posener/complete v1.2.3
-	github.com/web-seven/overlock-api v0.0.0-20250402144010-074eacaf3a93
+	github.com/web-seven/overlock-api v0.0.0-20250404135307-24ee7e05cc83
 	go.uber.org/zap v1.26.0
 	google.golang.org/grpc v1.71.0
 	gopkg.in/yaml.v2 v2.4.0

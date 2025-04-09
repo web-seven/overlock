@@ -1,8 +1,9 @@
-package network
+package configuration
 
 import (
-	"context"
 	"crypto"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -11,33 +12,49 @@ import (
 	"errors"
 	"os"
 
-	crossplanev1beta1 "github.com/web-seven/overlock-api/go/node/overlock/crossplane/v1beta1"
-	"github.com/web-seven/overlock/pkg/configuration"
 	"github.com/zalando/go-keyring"
 	"go.uber.org/zap"
-	"k8s.io/client-go/rest"
 )
 
-func createConfiguration(ctx context.Context, logger *zap.SugaredLogger, msg crossplanev1beta1.MsgCreateConfiguration, config *rest.Config) {
-	configurationPackage := msg.Spec.GetPackage()
-	if configurationPackage == "" {
-		logger.Error("Configuration package is nil")
-		return
-	}
-	pkg, err := decryptPackage(configurationPackage, logger)
+func decryptPackage(encryptedData string, key []byte) ([]byte, error) {
+	ciphertext, err := base64.StdEncoding.DecodeString(encryptedData)
 	if err != nil {
-		logger.Errorf("Failed to decode package: %v", err)
-		return
+		return nil, err
 	}
-	cfg := configuration.New(pkg)
-	cfg.Apply(ctx, config, logger)
 
-	logger.Infof("Successfully created configuration: %s", msg.Metadata.Name)
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+
+	nonceSize := gcm.NonceSize()
+	if len(ciphertext) < nonceSize {
+		return nil, errors.New("invalid ciphertext length")
+	}
+
+	nonce, ciphertext := ciphertext[:nonceSize], ciphertext[nonceSize:]
+
+	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return plaintext, nil
 }
 
-func decryptPackage(encryptedPkg string, logger *zap.SugaredLogger) (string, error) {
+func DecryptFromKeyring(encrypted string, logger *zap.SugaredLogger) (string, error) {
 	service := "overlock"
 	username := os.Getenv("USER")
+	if username == "" {
+		logger.Error("Environment variable USER is not set")
+		return "", errors.New("missing USER environment variable")
+	}
+
 	privateKeyStr, err := keyring.Get(service, username)
 	if err != nil {
 		logger.Errorf("Key not found in keyring: %v", err)
@@ -52,13 +69,12 @@ func decryptPackage(encryptedPkg string, logger *zap.SugaredLogger) (string, err
 
 	privateKey, err := parseKey(block.Bytes, logger)
 	if err != nil {
-		logger.Errorf("Failed to parse private key: %v", err)
 		return "", err
 	}
 
-	decodedBytes, err := base64.StdEncoding.DecodeString(encryptedPkg)
+	decodedBytes, err := base64.StdEncoding.DecodeString(encrypted)
 	if err != nil {
-		logger.Errorf("Failed to decode base64 package: %v", err)
+		logger.Errorf("Failed to decode base64 string: %v", err)
 		return "", err
 	}
 

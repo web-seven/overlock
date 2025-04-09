@@ -2,6 +2,7 @@ package cosmos
 
 import (
 	"github.com/web-seven/overlock/plugins/cosmos/pkg/network"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
@@ -15,7 +16,7 @@ type subscribeCmd struct {
 	GrpcAddress string `optional:"" short:"g" help:"Specifies the gRPC address to connect to." default:"localhost:9090"`
 }
 
-func (c *subscribeCmd) Run(client *kubernetes.Clientset, config *rest.Config) error {
-	network.Subscribe(c.Engine, c.Creator, c.Host, c.Port, c.Path, c.GrpcAddress, client, config)
+func (c *subscribeCmd) Run(client *kubernetes.Clientset, config *rest.Config, dc *dynamic.DynamicClient) error {
+	network.Subscribe(c.Engine, c.Creator, c.Host, c.Port, c.Path, c.GrpcAddress, client, config, dc)
 	return nil
 }
