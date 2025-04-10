@@ -3,6 +3,7 @@ module github.com/web-seven/overlock
 go 1.24.0
 
 require (
+	github.com/Masterminds/semver v1.5.0
 	github.com/Masterminds/semver/v3 v3.3.0
 	github.com/cosmos/cosmos-sdk v0.50.13
 	github.com/docker/docker v24.0.7+incompatible
@@ -12,7 +13,7 @@ require (
 	github.com/iancoleman/strcase v0.3.0
 	github.com/pkg/errors v0.9.1
 	github.com/posener/complete v1.2.3
-	github.com/web-seven/overlock-api v0.0.0-20250401142530-ed118ec74c4e
+	github.com/web-seven/overlock-api v0.0.0-20250404135307-24ee7e05cc83
 	go.uber.org/zap v1.26.0
 	google.golang.org/grpc v1.71.0
 	gopkg.in/yaml.v2 v2.4.0
@@ -26,6 +27,7 @@ require (
 )
 
 require (
+	al.essio.dev/pkg/shellescape v1.5.1 // indirect
 	atomicgo.dev/cursor v0.2.0 // indirect
 	atomicgo.dev/keyboard v0.2.9 // indirect
 	atomicgo.dev/schedule v0.1.0 // indirect
@@ -88,7 +90,7 @@ require (
 	github.com/cosmos/ics23/go v0.11.0 // indirect
 	github.com/cosmos/ledger-cosmos-go v0.14.0 // indirect
 	github.com/cyphar/filepath-securejoin v0.2.4 // indirect
-	github.com/danieljoos/wincred v1.2.0 // indirect
+	github.com/danieljoos/wincred v1.2.2 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
 	github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f // indirect
@@ -129,6 +131,7 @@ require (
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/godbus/dbus v0.0.0-20190726142602-4481cbc300e2 // indirect
+	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/gogo/googleapis v1.4.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/glog v1.2.4 // indirect
@@ -303,6 +306,7 @@ require (
 	github.com/rodaine/table v1.1.1
 	github.com/spf13/afero v1.11.0
 	github.com/willabides/kongplete v0.4.0
+	github.com/zalando/go-keyring v0.2.6
 	golang.org/x/sys v0.29.0 // indirect
 	golang.org/x/term v0.28.0 // indirect
 	golang.org/x/text v0.21.0 // indirect

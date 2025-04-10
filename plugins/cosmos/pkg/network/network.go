@@ -17,14 +17,16 @@ import (
 	"github.com/gorilla/websocket"
 	crossplanev1beta1 "github.com/web-seven/overlock-api/go/node/overlock/crossplane/v1beta1"
 	storagev1beta1 "github.com/web-seven/overlock-api/go/node/overlock/storage/v1beta1"
+	"github.com/web-seven/overlock/plugins/cosmos/pkg/network/configuration"
 	"github.com/web-seven/overlock/plugins/cosmos/pkg/types"
 
 	"go.uber.org/zap"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
 
-func Subscribe(engine, creator, host, port, path, grpcAddress string, client *kubernetes.Clientset, config *rest.Config) {
+func Subscribe(engine, creator, host, port, path, grpcAddress string, client *kubernetes.Clientset, config *rest.Config, dc *dynamic.DynamicClient) {
 	logger := zap.NewExample().Sugar()
 	defer logger.Sync()
 
@@ -63,6 +65,7 @@ func Subscribe(engine, creator, host, port, path, grpcAddress string, client *ku
 		queries := []string{
 			"message.action='/overlock.crossplane.v1beta1.MsgCreateEnvironment'",
 			"message.action='/overlock.storage.v1beta1.MsgCreateRegistry'",
+			"message.action='/overlock.crossplane.v1beta1.MsgCreateConfiguration'",
 		}
 		if creator != "" {
 			for i := range queries {
@@ -98,6 +101,13 @@ func Subscribe(engine, creator, host, port, path, grpcAddress string, client *ku
 			if decodedRegMsg, err := processMessage(message, &regMsg, "/overlock.storage.v1beta1.MsgCreateRegistry"); err == nil {
 				logger.Infof("Received registry creation request: %s", decodedRegMsg.Name)
 				go createRegistry(engine, context.Background(), logger, regMsg, client, config, grpcAddress)
+			}
+
+			var confMsg crossplanev1beta1.MsgCreateConfiguration
+			if decodedConfMsg, err := processMessage(message, &confMsg, "/overlock.crossplane.v1beta1.MsgCreateConfiguration"); err == nil {
+				logger.Infof("Received configuration creation request: %s", decodedConfMsg.Metadata.Name)
+				go configuration.CreateConfiguration(context.Background(), logger, confMsg, config, dc)
+				continue
 			}
 		}
 
