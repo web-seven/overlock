@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/web-seven/overlock/plugins/cosmos/cmd/billing"
 	cosmos "github.com/web-seven/overlock/plugins/cosmos/cmd/network"
 
 	"github.com/iancoleman/strcase"
@@ -13,7 +14,8 @@ import (
 
 type CLI struct {
 	Cosmos struct {
-		Network cosmos.Cmd `cmd:"" help:"Network information"`
+		Network cosmos.Cmd  `cmd:"" help:"Network information"`
+		Billing billing.Cmd `cmd:"" help:"Billing for the Cosmos environment"`
 	} `cmd:"" help:"Cosmos plugin commands"`
 }
 
