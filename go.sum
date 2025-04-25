@@ -834,10 +834,8 @@ github.com/openzipkin-contrib/zipkin-go-opentracing v0.4.5/go.mod h1:/wsWhb9smxS
 github.com/openzipkin/zipkin-go v0.1.6/go.mod h1:QgAqvLzwWbR/WpD4A3cGpPtJrZXNIiJc5AZX7/PBEpw=
 github.com/openzipkin/zipkin-go v0.2.1/go.mod h1:NaW6tEwdmWMaCDZzg8sh+IBNOxHMPnhQw8ySjnjRyN4=
 github.com/openzipkin/zipkin-go v0.2.2/go.mod h1:NaW6tEwdmWMaCDZzg8sh+IBNOxHMPnhQw8ySjnjRyN4=
-github.com/overlock-network/api v0.0.0-20250425150937-aad77bfe426c h1:VKeigi4T+OcsStRns4+w8P9jjLcbtzbJqRGm9zo2Fg8=
-github.com/overlock-network/api v0.0.0-20250425150937-aad77bfe426c/go.mod h1:ECaIWQVekL7FLBStZSNdKzCFrhESmh9XjO1k/CdzoTA=
-github.com/overlock-network/api v0.0.0-20250425152114-24800575ad7f h1:hkQ091+VIgj4qoWxPPv+5Kig5Cmfgl2BATV86lgVgXU=
-github.com/overlock-network/api v0.0.0-20250425152114-24800575ad7f/go.mod h1:qXUoNzQy+sN8ppmmIpJs4tgpIxkhz3rcXh8eXVvMX5U=
+github.com/overlock-network/api v0.0.0-20250425155150-1eb99d0baaa4 h1:ezY/d7HHNVidWuCgT9+gCM+nXn2+57ocU3i7/8ooP6I=
+github.com/overlock-network/api v0.0.0-20250425155150-1eb99d0baaa4/go.mod h1:ECaIWQVekL7FLBStZSNdKzCFrhESmh9XjO1k/CdzoTA=
 github.com/pact-foundation/pact-go v1.0.4/go.mod h1:uExwJY4kCzNPcHRj+hCR/HBbOOIwwtUjcrb0b5/5kLM=
 github.com/pascaldekloe/goe v0.0.0-20180627143212-57f6aae5913c/go.mod h1:lzWF7FIEvWOWxwDKqyGYQf6ZUaNfKdP144TG7ZOy1lc=
 github.com/pascaldekloe/goe v0.1.0 h1:cBOtyMzM9HTpWjXfbbunk26uA6nG3a8n06Wieeh0MwY=
