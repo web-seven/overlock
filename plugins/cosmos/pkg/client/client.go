@@ -3,7 +3,7 @@ package client
 import (
 	"log"
 
-	crossplanev1beta1 "github.com/web-seven/overlock-api/go/node/overlock/crossplane/v1beta1"
+	crossplanev1beta1 "github.com/overlock-network/api/go/node/overlock/crossplane/v1beta1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )

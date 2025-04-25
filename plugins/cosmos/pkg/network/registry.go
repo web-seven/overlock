@@ -5,8 +5,8 @@ import (
 	"regexp"
 	"strings"
 
+	storagev1beta1 "github.com/overlock-network/api/go/node/overlock/storage/v1beta1"
 	"github.com/pterm/pterm"
-	storagev1beta1 "github.com/web-seven/overlock-api/go/node/overlock/storage/v1beta1"
 	"github.com/web-seven/overlock/pkg/environment"
 	"github.com/web-seven/overlock/pkg/registry"
 	"go.uber.org/zap"

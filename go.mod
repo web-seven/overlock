@@ -11,9 +11,9 @@ require (
 	github.com/golang/protobuf v1.5.4
 	github.com/gorilla/websocket v1.5.3
 	github.com/iancoleman/strcase v0.3.0
+	github.com/overlock-network/api v0.0.0-20250425155150-1eb99d0baaa4
 	github.com/pkg/errors v0.9.1
 	github.com/posener/complete v1.2.3
-	github.com/web-seven/overlock-api v0.0.0-20250404135307-24ee7e05cc83
 	go.uber.org/zap v1.26.0
 	google.golang.org/grpc v1.71.0
 	gopkg.in/yaml.v2 v2.4.0

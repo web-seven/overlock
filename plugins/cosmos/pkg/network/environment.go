@@ -3,7 +3,7 @@ package network
 import (
 	"context"
 
-	crossplanev1beta1 "github.com/web-seven/overlock-api/go/node/overlock/crossplane/v1beta1"
+	crossplanev1beta1 "github.com/overlock-network/api/go/node/overlock/crossplane/v1beta1"
 	"github.com/web-seven/overlock/pkg/environment"
 	"github.com/web-seven/overlock/plugins/cosmos/pkg/client"
 	"go.uber.org/zap"
