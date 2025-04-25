@@ -15,8 +15,8 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
-	crossplanev1beta1 "github.com/web-seven/overlock-api/go/node/overlock/crossplane/v1beta1"
-	storagev1beta1 "github.com/web-seven/overlock-api/go/node/overlock/storage/v1beta1"
+	crossplanev1beta1 "github.com/overlock-network/api/go/node/overlock/crossplane/v1beta1"
+	storagev1beta1 "github.com/overlock-network/api/go/node/overlock/storage/v1beta1"
 	"github.com/web-seven/overlock/plugins/cosmos/pkg/network/configuration"
 	"github.com/web-seven/overlock/plugins/cosmos/pkg/types"
 
