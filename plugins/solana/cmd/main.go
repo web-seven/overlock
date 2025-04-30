@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/web-seven/overlock/plugins/solana/cmd/billing"
 	solana "github.com/web-seven/overlock/plugins/solana/cmd/network"
 
 	"github.com/iancoleman/strcase"
@@ -13,7 +14,8 @@ import (
 
 type CLI struct {
 	Solana struct {
-		Network solana.Cmd `cmd:"" help:"Network information"`
+		Network solana.Cmd  `cmd:"" help:"Network information"`
+		Billing billing.Cmd `cmd:"" help:"Billing for the Solana environment"`
 	} `cmd:"" help:"Solana plugin commands"`
 }
 
