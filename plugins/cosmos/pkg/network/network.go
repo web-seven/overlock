@@ -18,6 +18,7 @@ import (
 	crossplanev1beta1 "github.com/overlock-network/api/go/node/overlock/crossplane/v1beta1"
 	storagev1beta1 "github.com/overlock-network/api/go/node/overlock/storage/v1beta1"
 	"github.com/web-seven/overlock/plugins/cosmos/pkg/network/configuration"
+	"github.com/web-seven/overlock/plugins/cosmos/pkg/network/provider"
 	"github.com/web-seven/overlock/plugins/cosmos/pkg/types"
 
 	"go.uber.org/zap"
@@ -26,7 +27,14 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-func Subscribe(engine, creator, host, port, path, grpcAddress string, client *kubernetes.Clientset, config *rest.Config, dc *dynamic.DynamicClient) {
+func Subscribe(engine, creator, host, port, path, grpcAddress string, client *kubernetes.Clientset, config *rest.Config, dc *dynamic.DynamicClient, providerMeta crossplanev1beta1.MsgCreateProvider, importKeyName, importKeyPath, chainId, keyringBackend string) {
+
+	err := provider.ValidateProvider(&providerMeta)
+	if err != nil {
+		log.Fatalf("Provider validation failed: %v", err)
+	}
+	rpcURI := fmt.Sprintf("tcp://%s:%s", host, port)
+
 	logger := zap.NewExample().Sugar()
 	defer logger.Sync()
 
@@ -44,6 +52,7 @@ func Subscribe(engine, creator, host, port, path, grpcAddress string, client *ku
 	}()
 
 	retryInterval := 3 * time.Second
+	registered := false
 
 	for {
 		select {
@@ -61,6 +70,11 @@ func Subscribe(engine, creator, host, port, path, grpcAddress string, client *ku
 		}
 
 		logger.Info("Connected to WebSocket")
+
+		if !registered {
+			provider.Register(importKeyName, importKeyPath, rpcURI, chainId, keyringBackend, providerMeta)
+			registered = true
+		}
 
 		queries := []string{
 			"message.action='/overlock.crossplane.v1beta1.MsgCreateEnvironment'",
