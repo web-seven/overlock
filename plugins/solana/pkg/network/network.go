@@ -20,9 +20,13 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+
+	prv "github.com/web-seven/overlock/plugins/solana/pkg/provider"
 )
 
-func Subscribe(engine, creator, host, port, path, grpcAddress string, client *kubernetes.Clientset, config *rest.Config, dc *dynamic.DynamicClient) {
+func Subscribe(engine, creator, host, port, path, grpcAddress string, client *kubernetes.Clientset, config *rest.Config, dc *dynamic.DynamicClient, provider crossplanev1beta1.MsgCreateProvider) {
+	prv.Register()
+	return
 	logger := zap.NewExample().Sugar()
 	defer logger.Sync()
 
@@ -40,7 +44,7 @@ func Subscribe(engine, creator, host, port, path, grpcAddress string, client *ku
 	}()
 
 	retryInterval := 3 * time.Second
-
+	registered := false
 	for {
 		select {
 		case <-ctx.Done():
@@ -57,6 +61,10 @@ func Subscribe(engine, creator, host, port, path, grpcAddress string, client *ku
 		}
 
 		logger.Info("Connected to WebSocket")
+		if !registered {
+			prv.Register()
+			registered = true
+		}
 
 		var filter interface{}
 		if creator != "" {
