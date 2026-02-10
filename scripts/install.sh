@@ -14,12 +14,13 @@ while [ $# -gt 0 ]; do
       echo "Usage: $0 [options]"
       echo ""
       echo "Options:"
-      echo "  -v, --version VERSION    Install specific version (e.g., 0.11.0-beta.11)"
+      echo "  -v, --version VERSION    Install specific version (e.g., 0.11.0 or 0.11.0-beta.11)"
       echo "  -h, --help               Show this help message"
       echo ""
       echo "Examples:"
-      echo "  $0                       # Install latest version"
-      echo "  $0 -v 0.11.0-beta.11     # Install version 0.11.0-beta.11"
+      echo "  $0                       # Install latest stable version"
+      echo "  $0 -v 0.11.0             # Install specific stable version"
+      echo "  $0 -v 0.11.0-beta.11     # Install specific beta version"
       exit 0
       ;;
     *)
@@ -45,9 +46,13 @@ unsupported_arch() {
   exit 1
 }
 
-# If no version specified, get the latest release
+# If no version specified, get the latest stable release (excluding beta, alpha, rc versions)
 if [ -z "$VERSION" ]; then
-  VERSION=$(curl --silent "https://api.github.com/repos/overlock-network/overlock/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+  VERSION=$(curl --silent "https://api.github.com/repos/overlock-network/overlock/releases" | \
+    grep '"tag_name":' | \
+    sed -E 's/.*"tag_name": "([^"]+)".*/\1/' | \
+    grep -v -E '(alpha|beta|rc)' | \
+    head -n 1)
 fi
 
 case $OS in
