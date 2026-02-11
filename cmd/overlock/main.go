@@ -13,6 +13,7 @@ import (
 	"github.com/web-seven/overlock/cmd/overlock/environment"
 	"github.com/web-seven/overlock/cmd/overlock/function"
 	"github.com/web-seven/overlock/cmd/overlock/provider"
+	"github.com/web-seven/overlock/cmd/overlock/tui"
 	"github.com/web-seven/overlock/cmd/overlock/version"
 	"github.com/web-seven/overlock/internal/engine"
 	"github.com/web-seven/overlock/internal/kube"
@@ -165,6 +166,7 @@ type cli struct {
 	Globals
 
 	Help               helpCmd                      `cmd:"" help:"Show help."`
+	TUI                tui.TUICmd                   `cmd:"" name:"tui" help:"Launch interactive TUI menu"`
 	Environment        environment.Cmd              `cmd:"" name:"environment" aliases:"env" help:"Overlock Environment commands"`
 	Configuration      configuration.Cmd            `cmd:"" name:"configuration" aliases:"cfg" help:"Overlock Configuration commands"`
 	Resource           resource.Cmd                 `cmd:"" name:"resource" aliases:"res" help:"Overlock Resource commands"`

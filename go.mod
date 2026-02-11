@@ -7,6 +7,8 @@ require (
 	dario.cat/mergo v1.0.0
 	github.com/Masterminds/semver v1.5.0
 	github.com/Masterminds/semver/v3 v3.3.0
+	github.com/charmbracelet/bubbles v0.17.2-0.20240108170749-ec883029c8e6
+	github.com/charmbracelet/bubbletea v0.25.0
 	github.com/charmbracelet/lipgloss v0.9.1
 	github.com/cosmos/cosmos-sdk v0.50.13
 	github.com/cosmos/gogoproto v1.7.0
@@ -71,8 +73,6 @@ require (
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
-	github.com/charmbracelet/bubbles v0.17.2-0.20240108170749-ec883029c8e6 // indirect
-	github.com/charmbracelet/bubbletea v0.25.0 // indirect
 	github.com/cockroachdb/errors v1.11.3 // indirect
 	github.com/cockroachdb/fifo v0.0.0-20240606204812-0bbfbd93a7ce // indirect
 	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
@@ -241,6 +241,7 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
+	github.com/sahilm/fuzzy v0.1.1-0.20230530133925-c48e322e2a8f // indirect
 	github.com/sasha-s/go-deadlock v0.3.1 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
