@@ -87,9 +87,11 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		verticalMarginHeight := headerHeight + footerHeight
 
 		// Calculate content width based on whether logs are shown
+		// Without logs: │menu(menuWidth-2)│content│ = 3 borders
+		// With logs: │menu(menuWidth-2)│content│logs(logWidth-2)│ = 4 borders
 		contentWidth := m.width - menuWidth - 1
 		if m.showLogs {
-			contentWidth = contentWidth - logWidth - 1
+			contentWidth = m.width - menuWidth - logWidth
 		}
 		if contentWidth < 20 {
 			contentWidth = 20
@@ -102,18 +104,24 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Update list size
 		m.list.SetSize(menuWidth-2, contentHeight)
 
+		// Calculate log height (subtract 1 for "Logs" title)
+		logHeight := contentHeight - 1
+		if logHeight < 1 {
+			logHeight = 1
+		}
+
 		if !m.ready {
 			// Initialize viewports
 			m.viewport = viewport.New(contentWidth, contentHeight)
 			m.viewport.SetContent("")
-			m.logViewport = viewport.New(logWidth-2, contentHeight)
+			m.logViewport = viewport.New(logWidth-2, logHeight)
 			m.logViewport.SetContent("")
 			m.ready = true
 		} else {
 			m.viewport.Width = contentWidth
 			m.viewport.Height = contentHeight
 			m.logViewport.Width = logWidth - 2
-			m.logViewport.Height = contentHeight
+			m.logViewport.Height = logHeight
 		}
 
 		return m, nil
@@ -181,7 +189,7 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 					m.viewport.SetContent(m.envModel.View())
 					// Recalculate layout with logs visible
-					m.viewport.Width = m.width - menuWidth - logWidth - 2
+					m.viewport.Width = m.width - menuWidth - logWidth
 					m.logViewport.Width = logWidth - 2
 				default:
 					m.viewport.SetContent(item.Title())
