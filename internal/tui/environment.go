@@ -271,7 +271,7 @@ func (m *EnvironmentModel) viewList() string {
 
 	// Environment table
 	if len(m.environments) == 0 {
-		noEnvMsg := m.styles.MutedTextStyle.Render("No environments found. Press 'c' to create one.")
+		noEnvMsg := m.styles.MutedTextStyle.Render("No environments found.")
 		b.WriteString(noEnvMsg)
 	} else {
 		b.WriteString(m.table.View())
@@ -300,7 +300,6 @@ func (m *EnvironmentModel) viewCreate() string {
 		} else {
 			b.WriteString(m.styles.MutedTextStyle.Render(m.createInputs[i].View()))
 		}
-		b.WriteString("\n\n")
 	}
 
 	// Show error if any

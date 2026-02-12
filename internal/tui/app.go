@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	menuWidth         = 30
+	menuWidth         = 19 // longest menu item "Configuration" (13) + 6
 	rightSidebarWidth = 50
 )
 
