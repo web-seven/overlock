@@ -245,15 +245,17 @@ func (m *AppModel) View() string {
 			Width(menuWidth - 2).
 			Height(m.viewport.Height)
 
-		// Content area style
+		// Content area style with left padding
 		contentStyle := lipgloss.NewStyle().
 			Width(m.viewport.Width).
-			Height(m.viewport.Height)
+			Height(m.viewport.Height).
+			PaddingLeft(1)
 
-		// Log area style
+		// Log area style with left padding
 		logStyle := lipgloss.NewStyle().
 			Width(logWidth - 2).
-			Height(m.viewport.Height)
+			Height(m.viewport.Height).
+			PaddingLeft(1)
 
 		// Render menu and content
 		menuRendered := menuStyle.Render(m.list.View())
