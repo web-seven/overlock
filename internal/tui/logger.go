@@ -98,7 +98,7 @@ func (s *LogSink) With(fields []zapcore.Field) zapcore.Core {
 
 // Check determines whether the supplied Entry should be logged
 func (s *LogSink) Check(entry zapcore.Entry, checked *zapcore.CheckedEntry) *zapcore.CheckedEntry {
-	if s.Enabled(entry.Level) {
+	if s.LevelEnabler.Enabled(entry.Level) {
 		return checked.AddCore(entry, s)
 	}
 	return checked
