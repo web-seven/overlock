@@ -8,6 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/web-seven/overlock/cmd/overlock/version"
+	"go.uber.org/zap"
 )
 
 const (
@@ -24,6 +25,8 @@ type AppModel struct {
 	styles       Styles
 	quitting     bool
 	selectedItem string
+	envModel     *EnvironmentModel
+	logger       *zap.SugaredLogger
 }
 
 // NewAppModel creates a new app model with the given items
@@ -39,11 +42,16 @@ func NewAppModel() *AppModel {
 	l.SetShowHelp(false)
 	l.SetShowTitle(false)
 
+	// Create logger
+	logger, _ := zap.NewProduction()
+	sugar := logger.Sugar()
+
 	return &AppModel{
 		list:     l,
 		styles:   NewStyles(),
 		quitting: false,
 		ready:    false,
+		logger:   sugar,
 	}
 }
 
@@ -87,9 +95,44 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.viewport.Height = contentHeight
 		}
 
+		// Update environment model if active
+		if m.envModel != nil {
+			var envCmd tea.Cmd
+			m.envModel, envCmd = m.envModel.Update(msg)
+			m.viewport.SetContent(m.envModel.GetView())
+			return m, envCmd
+		}
+
 		return m, nil
 
 	case tea.KeyMsg:
+		// If we're in environment mode, handle keys there
+		if m.envModel != nil {
+			switch msg.String() {
+			case "q", "ctrl+c":
+				m.quitting = true
+				return m, tea.Quit
+			case "esc":
+				// Only go back to menu if in list view
+				if m.envModel.View == EnvViewList {
+					m.envModel = nil
+					m.selectedItem = ""
+					m.viewport.SetContent("")
+					return m, nil
+				}
+				// Otherwise let envModel handle it (for form cancellation, etc.)
+				var envCmd tea.Cmd
+				m.envModel, envCmd = m.envModel.Update(msg)
+				return m, envCmd
+			default:
+				var envCmd tea.Cmd
+				m.envModel, envCmd = m.envModel.Update(msg)
+				// Update viewport with current view
+				m.viewport.SetContent(m.envModel.GetView())
+				return m, envCmd
+			}
+		}
+
 		switch msg.String() {
 		case "q", "ctrl+c":
 			m.quitting = true
@@ -97,6 +140,27 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			if item, ok := m.list.SelectedItem().(MenuItem); ok {
 				m.selectedItem = item.Title()
+
+				// Handle Environment selection
+				if item.Title() == "Environment" {
+					contentWidth := m.width - menuWidth - 1
+					if contentWidth < 20 {
+						contentWidth = 20
+					}
+					contentHeight := m.viewport.Height
+					if contentHeight < 1 {
+						contentHeight = 1
+					}
+
+					m.envModel = NewEnvironmentModel(contentWidth, contentHeight, m.styles, m.logger)
+					initCmd := m.envModel.Init()
+
+					// Set initial content
+					m.viewport.SetContent(m.envModel.GetView())
+					return m, initCmd
+				}
+
+				// Default behavior for other menu items
 				m.viewport.SetContent(item.Title())
 			}
 		}
