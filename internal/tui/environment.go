@@ -232,6 +232,22 @@ func (m *EnvironmentModel) View() string {
 	return content
 }
 
+// FooterShortcuts returns the shortcuts for the footer based on current view
+func (m *EnvironmentModel) FooterShortcuts() string {
+	switch m.currentView {
+	case ViewList:
+		return "[c] Create  [d] Delete  [enter] Details  [r] Refresh  [esc] Back  [q] Quit"
+	case ViewCreate:
+		return "[tab] Navigate  [enter] Submit  [esc] Cancel  [q] Quit"
+	case ViewDelete:
+		return "[y] Confirm  [n] Cancel  [esc] Back  [q] Quit"
+	case ViewDetails:
+		return "[esc] Back  [q] Quit"
+	default:
+		return "[esc] Back  [q] Quit"
+	}
+}
+
 // viewList renders the environment list view
 func (m *EnvironmentModel) viewList() string {
 	var b strings.Builder
@@ -257,16 +273,9 @@ func (m *EnvironmentModel) viewList() string {
 	if len(m.environments) == 0 {
 		noEnvMsg := m.styles.MutedTextStyle.Render("No environments found. Press 'c' to create one.")
 		b.WriteString(noEnvMsg)
-		b.WriteString("\n")
 	} else {
 		b.WriteString(m.table.View())
-		b.WriteString("\n")
 	}
-
-	// Help
-	helpStyle := m.styles.MutedTextStyle
-	help := "\n" + helpStyle.Render("c: create • d: delete • enter: details • r: refresh • esc: back")
-	b.WriteString(help)
 
 	return b.String()
 }
@@ -298,13 +307,7 @@ func (m *EnvironmentModel) viewCreate() string {
 	if m.err != nil {
 		errMsg := m.styles.ErrorStyle.Render("✗ Error: " + m.err.Error())
 		b.WriteString(errMsg)
-		b.WriteString("\n\n")
 	}
-
-	// Help
-	helpStyle := m.styles.MutedTextStyle
-	help := helpStyle.Render("tab/shift+tab: navigate • enter: submit • esc: cancel")
-	b.WriteString(help)
 
 	return b.String()
 }
@@ -320,8 +323,6 @@ func (m *EnvironmentModel) viewDelete() string {
 
 	if m.selectedEnv == nil {
 		b.WriteString(m.styles.TextStyle.Render("No environment selected."))
-		b.WriteString("\n\n")
-		b.WriteString(m.styles.MutedTextStyle.Render("Press 'esc' to go back."))
 		return b.String()
 	}
 
@@ -344,13 +345,7 @@ func (m *EnvironmentModel) viewDelete() string {
 	if m.err != nil {
 		errMsg := m.styles.ErrorStyle.Render("✗ Error: " + m.err.Error())
 		b.WriteString(errMsg)
-		b.WriteString("\n\n")
 	}
-
-	// Help
-	helpStyle := m.styles.MutedTextStyle
-	help := helpStyle.Render("y: confirm delete • n/esc: cancel")
-	b.WriteString(help)
 
 	return b.String()
 }
@@ -366,8 +361,6 @@ func (m *EnvironmentModel) viewDetails() string {
 
 	if m.selectedEnv == nil {
 		b.WriteString(m.styles.TextStyle.Render("No environment selected."))
-		b.WriteString("\n\n")
-		b.WriteString(m.styles.MutedTextStyle.Render("Press 'esc' to go back."))
 		return b.String()
 	}
 
@@ -387,13 +380,6 @@ func (m *EnvironmentModel) viewDetails() string {
 	}
 	statusValue := statusStyle.Render(m.selectedEnv.status)
 	b.WriteString(fmt.Sprintf("%s %s\n", statusLabel, statusValue))
-
-	b.WriteString("\n")
-
-	// Help
-	helpStyle := m.styles.MutedTextStyle
-	help := helpStyle.Render("esc: back")
-	b.WriteString(help)
 
 	return b.String()
 }

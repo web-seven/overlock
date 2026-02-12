@@ -33,6 +33,7 @@ type AppModel struct {
 	tuiLogger        *zap.SugaredLogger
 	inSubView        bool
 	showRightSidebar bool
+	footerShortcuts  string
 }
 
 // NewAppModel creates a new app model with the given items
@@ -55,15 +56,16 @@ func NewAppModel(logger *zap.SugaredLogger) *AppModel {
 	tuiLogger := CreateTUILogger(logBuffer)
 
 	return &AppModel{
-		list:      l,
-		styles:    styles,
-		quitting:  false,
-		ready:     false,
-		logger:    logger,
-		logBuffer: logBuffer,
-		tuiLogger: tuiLogger,
-		inSubView: false,
-		showRightSidebar:  false,
+		list:             l,
+		styles:           styles,
+		quitting:         false,
+		ready:            false,
+		logger:           logger,
+		logBuffer:        logBuffer,
+		tuiLogger:        tuiLogger,
+		inSubView:        false,
+		showRightSidebar: false,
+		footerShortcuts:  "[a] Actions  [/] Search  [?] Help  [q] Quit",
 	}
 }
 
@@ -141,8 +143,10 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.showRightSidebar = false
 					m.envModel = nil
 					m.selectedItem = ""
-					// Recalculate layout without logs
+					// Recalculate layout without sidebar
 					m.viewport.Width = m.width - menuWidth - 1
+					// Restore default shortcuts
+					m.footerShortcuts = "[a] Actions  [/] Search  [?] Help  [q] Quit"
 					return m, nil
 				}
 			case "q", "ctrl+c":
@@ -159,6 +163,8 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				// Update viewport with environment view
 				m.viewport.SetContent(m.envModel.View())
+				// Update footer shortcuts from environment model
+				m.footerShortcuts = m.envModel.FooterShortcuts()
 			}
 
 			return m, tea.Batch(cmds...)
@@ -187,7 +193,9 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						cmds = append(cmds, envCmd)
 					}
 					m.viewport.SetContent(m.envModel.View())
-					// Recalculate layout with logs visible
+					// Set footer shortcuts from environment model
+					m.footerShortcuts = m.envModel.FooterShortcuts()
+					// Recalculate layout with sidebar visible
 					m.viewport.Width = m.width - menuWidth - rightSidebarWidth
 					m.rightSidebar.Width = rightSidebarWidth - 2
 				default:
@@ -205,6 +213,8 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, envCmd)
 		}
 		m.viewport.SetContent(m.envModel.View())
+		// Keep footer shortcuts in sync
+		m.footerShortcuts = m.envModel.FooterShortcuts()
 	} else {
 		// Update list
 		var cmd tea.Cmd
@@ -417,26 +427,28 @@ func (m *AppModel) footerView() string {
 		Foreground(lipgloss.Color("#FFFDF5")).
 		Padding(0, 1)
 
-	// Shortcuts style (left side with pink background)
-	shortcutsStyle := statusNugget.
-		Background(lipgloss.Color("#FF5F87")).
+	// Shortcuts style (left side with purple background)
+	shortcutsStyle := statusNugget.Copy().
+		Background(lipgloss.Color("#A550DF")).
 		MarginRight(1)
 
 	// Namespace style (purple background)
-	namespaceStyle := statusNugget.
-		Background(lipgloss.Color("#A550DF"))
+	namespaceStyle := statusNugget.Copy().
+		Background(lipgloss.Color("#6124DF")).
+		MarginLeft(1).
+		MarginRight(1)
 
-	// Release style (deep purple background)
-	releaseStyle := statusNugget.
+	// Release style (purple background)
+	releaseStyle := statusNugget.Copy().
+		Background(lipgloss.Color("#6124DF")).
+		MarginRight(1)
+
+	// Version style (purple background)
+	versionStyle := statusNugget.Copy().
 		Background(lipgloss.Color("#6124DF"))
 
-	// Version style
-	versionStyle := statusNugget.
-		Background(lipgloss.Color("#874BFD"))
-
-	// Build shortcuts
-	shortcuts := "[a] Actions  [/] Search  [?] Help  [q] Quit"
-	shortcutsContent := shortcutsStyle.Render(shortcuts)
+	// Build shortcuts from dynamic field
+	shortcutsContent := shortcutsStyle.Render(m.footerShortcuts)
 
 	// Status info
 	versionNum := version.Version
@@ -453,8 +465,8 @@ func (m *AppModel) footerView() string {
 		Inherit(statusBarStyle).
 		Padding(0, 1)
 
-	// Calculate remaining width for middle section
-	middleWidth := m.width - w(shortcutsContent) - w(namespaceContent) - w(releaseContent) - w(versionContent)
+	// Calculate remaining width for middle section (subtract 2 for outer borders)
+	middleWidth := m.width - 2 - w(shortcutsContent) - w(namespaceContent) - w(releaseContent) - w(versionContent)
 	if middleWidth < 0 {
 		middleWidth = 0
 	}
