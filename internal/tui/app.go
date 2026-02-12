@@ -8,30 +8,42 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/web-seven/overlock/cmd/overlock/version"
+	"go.uber.org/zap"
 )
 
 const (
-	menuWidth = 30
+	menuWidth         = 19 // longest menu item "Configuration" (13) + 6
+	rightSidebarWidth = 50
 )
 
 // AppModel represents the main TUI application model
 type AppModel struct {
-	list         list.Model
-	viewport     viewport.Model
-	ready        bool
-	width        int
-	height       int
-	styles       Styles
-	quitting     bool
-	selectedItem string
+	list             list.Model
+	viewport         viewport.Model
+	rightSidebar     viewport.Model
+	ready            bool
+	width            int
+	height           int
+	styles           Styles
+	quitting         bool
+	selectedItem     string
+	envModel         *EnvironmentModel
+	logger           *zap.SugaredLogger
+	logBuffer        *LogBuffer
+	tuiLogger        *zap.SugaredLogger
+	inSubView        bool
+	showRightSidebar bool
+	footerShortcuts  string
 }
 
 // NewAppModel creates a new app model with the given items
-func NewAppModel() *AppModel {
+func NewAppModel(logger *zap.SugaredLogger) *AppModel {
 	items := DefaultMenuItems()
 
 	// Create list with default delegate
 	delegate := list.NewDefaultDelegate()
+	delegate.ShowDescription = false
+	delegate.SetSpacing(1)
 	l := list.New(items, delegate, 0, 0)
 	l.Title = ""
 	l.SetShowStatusBar(false)
@@ -39,11 +51,23 @@ func NewAppModel() *AppModel {
 	l.SetShowHelp(false)
 	l.SetShowTitle(false)
 
+	styles := NewStyles()
+
+	// Create log buffer and TUI logger
+	logBuffer := NewLogBuffer()
+	tuiLogger := CreateTUILogger(logBuffer)
+
 	return &AppModel{
-		list:     l,
-		styles:   NewStyles(),
-		quitting: false,
-		ready:    false,
+		list:             l,
+		styles:           styles,
+		quitting:         false,
+		ready:            false,
+		logger:           logger,
+		logBuffer:        logBuffer,
+		tuiLogger:        tuiLogger,
+		inSubView:        false,
+		showRightSidebar: false,
+		footerShortcuts:  "[a] Actions  [/] Search  [?] Help  [q] Quit",
 	}
 }
 
@@ -65,7 +89,13 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		footerHeight := lipgloss.Height(m.footerView())
 		verticalMarginHeight := headerHeight + footerHeight
 
+		// Calculate content width based on whether logs are shown
+		// Without logs: │menu(menuWidth-2)│content│ = 3 borders
+		// With logs: │menu(menuWidth-2)│content│logs(rightSidebarWidth-2)│ = 4 borders
 		contentWidth := m.width - menuWidth - 1
+		if m.showRightSidebar {
+			contentWidth = m.width - menuWidth - rightSidebarWidth
+		}
 		if contentWidth < 20 {
 			contentWidth = 20
 		}
@@ -77,19 +107,72 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Update list size
 		m.list.SetSize(menuWidth-2, contentHeight)
 
+		// Calculate log height (subtract 1 for "Logs" title)
+		sidebarHeight := contentHeight - 1
+		if sidebarHeight < 1 {
+			sidebarHeight = 1
+		}
+
 		if !m.ready {
-			// Initialize viewport
+			// Initialize viewports
 			m.viewport = viewport.New(contentWidth, contentHeight)
 			m.viewport.SetContent("")
+			m.rightSidebar = viewport.New(rightSidebarWidth-2, sidebarHeight)
+			m.rightSidebar.SetContent("")
 			m.ready = true
 		} else {
 			m.viewport.Width = contentWidth
 			m.viewport.Height = contentHeight
+			m.rightSidebar.Width = rightSidebarWidth - 2
+			m.rightSidebar.Height = sidebarHeight
 		}
 
 		return m, nil
 
+	case LogMsg:
+		// Update log viewport with new log entry
+		m.updateRightSidebar()
+		return m, nil
+
 	case tea.KeyMsg:
+		// If we're in a sub-view, handle escape to go back
+		if m.inSubView {
+			switch msg.String() {
+			case "esc":
+				// Only go back if we're in the list view of the sub-model
+				if m.envModel != nil && m.envModel.currentView == ViewList {
+					m.inSubView = false
+					m.showRightSidebar = false
+					m.envModel = nil
+					m.selectedItem = ""
+					// Recalculate layout without sidebar
+					m.viewport.Width = m.width - menuWidth - 1
+					// Restore default shortcuts
+					m.footerShortcuts = "[a] Actions  [/] Search  [?] Help  [q] Quit"
+					return m, nil
+				}
+			case "q", "ctrl+c":
+				m.quitting = true
+				return m, tea.Quit
+			}
+
+			// Forward to sub-view
+			if m.envModel != nil {
+				var envCmd tea.Cmd
+				m.envModel, envCmd = m.envModel.Update(msg)
+				if envCmd != nil {
+					cmds = append(cmds, envCmd)
+				}
+				// Update viewport with environment view
+				m.viewport.SetContent(m.envModel.View())
+				// Update footer shortcuts from environment model
+				m.footerShortcuts = m.envModel.FooterShortcuts()
+			}
+
+			return m, tea.Batch(cmds...)
+		}
+
+		// Main menu navigation
 		switch msg.String() {
 		case "q", "ctrl+c":
 			m.quitting = true
@@ -97,19 +180,53 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			if item, ok := m.list.SelectedItem().(MenuItem); ok {
 				m.selectedItem = item.Title()
-				m.viewport.SetContent(item.Title())
+				// Handle different menu items
+				switch item.Title() {
+				case "Environment":
+					m.inSubView = true
+					m.showRightSidebar = true
+					m.logBuffer.Clear() // Clear previous logs
+					m.envModel = NewEnvironmentModel(m.tuiLogger, m.styles)
+					m.envModel.width = m.viewport.Width
+					m.envModel.height = m.viewport.Height
+					var envCmd tea.Cmd
+					envCmd = m.envModel.Init()
+					if envCmd != nil {
+						cmds = append(cmds, envCmd)
+					}
+					m.viewport.SetContent(m.envModel.View())
+					// Set footer shortcuts from environment model
+					m.footerShortcuts = m.envModel.FooterShortcuts()
+					// Recalculate layout with sidebar visible
+					m.viewport.Width = m.width - menuWidth - rightSidebarWidth
+					m.rightSidebar.Width = rightSidebarWidth - 2
+				default:
+					m.viewport.SetContent(item.Title())
+				}
 			}
 		}
 	}
 
-	// Update list
-	var cmd tea.Cmd
-	m.list, cmd = m.list.Update(msg)
-	cmds = append(cmds, cmd)
+	// Update sub-models if active
+	if m.inSubView && m.envModel != nil {
+		var envCmd tea.Cmd
+		m.envModel, envCmd = m.envModel.Update(msg)
+		if envCmd != nil {
+			cmds = append(cmds, envCmd)
+		}
+		m.viewport.SetContent(m.envModel.View())
+		// Keep footer shortcuts in sync
+		m.footerShortcuts = m.envModel.FooterShortcuts()
+	} else {
+		// Update list
+		var cmd tea.Cmd
+		m.list, cmd = m.list.Update(msg)
+		cmds = append(cmds, cmd)
 
-	// Update viewport
-	m.viewport, cmd = m.viewport.Update(msg)
-	cmds = append(cmds, cmd)
+		// Update viewport
+		m.viewport, cmd = m.viewport.Update(msg)
+		cmds = append(cmds, cmd)
+	}
 
 	return m, tea.Batch(cmds...)
 }
@@ -130,7 +247,7 @@ func (m *AppModel) View() string {
 	doc.WriteString(m.headerView())
 	doc.WriteString("\n")
 
-	// Main content area (menu + content)
+	// Main content area (menu + content + optional logs)
 	{
 		borderStyle := lipgloss.NewStyle().Foreground(m.styles.Theme.Border)
 
@@ -139,24 +256,41 @@ func (m *AppModel) View() string {
 			Width(menuWidth - 2).
 			Height(m.viewport.Height)
 
-		// Content area style
+		// Content area style with left padding
 		contentStyle := lipgloss.NewStyle().
 			Width(m.viewport.Width).
-			Height(m.viewport.Height)
+			Height(m.viewport.Height).
+			PaddingLeft(1)
+
+		// Log area style with left padding
+		sidebarStyle := lipgloss.NewStyle().
+			Width(rightSidebarWidth - 2).
+			Height(m.viewport.Height).
+			PaddingLeft(1)
 
 		// Render menu and content
 		menuRendered := menuStyle.Render(m.list.View())
 		contentRendered := contentStyle.Render(m.viewport.View())
 
+		// Render logs if enabled
+		var sidebarRendered string
+		if m.showRightSidebar {
+			m.updateRightSidebar()
+			sidebarTitle := m.styles.TextStyle.Bold(true).Foreground(m.styles.Theme.Primary).Render("Logs")
+			sidebarContent := m.rightSidebar.View()
+			sidebarRendered = sidebarStyle.Render(sidebarTitle + "\n" + sidebarContent)
+		}
+
 		// Split into lines
 		menuLines := strings.Split(menuRendered, "\n")
 		contentLines := strings.Split(contentRendered, "\n")
-
-		// Ensure same number of lines
-		maxLines := len(menuLines)
-		if len(contentLines) > maxLines {
-			maxLines = len(contentLines)
+		var sidebarLines []string
+		if m.showRightSidebar {
+			sidebarLines = strings.Split(sidebarRendered, "\n")
 		}
+
+		// Use viewport height as maxLines to prevent overflow
+		maxLines := m.viewport.Height
 
 		// Build bordered lines with proper alignment
 		var borderedLines []string
@@ -171,7 +305,20 @@ func (m *AppModel) View() string {
 			}
 			// Pad menu line to exact width
 			menuLine = padRight(menuLine, menuWidth-2)
-			line := borderStyle.Render("│") + menuLine + borderStyle.Render("│") + contentLine + borderStyle.Render("│")
+
+			line := borderStyle.Render("│") + menuLine + borderStyle.Render("│") + contentLine
+
+			// Add log section if enabled
+			if m.showRightSidebar {
+				sidebarLine := ""
+				if i < len(sidebarLines) {
+					sidebarLine = sidebarLines[i]
+				}
+				sidebarLine = padRight(sidebarLine, rightSidebarWidth-2)
+				line = line + borderStyle.Render("│") + sidebarLine
+			}
+
+			line = line + borderStyle.Render("│")
 			borderedLines = append(borderedLines, line)
 		}
 		doc.WriteString(strings.Join(borderedLines, "\n"))
@@ -205,10 +352,61 @@ func (m *AppModel) headerView() string {
 	innerWidth := m.width - 2
 	leftPart := strings.Repeat("─", menuWidth-2)
 	junction := "┬"
-	rightPart := strings.Repeat("─", max(0, innerWidth-menuWidth+1))
-	bottomLine := borderStyle.Render("├" + leftPart + junction + rightPart + "┤")
+
+	var bottomLine string
+	if m.showRightSidebar {
+		// Calculate middle part width (content area)
+		middleWidth := innerWidth - menuWidth - rightSidebarWidth + 2
+		if middleWidth < 0 {
+			middleWidth = 0
+		}
+		middlePart := strings.Repeat("─", middleWidth)
+		rightPart := strings.Repeat("─", rightSidebarWidth-2)
+		bottomLine = borderStyle.Render("├" + leftPart + junction + middlePart + junction + rightPart + "┤")
+	} else {
+		rightPart := strings.Repeat("─", max(0, innerWidth-menuWidth+1))
+		bottomLine = borderStyle.Render("├" + leftPart + junction + rightPart + "┤")
+	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, topLine, titleLine, bottomLine)
+}
+
+// updateRightSidebar updates the log viewport with current log entries
+func (m *AppModel) updateRightSidebar() {
+	if m.logBuffer == nil {
+		return
+	}
+
+	entries := m.logBuffer.GetEntries()
+	var sidebarContent strings.Builder
+
+	// Render log entries
+	for _, entry := range entries {
+		var levelStyle lipgloss.Style
+		switch entry.Level.String() {
+		case "ERROR", "error":
+			levelStyle = m.styles.ErrorStyle
+		case "WARN", "warn":
+			levelStyle = m.styles.WarningStyle
+		case "INFO", "info":
+			levelStyle = m.styles.SuccessStyle
+		default:
+			levelStyle = m.styles.MutedTextStyle
+		}
+
+		sidebarLine := lipgloss.JoinHorizontal(
+			lipgloss.Left,
+			m.styles.MutedTextStyle.Render("["+entry.Time+"] "),
+			levelStyle.Render(entry.Level.CapitalString()+" "),
+			m.styles.TextStyle.Render(entry.Message),
+		)
+		sidebarContent.WriteString(sidebarLine)
+		sidebarContent.WriteString("\n")
+	}
+
+	m.rightSidebar.SetContent(sidebarContent.String())
+	// Auto-scroll to bottom
+	m.rightSidebar.GotoBottom()
 }
 
 // footerView renders the footer with shortcuts and status
@@ -225,26 +423,28 @@ func (m *AppModel) footerView() string {
 		Foreground(lipgloss.Color("#FFFDF5")).
 		Padding(0, 1)
 
-	// Shortcuts style (left side with pink background)
-	shortcutsStyle := statusNugget.
-		Background(lipgloss.Color("#FF5F87")).
+	// Shortcuts style (left side with purple background)
+	shortcutsStyle := statusNugget.Copy().
+		Background(lipgloss.Color("#A550DF")).
 		MarginRight(1)
 
 	// Namespace style (purple background)
-	namespaceStyle := statusNugget.
-		Background(lipgloss.Color("#A550DF"))
+	namespaceStyle := statusNugget.Copy().
+		Background(lipgloss.Color("#6124DF")).
+		MarginLeft(1).
+		MarginRight(1)
 
-	// Release style (deep purple background)
-	releaseStyle := statusNugget.
+	// Release style (purple background)
+	releaseStyle := statusNugget.Copy().
+		Background(lipgloss.Color("#6124DF")).
+		MarginRight(1)
+
+	// Version style (purple background)
+	versionStyle := statusNugget.Copy().
 		Background(lipgloss.Color("#6124DF"))
 
-	// Version style
-	versionStyle := statusNugget.
-		Background(lipgloss.Color("#874BFD"))
-
-	// Build shortcuts
-	shortcuts := "[a] Actions  [/] Search  [?] Help  [q] Quit"
-	shortcutsContent := shortcutsStyle.Render(shortcuts)
+	// Build shortcuts from dynamic field
+	shortcutsContent := shortcutsStyle.Render(m.footerShortcuts)
 
 	// Status info
 	versionNum := version.Version
@@ -261,8 +461,8 @@ func (m *AppModel) footerView() string {
 		Inherit(statusBarStyle).
 		Padding(0, 1)
 
-	// Calculate remaining width for middle section
-	middleWidth := m.width - w(shortcutsContent) - w(namespaceContent) - w(releaseContent) - w(versionContent)
+	// Calculate remaining width for middle section (subtract 2 for outer borders)
+	middleWidth := m.width - 2 - w(shortcutsContent) - w(namespaceContent) - w(releaseContent) - w(versionContent)
 	if middleWidth < 0 {
 		middleWidth = 0
 	}
@@ -284,8 +484,21 @@ func (m *AppModel) footerView() string {
 	innerWidth := m.width - 2
 	leftPart := strings.Repeat("─", menuWidth-2)
 	junction := "┴"
-	rightPart := strings.Repeat("─", max(0, innerWidth-menuWidth+1))
-	topLine := borderStyle.Render("├" + leftPart + junction + rightPart + "┤")
+
+	var topLine string
+	if m.showRightSidebar {
+		// Calculate middle part width (content area)
+		middleWidth := innerWidth - menuWidth - rightSidebarWidth + 2
+		if middleWidth < 0 {
+			middleWidth = 0
+		}
+		middlePart := strings.Repeat("─", middleWidth)
+		rightPart := strings.Repeat("─", rightSidebarWidth-2)
+		topLine = borderStyle.Render("├" + leftPart + junction + middlePart + junction + rightPart + "┤")
+	} else {
+		rightPart := strings.Repeat("─", max(0, innerWidth-menuWidth+1))
+		topLine = borderStyle.Render("├" + leftPart + junction + rightPart + "┤")
+	}
 
 	// Status bar with side borders - ensure single line with exact width
 	statusBarContent := statusBarStyle.Width(m.width - 2).MaxHeight(1).Render(bar)
@@ -305,6 +518,11 @@ func (m *AppModel) GetSelectedItem() string {
 // SetViewportContent sets the content of the viewport
 func (m *AppModel) SetViewportContent(content string) {
 	m.viewport.SetContent(content)
+}
+
+// SetProgram sets the Bubble Tea program reference for sending log messages
+func (m *AppModel) SetProgram(p *tea.Program) {
+	m.logBuffer.SetProgram(p)
 }
 
 func max(a, b int) int {
