@@ -12,28 +12,27 @@ import (
 )
 
 const (
-	menuWidth   = 30
-	logWidth    = 50
-	minLogLines = 10
+	menuWidth         = 30
+	rightSidebarWidth = 50
 )
 
 // AppModel represents the main TUI application model
 type AppModel struct {
-	list         list.Model
-	viewport     viewport.Model
-	logViewport  viewport.Model
-	ready        bool
-	width        int
-	height       int
-	styles       Styles
-	quitting     bool
-	selectedItem string
-	envModel     *EnvironmentModel
-	logger       *zap.SugaredLogger
-	logBuffer    *LogBuffer
-	tuiLogger    *zap.SugaredLogger
-	inSubView    bool
-	showLogs     bool
+	list             list.Model
+	viewport         viewport.Model
+	rightSidebar     viewport.Model
+	ready            bool
+	width            int
+	height           int
+	styles           Styles
+	quitting         bool
+	selectedItem     string
+	envModel         *EnvironmentModel
+	logger           *zap.SugaredLogger
+	logBuffer        *LogBuffer
+	tuiLogger        *zap.SugaredLogger
+	inSubView        bool
+	showRightSidebar bool
 }
 
 // NewAppModel creates a new app model with the given items
@@ -64,7 +63,7 @@ func NewAppModel(logger *zap.SugaredLogger) *AppModel {
 		logBuffer: logBuffer,
 		tuiLogger: tuiLogger,
 		inSubView: false,
-		showLogs:  false,
+		showRightSidebar:  false,
 	}
 }
 
@@ -88,10 +87,10 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Calculate content width based on whether logs are shown
 		// Without logs: │menu(menuWidth-2)│content│ = 3 borders
-		// With logs: │menu(menuWidth-2)│content│logs(logWidth-2)│ = 4 borders
+		// With logs: │menu(menuWidth-2)│content│logs(rightSidebarWidth-2)│ = 4 borders
 		contentWidth := m.width - menuWidth - 1
-		if m.showLogs {
-			contentWidth = m.width - menuWidth - logWidth
+		if m.showRightSidebar {
+			contentWidth = m.width - menuWidth - rightSidebarWidth
 		}
 		if contentWidth < 20 {
 			contentWidth = 20
@@ -105,30 +104,30 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.list.SetSize(menuWidth-2, contentHeight)
 
 		// Calculate log height (subtract 1 for "Logs" title)
-		logHeight := contentHeight - 1
-		if logHeight < 1 {
-			logHeight = 1
+		sidebarHeight := contentHeight - 1
+		if sidebarHeight < 1 {
+			sidebarHeight = 1
 		}
 
 		if !m.ready {
 			// Initialize viewports
 			m.viewport = viewport.New(contentWidth, contentHeight)
 			m.viewport.SetContent("")
-			m.logViewport = viewport.New(logWidth-2, logHeight)
-			m.logViewport.SetContent("")
+			m.rightSidebar = viewport.New(rightSidebarWidth-2, sidebarHeight)
+			m.rightSidebar.SetContent("")
 			m.ready = true
 		} else {
 			m.viewport.Width = contentWidth
 			m.viewport.Height = contentHeight
-			m.logViewport.Width = logWidth - 2
-			m.logViewport.Height = logHeight
+			m.rightSidebar.Width = rightSidebarWidth - 2
+			m.rightSidebar.Height = sidebarHeight
 		}
 
 		return m, nil
 
 	case LogMsg:
 		// Update log viewport with new log entry
-		m.updateLogView()
+		m.updateRightSidebar()
 		return m, nil
 
 	case tea.KeyMsg:
@@ -139,7 +138,7 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Only go back if we're in the list view of the sub-model
 				if m.envModel != nil && m.envModel.currentView == ViewList {
 					m.inSubView = false
-					m.showLogs = false
+					m.showRightSidebar = false
 					m.envModel = nil
 					m.selectedItem = ""
 					// Recalculate layout without logs
@@ -177,7 +176,7 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				switch item.Title() {
 				case "Environment":
 					m.inSubView = true
-					m.showLogs = true
+					m.showRightSidebar = true
 					m.logBuffer.Clear() // Clear previous logs
 					m.envModel = NewEnvironmentModel(m.tuiLogger, m.styles)
 					m.envModel.width = m.viewport.Width
@@ -189,8 +188,8 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 					m.viewport.SetContent(m.envModel.View())
 					// Recalculate layout with logs visible
-					m.viewport.Width = m.width - menuWidth - logWidth
-					m.logViewport.Width = logWidth - 2
+					m.viewport.Width = m.width - menuWidth - rightSidebarWidth
+					m.rightSidebar.Width = rightSidebarWidth - 2
 				default:
 					m.viewport.SetContent(item.Title())
 				}
@@ -252,8 +251,8 @@ func (m *AppModel) View() string {
 			PaddingLeft(1)
 
 		// Log area style with left padding
-		logStyle := lipgloss.NewStyle().
-			Width(logWidth - 2).
+		sidebarStyle := lipgloss.NewStyle().
+			Width(rightSidebarWidth - 2).
 			Height(m.viewport.Height).
 			PaddingLeft(1)
 
@@ -262,20 +261,20 @@ func (m *AppModel) View() string {
 		contentRendered := contentStyle.Render(m.viewport.View())
 
 		// Render logs if enabled
-		var logRendered string
-		if m.showLogs {
-			m.updateLogView()
-			logTitle := m.styles.TextStyle.Bold(true).Foreground(m.styles.Theme.Primary).Render("Logs")
-			logContent := m.logViewport.View()
-			logRendered = logStyle.Render(logTitle + "\n" + logContent)
+		var sidebarRendered string
+		if m.showRightSidebar {
+			m.updateRightSidebar()
+			sidebarTitle := m.styles.TextStyle.Bold(true).Foreground(m.styles.Theme.Primary).Render("Logs")
+			sidebarContent := m.rightSidebar.View()
+			sidebarRendered = sidebarStyle.Render(sidebarTitle + "\n" + sidebarContent)
 		}
 
 		// Split into lines
 		menuLines := strings.Split(menuRendered, "\n")
 		contentLines := strings.Split(contentRendered, "\n")
-		var logLines []string
-		if m.showLogs {
-			logLines = strings.Split(logRendered, "\n")
+		var sidebarLines []string
+		if m.showRightSidebar {
+			sidebarLines = strings.Split(sidebarRendered, "\n")
 		}
 
 		// Ensure same number of lines
@@ -283,8 +282,8 @@ func (m *AppModel) View() string {
 		if len(contentLines) > maxLines {
 			maxLines = len(contentLines)
 		}
-		if m.showLogs && len(logLines) > maxLines {
-			maxLines = len(logLines)
+		if m.showRightSidebar && len(sidebarLines) > maxLines {
+			maxLines = len(sidebarLines)
 		}
 
 		// Build bordered lines with proper alignment
@@ -304,13 +303,13 @@ func (m *AppModel) View() string {
 			line := borderStyle.Render("│") + menuLine + borderStyle.Render("│") + contentLine
 
 			// Add log section if enabled
-			if m.showLogs {
-				logLine := ""
-				if i < len(logLines) {
-					logLine = logLines[i]
+			if m.showRightSidebar {
+				sidebarLine := ""
+				if i < len(sidebarLines) {
+					sidebarLine = sidebarLines[i]
 				}
-				logLine = padRight(logLine, logWidth-2)
-				line = line + borderStyle.Render("│") + logLine
+				sidebarLine = padRight(sidebarLine, rightSidebarWidth-2)
+				line = line + borderStyle.Render("│") + sidebarLine
 			}
 
 			line = line + borderStyle.Render("│")
@@ -349,14 +348,14 @@ func (m *AppModel) headerView() string {
 	junction := "┬"
 
 	var bottomLine string
-	if m.showLogs {
+	if m.showRightSidebar {
 		// Calculate middle part width (content area)
-		middleWidth := innerWidth - menuWidth - logWidth + 2
+		middleWidth := innerWidth - menuWidth - rightSidebarWidth + 2
 		if middleWidth < 0 {
 			middleWidth = 0
 		}
 		middlePart := strings.Repeat("─", middleWidth)
-		rightPart := strings.Repeat("─", logWidth-2)
+		rightPart := strings.Repeat("─", rightSidebarWidth-2)
 		bottomLine = borderStyle.Render("├" + leftPart + junction + middlePart + junction + rightPart + "┤")
 	} else {
 		rightPart := strings.Repeat("─", max(0, innerWidth-menuWidth+1))
@@ -366,14 +365,14 @@ func (m *AppModel) headerView() string {
 	return lipgloss.JoinVertical(lipgloss.Left, topLine, titleLine, bottomLine)
 }
 
-// updateLogView updates the log viewport with current log entries
-func (m *AppModel) updateLogView() {
+// updateRightSidebar updates the log viewport with current log entries
+func (m *AppModel) updateRightSidebar() {
 	if m.logBuffer == nil {
 		return
 	}
 
 	entries := m.logBuffer.GetEntries()
-	var logContent strings.Builder
+	var sidebarContent strings.Builder
 
 	// Render log entries
 	for _, entry := range entries {
@@ -389,19 +388,19 @@ func (m *AppModel) updateLogView() {
 			levelStyle = m.styles.MutedTextStyle
 		}
 
-		logLine := lipgloss.JoinHorizontal(
+		sidebarLine := lipgloss.JoinHorizontal(
 			lipgloss.Left,
 			m.styles.MutedTextStyle.Render("["+entry.Time+"] "),
 			levelStyle.Render(entry.Level.CapitalString()+" "),
 			m.styles.TextStyle.Render(entry.Message),
 		)
-		logContent.WriteString(logLine)
-		logContent.WriteString("\n")
+		sidebarContent.WriteString(sidebarLine)
+		sidebarContent.WriteString("\n")
 	}
 
-	m.logViewport.SetContent(logContent.String())
+	m.rightSidebar.SetContent(sidebarContent.String())
 	// Auto-scroll to bottom
-	m.logViewport.GotoBottom()
+	m.rightSidebar.GotoBottom()
 }
 
 // footerView renders the footer with shortcuts and status
@@ -479,14 +478,14 @@ func (m *AppModel) footerView() string {
 	junction := "┴"
 
 	var topLine string
-	if m.showLogs {
+	if m.showRightSidebar {
 		// Calculate middle part width (content area)
-		middleWidth := innerWidth - menuWidth - logWidth + 2
+		middleWidth := innerWidth - menuWidth - rightSidebarWidth + 2
 		if middleWidth < 0 {
 			middleWidth = 0
 		}
 		middlePart := strings.Repeat("─", middleWidth)
-		rightPart := strings.Repeat("─", logWidth-2)
+		rightPart := strings.Repeat("─", rightSidebarWidth-2)
 		topLine = borderStyle.Render("├" + leftPart + junction + middlePart + junction + rightPart + "┤")
 	} else {
 		rightPart := strings.Repeat("─", max(0, innerWidth-menuWidth+1))
