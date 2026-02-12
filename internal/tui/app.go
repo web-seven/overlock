@@ -8,6 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/web-seven/overlock/cmd/overlock/version"
+	"go.uber.org/zap"
 )
 
 const (
@@ -18,16 +19,18 @@ const (
 type AppModel struct {
 	list         list.Model
 	viewport     viewport.Model
+	envView      *EnvironmentViewModel
 	ready        bool
 	width        int
 	height       int
 	styles       Styles
 	quitting     bool
 	selectedItem string
+	logger       *zap.SugaredLogger
 }
 
 // NewAppModel creates a new app model with the given items
-func NewAppModel() *AppModel {
+func NewAppModel(logger *zap.SugaredLogger) *AppModel {
 	items := DefaultMenuItems()
 
 	// Create list with default delegate
@@ -39,16 +42,24 @@ func NewAppModel() *AppModel {
 	l.SetShowHelp(false)
 	l.SetShowTitle(false)
 
+	styles := NewStyles()
+
 	return &AppModel{
 		list:     l,
-		styles:   NewStyles(),
+		styles:   styles,
 		quitting: false,
 		ready:    false,
+		logger:   logger,
+		envView:  nil,
 	}
 }
 
 // Init initializes the app model
 func (m *AppModel) Init() tea.Cmd {
+	// Initialize environment view if needed
+	if m.envView != nil {
+		return m.envView.Init()
+	}
 	return nil
 }
 
@@ -90,6 +101,24 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
+		// If environment view is active, delegate to it (except for quit)
+		if m.envView != nil {
+			switch msg.String() {
+			case "q", "ctrl+c":
+				m.quitting = true
+				return m, tea.Quit
+			case "esc":
+				// Return to menu
+				m.envView = nil
+				m.viewport.SetContent("")
+				return m, nil
+			default:
+				cmd := m.envView.Update(msg)
+				return m, cmd
+			}
+		}
+
+		// Main menu handling
 		switch msg.String() {
 		case "q", "ctrl+c":
 			m.quitting = true
@@ -97,6 +126,13 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			if item, ok := m.list.SelectedItem().(MenuItem); ok {
 				m.selectedItem = item.Title()
+
+				// Handle Environment menu selection
+				if item.Title() == "Environment" {
+					m.envView = NewEnvironmentViewModel(m.logger, m.styles)
+					return m, m.envView.Init()
+				}
+
 				m.viewport.SetContent(item.Title())
 			}
 		}
@@ -146,7 +182,14 @@ func (m *AppModel) View() string {
 
 		// Render menu and content
 		menuRendered := menuStyle.Render(m.list.View())
-		contentRendered := contentStyle.Render(m.viewport.View())
+
+		// Use environment view if active, otherwise use viewport
+		var contentRendered string
+		if m.envView != nil {
+			contentRendered = contentStyle.Render(m.envView.View(m.viewport.Width, m.viewport.Height))
+		} else {
+			contentRendered = contentStyle.Render(m.viewport.View())
+		}
 
 		// Split into lines
 		menuLines := strings.Split(menuRendered, "\n")

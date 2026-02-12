@@ -6,6 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/web-seven/overlock/internal/tui"
+	"go.uber.org/zap"
 )
 
 // TUICmd represents the TUI command
@@ -13,8 +14,16 @@ type TUICmd struct{}
 
 // Run executes the TUI command
 func (c *TUICmd) Run() error {
+	// Create a logger
+	logger, err := zap.NewDevelopment()
+	if err != nil {
+		return fmt.Errorf("failed to create logger: %w", err)
+	}
+	defer logger.Sync()
+	sugar := logger.Sugar()
+
 	// Create the app model
-	model := tui.NewAppModel()
+	model := tui.NewAppModel(sugar)
 
 	// Create the Bubble Tea program
 	p := tea.NewProgram(model, tea.WithAltScreen())
