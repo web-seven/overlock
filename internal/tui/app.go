@@ -8,6 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/web-seven/overlock/cmd/overlock/version"
+	"go.uber.org/zap"
 )
 
 const (
@@ -24,10 +25,13 @@ type AppModel struct {
 	styles       Styles
 	quitting     bool
 	selectedItem string
+	envModel     *EnvironmentModel
+	logger       *zap.SugaredLogger
+	inSubView    bool
 }
 
 // NewAppModel creates a new app model with the given items
-func NewAppModel() *AppModel {
+func NewAppModel(logger *zap.SugaredLogger) *AppModel {
 	items := DefaultMenuItems()
 
 	// Create list with default delegate
@@ -39,11 +43,15 @@ func NewAppModel() *AppModel {
 	l.SetShowHelp(false)
 	l.SetShowTitle(false)
 
+	styles := NewStyles()
+
 	return &AppModel{
-		list:     l,
-		styles:   NewStyles(),
-		quitting: false,
-		ready:    false,
+		list:      l,
+		styles:    styles,
+		quitting:  false,
+		ready:     false,
+		logger:    logger,
+		inSubView: false,
 	}
 }
 
@@ -90,6 +98,37 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
+		// If we're in a sub-view, handle escape to go back
+		if m.inSubView {
+			switch msg.String() {
+			case "esc":
+				// Only go back if we're in the list view of the sub-model
+				if m.envModel != nil && m.envModel.currentView == ViewList {
+					m.inSubView = false
+					m.envModel = nil
+					m.selectedItem = ""
+					return m, nil
+				}
+			case "q", "ctrl+c":
+				m.quitting = true
+				return m, tea.Quit
+			}
+
+			// Forward to sub-view
+			if m.envModel != nil {
+				var envCmd tea.Cmd
+				m.envModel, envCmd = m.envModel.Update(msg)
+				if envCmd != nil {
+					cmds = append(cmds, envCmd)
+				}
+				// Update viewport with environment view
+				m.viewport.SetContent(m.envModel.View())
+			}
+
+			return m, tea.Batch(cmds...)
+		}
+
+		// Main menu navigation
 		switch msg.String() {
 		case "q", "ctrl+c":
 			m.quitting = true
@@ -97,19 +136,44 @@ func (m *AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			if item, ok := m.list.SelectedItem().(MenuItem); ok {
 				m.selectedItem = item.Title()
-				m.viewport.SetContent(item.Title())
+				// Handle different menu items
+				switch item.Title() {
+				case "Environment":
+					m.inSubView = true
+					m.envModel = NewEnvironmentModel(m.logger, m.styles)
+					m.envModel.width = m.viewport.Width
+					m.envModel.height = m.viewport.Height
+					var envCmd tea.Cmd
+					envCmd = m.envModel.Init()
+					if envCmd != nil {
+						cmds = append(cmds, envCmd)
+					}
+					m.viewport.SetContent(m.envModel.View())
+				default:
+					m.viewport.SetContent(item.Title())
+				}
 			}
 		}
 	}
 
-	// Update list
-	var cmd tea.Cmd
-	m.list, cmd = m.list.Update(msg)
-	cmds = append(cmds, cmd)
+	// Update sub-models if active
+	if m.inSubView && m.envModel != nil {
+		var envCmd tea.Cmd
+		m.envModel, envCmd = m.envModel.Update(msg)
+		if envCmd != nil {
+			cmds = append(cmds, envCmd)
+		}
+		m.viewport.SetContent(m.envModel.View())
+	} else {
+		// Update list
+		var cmd tea.Cmd
+		m.list, cmd = m.list.Update(msg)
+		cmds = append(cmds, cmd)
 
-	// Update viewport
-	m.viewport, cmd = m.viewport.Update(msg)
-	cmds = append(cmds, cmd)
+		// Update viewport
+		m.viewport, cmd = m.viewport.Update(msg)
+		cmds = append(cmds, cmd)
+	}
 
 	return m, tea.Batch(cmds...)
 }

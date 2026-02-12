@@ -1,20 +1,22 @@
 package tui
 
 import (
+	"context"
 	"fmt"
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/web-seven/overlock/internal/tui"
+	"go.uber.org/zap"
 )
 
 // TUICmd represents the TUI command
 type TUICmd struct{}
 
 // Run executes the TUI command
-func (c *TUICmd) Run() error {
+func (c *TUICmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
 	// Create the app model
-	model := tui.NewAppModel()
+	model := tui.NewAppModel(logger)
 
 	// Create the Bubble Tea program
 	p := tea.NewProgram(model, tea.WithAltScreen())
