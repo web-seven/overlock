@@ -42,6 +42,8 @@ func NewAppModel(logger *zap.SugaredLogger) *AppModel {
 
 	// Create list with default delegate
 	delegate := list.NewDefaultDelegate()
+	delegate.ShowDescription = false
+	delegate.SetSpacing(1)
 	l := list.New(items, delegate, 0, 0)
 	l.Title = ""
 	l.SetShowStatusBar(false)

@@ -15,7 +15,7 @@ type MenuItem struct {
 func (i MenuItem) Title() string { return i.title }
 
 // Description returns the menu item description (implements list.Item)
-func (i MenuItem) Description() string { return i.description }
+func (i MenuItem) Description() string { return "" }
 
 // FilterValue returns the filter value (implements list.Item)
 func (i MenuItem) FilterValue() string { return i.title }
