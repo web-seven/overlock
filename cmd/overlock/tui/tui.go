@@ -21,6 +21,9 @@ func (c *TUICmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
 	// Create the Bubble Tea program
 	p := tea.NewProgram(model, tea.WithAltScreen())
 
+	// Set the program reference for log messages
+	model.SetProgram(p)
+
 	// Run the program
 	finalModel, err := p.Run()
 	if err != nil {
