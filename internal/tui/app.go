@@ -287,14 +287,8 @@ func (m *AppModel) View() string {
 			sidebarLines = strings.Split(sidebarRendered, "\n")
 		}
 
-		// Ensure same number of lines
-		maxLines := len(menuLines)
-		if len(contentLines) > maxLines {
-			maxLines = len(contentLines)
-		}
-		if m.showRightSidebar && len(sidebarLines) > maxLines {
-			maxLines = len(sidebarLines)
-		}
+		// Use viewport height as maxLines to prevent overflow
+		maxLines := m.viewport.Height
 
 		// Build bordered lines with proper alignment
 		var borderedLines []string
