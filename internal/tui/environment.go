@@ -461,6 +461,9 @@ func (m *EnvironmentModel) handleListKeys(msg tea.KeyMsg) (*EnvironmentModel, te
 }
 
 func (m *EnvironmentModel) handleCreateKeys(msg tea.KeyMsg) (*EnvironmentModel, tea.Cmd) {
+	var cmd tea.Cmd
+	var cmds []tea.Cmd
+
 	switch msg.String() {
 	case "esc":
 		// Cancel creation
@@ -522,7 +525,13 @@ func (m *EnvironmentModel) handleCreateKeys(msg tea.KeyMsg) (*EnvironmentModel, 
 		return m, m.createEnvironment(name, engine, httpPort, httpsPort)
 	}
 
-	return m, nil
+	// For all other keys (regular text input), update the focused input
+	for i := range m.createInputs {
+		m.createInputs[i], cmd = m.createInputs[i].Update(msg)
+		cmds = append(cmds, cmd)
+	}
+
+	return m, tea.Batch(cmds...)
 }
 
 func (m *EnvironmentModel) handleDeleteKeys(msg tea.KeyMsg) (*EnvironmentModel, tea.Cmd) {
