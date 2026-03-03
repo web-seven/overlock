@@ -225,7 +225,7 @@ func (e *Environment) waitForK3sDockerReady(ctx context.Context, dockerClient *d
 
 	for time.Now().Before(deadline) {
 		execID, err := dockerClient.ContainerExecCreate(ctx, containerID, types.ExecConfig{
-			Cmd:          []string{"test", "-f", k3sKubeconfigPath},
+			Cmd:          []string{"k3s", "kubectl", "get", "--raw", "/healthz"},
 			AttachStdout: true,
 			AttachStderr: true,
 		})
@@ -313,6 +313,11 @@ func mergeK3sDockerKubeconfig(kubeconfigData []byte, contextName, serverURL stri
 		if oldName != contextName {
 			delete(newConfig.Contexts, oldName)
 		}
+	}
+
+	if len(newConfig.Clusters) == 0 || len(newConfig.Contexts) == 0 || len(newConfig.AuthInfos) == 0 {
+		return fmt.Errorf("kubeconfig from container is incomplete: clusters=%d, contexts=%d, authinfos=%d",
+			len(newConfig.Clusters), len(newConfig.Contexts), len(newConfig.AuthInfos))
 	}
 
 	newConfig.CurrentContext = contextName
