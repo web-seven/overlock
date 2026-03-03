@@ -78,7 +78,7 @@ func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (_ s
 
 	containerConfig := &container.Config{
 		Image:        k3sDockerImage,
-		Cmd:          []string{"server"},
+		Cmd:          []string{"server", "--disable=traefik"},
 		ExposedPorts: exposedPorts,
 		Env: []string{
 			"K3S_KUBECONFIG_MODE=644",
