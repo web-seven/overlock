@@ -27,10 +27,10 @@ const (
 
 // CreateK3sDockerEnvironment creates a k3s cluster running inside a Docker
 // container using the Docker Go client directly (no external CLI required).
-func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (string, error) {
+func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (_ string, retErr error) {
 	ctx := context.Background()
 
-	dockerClient, err := docker.NewClientWithOpts(docker.FromEnv)
+	dockerClient, err := docker.NewClientWithOpts(docker.FromEnv, docker.WithAPIVersionNegotiation())
 	if err != nil {
 		return "", fmt.Errorf("failed to create Docker client: %w", err)
 	}
@@ -81,7 +81,6 @@ func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (str
 		Cmd:          []string{"server"},
 		ExposedPorts: exposedPorts,
 		Env: []string{
-			"K3S_KUBECONFIG_OUTPUT=/output/kubeconfig.yaml",
 			"K3S_KUBECONFIG_MODE=644",
 		},
 	}
@@ -115,6 +114,16 @@ func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (str
 	if err != nil {
 		return "", fmt.Errorf("failed to create k3s-docker container: %w", err)
 	}
+
+	// Remove the container if any subsequent step fails, to avoid leaving
+	// orphaned containers behind on a failed create.
+	defer func() {
+		if retErr != nil {
+			if removeErr := dockerClient.ContainerRemove(ctx, resp.ID, types.ContainerRemoveOptions{Force: true}); removeErr != nil {
+				logger.Warnf("Failed to clean up container %s after error: %v", resp.ID, removeErr)
+			}
+		}
+	}()
 
 	if err := dockerClient.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
 		return "", fmt.Errorf("failed to start k3s-docker container: %w", err)
@@ -158,7 +167,7 @@ func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (str
 func (e *Environment) DeleteK3sDockerEnvironment(logger *zap.SugaredLogger) error {
 	ctx := context.Background()
 
-	dockerClient, err := docker.NewClientWithOpts(docker.FromEnv)
+	dockerClient, err := docker.NewClientWithOpts(docker.FromEnv, docker.WithAPIVersionNegotiation())
 	if err != nil {
 		return fmt.Errorf("failed to create Docker client: %w", err)
 	}
@@ -221,40 +230,45 @@ func (e *Environment) findK3sDockerContainer(ctx context.Context, dockerClient *
 // waitForK3sDockerReady polls until k3s has written its kubeconfig inside the
 // container, signalling that the API server is ready to accept connections.
 func (e *Environment) waitForK3sDockerReady(ctx context.Context, dockerClient *docker.Client, containerID string, logger *zap.SugaredLogger) error {
-	deadline := time.Now().Add(k3sReadinessTimeout)
+	timeout := time.NewTimer(k3sReadinessTimeout)
+	defer timeout.Stop()
+	ticker := time.NewTicker(k3sReadinessPollInterval)
+	defer ticker.Stop()
 
-	for time.Now().Before(deadline) {
-		execID, err := dockerClient.ContainerExecCreate(ctx, containerID, types.ExecConfig{
-			Cmd:          []string{"k3s", "kubectl", "get", "--raw", "/healthz"},
-			AttachStdout: true,
-			AttachStderr: true,
-		})
-		if err != nil {
-			logger.Debugf("Waiting for k3s container to initialize: %v", err)
-			time.Sleep(k3sReadinessPollInterval)
-			continue
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timeout.C:
+			return fmt.Errorf("timeout waiting for k3s to be ready after %s", k3sReadinessTimeout)
+		case <-ticker.C:
+			execID, err := dockerClient.ContainerExecCreate(ctx, containerID, types.ExecConfig{
+				Cmd:          []string{"k3s", "kubectl", "get", "--raw", "/healthz"},
+				AttachStdout: true,
+				AttachStderr: true,
+			})
+			if err != nil {
+				logger.Debugf("Waiting for k3s container to initialize: %v", err)
+				continue
+			}
+
+			attachResp, err := dockerClient.ContainerExecAttach(ctx, execID.ID, types.ExecStartCheck{})
+			if err != nil {
+				continue
+			}
+			// Drain the output so the exec can complete.
+			_, _ = io.Copy(io.Discard, attachResp.Reader)
+			attachResp.Close()
+
+			inspectResp, err := dockerClient.ContainerExecInspect(ctx, execID.ID)
+			if err == nil && inspectResp.ExitCode == 0 {
+				logger.Info("k3s is ready")
+				return nil
+			}
+
+			logger.Debug("Waiting for k3s to be ready...")
 		}
-
-		attachResp, err := dockerClient.ContainerExecAttach(ctx, execID.ID, types.ExecStartCheck{})
-		if err != nil {
-			time.Sleep(k3sReadinessPollInterval)
-			continue
-		}
-		// Drain the output so the exec can complete.
-		_, _ = io.Copy(io.Discard, attachResp.Reader)
-		attachResp.Close()
-
-		inspectResp, err := dockerClient.ContainerExecInspect(ctx, execID.ID)
-		if err == nil && inspectResp.ExitCode == 0 {
-			logger.Info("k3s is ready")
-			return nil
-		}
-
-		logger.Debug("Waiting for k3s to be ready...")
-		time.Sleep(k3sReadinessPollInterval)
 	}
-
-	return fmt.Errorf("timeout waiting for k3s to be ready after %s", k3sReadinessTimeout)
 }
 
 // copyKubeconfigFromContainer copies the k3s kubeconfig out of the container
