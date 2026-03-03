@@ -75,6 +75,12 @@ func (e *Environment) Create(ctx context.Context, logger *zap.SugaredLogger) err
 			if err != nil {
 				return err
 			}
+		case "k3s-docker":
+			logger.Info("Creating environment with Kubernetes engine 'k3s-docker'")
+			e.context, err = e.CreateK3sDockerEnvironment(ctx, logger)
+			if err != nil {
+				return err
+			}
 		default:
 			logger.Errorf("Kubernetes engine '%s' not supported", e.engine)
 			return nil
@@ -133,6 +139,7 @@ func (e *Environment) Delete(f bool, logger *zap.SugaredLogger) error {
 	if !f && !confirmationPrompt(fmt.Sprintf("Do you really want to delete environment %s ?", e.name), logger) {
 		return nil
 	}
+	ctx := context.Background()
 	switch e.engine {
 	case "kind":
 		err = e.DeleteKindEnvironment(logger)
@@ -140,6 +147,8 @@ func (e *Environment) Delete(f bool, logger *zap.SugaredLogger) error {
 		err = e.DeleteK3sEnvironment(logger)
 	case "k3d":
 		err = e.DeleteK3dEnvironment(logger)
+	case "k3s-docker":
+		err = e.DeleteK3sDockerEnvironment(ctx, logger)
 	default:
 		return fmt.Errorf("kubernetes engine '%s' not supported", e.engine)
 	}
@@ -222,6 +231,8 @@ func (e *Environment) GetContextName() string {
 		context = e.K3sContextName()
 	case "k3d":
 		context = e.K3dContextName()
+	case "k3s-docker":
+		context = e.K3sDockerContextName()
 	default:
 		return ""
 	}

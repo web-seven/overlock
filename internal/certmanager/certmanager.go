@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/url"
 
+	"github.com/web-seven/overlock/internal/install"
 	"github.com/web-seven/overlock/internal/install/helm"
 	"github.com/web-seven/overlock/internal/namespace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,6 +33,21 @@ var (
 		},
 	}
 )
+
+// GetCertManagerManager returns a Helm manager for the cert-manager chart.
+func GetCertManagerManager(config *rest.Config) (install.Manager, error) {
+	repoURL, err := url.Parse(certManagerRepoUrl)
+	if err != nil {
+		return nil, err
+	}
+	return helm.NewManager(config, certManagerChartName, repoURL, certManagerReleaseName,
+		helm.InstallerModifierFn(helm.Wait()),
+		helm.InstallerModifierFn(helm.WithNamespace(certManagerNamespace)),
+		helm.InstallerModifierFn(helm.WithUpgradeInstall(true)),
+		helm.InstallerModifierFn(helm.WithCreateNamespace(true)),
+		helm.InstallerModifierFn(helm.WithReuseValues(true)),
+	)
+}
 
 // InstallCertManager installs cert-manager via Helm if not already installed
 func InstallCertManager(ctx context.Context, config *rest.Config) error {

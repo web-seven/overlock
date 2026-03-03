@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 
+	"github.com/web-seven/overlock/internal/install"
 	"github.com/web-seven/overlock/internal/install/helm"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -45,6 +46,21 @@ var (
 		},
 	}
 )
+
+// GetKyvernoManager returns a Helm manager for the Kyverno chart.
+func GetKyvernoManager(config *rest.Config) (install.Manager, error) {
+	repoURL, err := url.Parse(kyvernoRepoUrl)
+	if err != nil {
+		return nil, err
+	}
+	return helm.NewManager(config, kyvernoChartName, repoURL, kyvernoReleaseName,
+		helm.InstallerModifierFn(helm.Wait()),
+		helm.InstallerModifierFn(helm.WithNamespace(kyvernoNamespace)),
+		helm.InstallerModifierFn(helm.WithUpgradeInstall(true)),
+		helm.InstallerModifierFn(helm.WithCreateNamespace(true)),
+		helm.InstallerModifierFn(helm.WithReuseValues(true)),
+	)
+}
 
 func addKyvernoPolicyConroller(ctx context.Context, config *rest.Config) error {
 	repoURL, err := url.Parse(kyvernoRepoUrl)
