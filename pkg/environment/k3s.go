@@ -22,6 +22,7 @@ func (e *Environment) CreateK3sEnvironment(logger *zap.SugaredLogger) (string, e
 		"--write-kubeconfig-mode", "0644",
 		"--node-name", e.name,
 		"--cluster-init",
+		"--disable=traefik",
 	}
 
 	if e.mountPath != "" {
