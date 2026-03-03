@@ -243,7 +243,7 @@ func (e *Environment) waitForK3sDockerReady(ctx context.Context, dockerClient *d
 			return fmt.Errorf("timeout waiting for k3s to be ready after %s", k3sReadinessTimeout)
 		case <-ticker.C:
 			execID, err := dockerClient.ContainerExecCreate(ctx, containerID, types.ExecConfig{
-				Cmd:          []string{"k3s", "kubectl", "get", "--raw", "/healthz"},
+				Cmd:          []string{"kubectl", "get", "--raw", "/healthz"},
 				AttachStdout: true,
 				AttachStderr: true,
 			})
