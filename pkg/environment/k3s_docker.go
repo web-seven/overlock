@@ -18,10 +18,10 @@ import (
 )
 
 const (
-	k3sDockerImage          = "rancher/k3s:latest"
+	k3sDockerImage           = "rancher/k3s:v1.32.2-k3s1"
 	k3sDockerContainerPrefix = "k3s-docker-"
-	k3sKubeconfigPath       = "/etc/rancher/k3s/k3s.yaml"
-	k3sReadinessTimeout     = 120 * time.Second
+	k3sKubeconfigPath        = "/etc/rancher/k3s/k3s.yaml"
+	k3sReadinessTimeout      = 120 * time.Second
 	k3sReadinessPollInterval = 2 * time.Second
 )
 
@@ -100,6 +100,16 @@ func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (str
 			"/var/run": "",
 		},
 	}
+
+	// Pull the image explicitly; the Docker daemon does not auto-pull when
+	// using ContainerCreate via the Go client.
+	logger.Infof("Pulling image %s...", k3sDockerImage)
+	pullReader, err := dockerClient.ImagePull(ctx, k3sDockerImage, types.ImagePullOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to pull image %s: %w", k3sDockerImage, err)
+	}
+	_, _ = io.Copy(io.Discard, pullReader)
+	pullReader.Close()
 
 	resp, err := dockerClient.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, containerName)
 	if err != nil {
