@@ -1,7 +1,5 @@
 package environment
 
-import "github.com/web-seven/overlock/cmd/overlock/environment/node"
-
 type Cmd struct {
 	Create createCmd `cmd:"" help:"Create an Environment"`
 	Delete deleteCmd `cmd:"" help:"Delete an Environment"`
@@ -10,5 +8,5 @@ type Cmd struct {
 	Stop    stopCmd    `cmd:"" help:"Stop an Environment"`
 	Start   startCmd   `cmd:"" help:"Start an Environment"`
 	Upgrade upgradeCmd `cmd:"" help:"Upgrade specified environment context with the latest engine"`
-	Node    node.Cmd   `cmd:"" help:"Manage nodes in a k3s-docker environment"`
+	Node    nodeCmd    `cmd:"" help:"Manage nodes in a k3s-docker environment"`
 }
