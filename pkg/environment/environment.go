@@ -13,10 +13,10 @@ import (
 	"github.com/docker/docker/api/types/container"
 	docker "github.com/docker/docker/client"
 	"github.com/pterm/pterm"
+	"github.com/web-seven/overlock/internal/chart"
 	"github.com/web-seven/overlock/internal/engine"
 	"github.com/web-seven/overlock/internal/kube"
 	"github.com/web-seven/overlock/internal/namespace"
-	"github.com/web-seven/overlock/internal/policy"
 	"github.com/web-seven/overlock/internal/resources"
 	overlockerrors "github.com/web-seven/overlock/pkg/errors"
 	"github.com/web-seven/overlock/pkg/registry"
@@ -164,46 +164,19 @@ func (e *Environment) Setup(ctx context.Context, logger *zap.SugaredLogger) erro
 		return err
 	}
 
-	logger.Debug("Installing policy controller")
-	err = policy.AddPolicyConroller(ctx, configClient, "kyverno")
-	if err != nil {
-		return err
+	charts := []chart.Chart{
+		chart.CrossplaneChart{
+			Configurations: e.configurations,
+			Providers:      e.providers,
+			Functions:      e.functions,
+		},
+		chart.KyvernoChart{},
+		chart.CertManagerChart{},
 	}
-	logger.Debug("Done")
-
-	logger.Debug("Preparing engine")
-	installer, err := engine.GetEngine(configClient)
-	if err != nil {
-		return err
-	}
-	logger.Debug("Done")
-
-	var params map[string]any
-	release, err := installer.GetRelease()
-	if err == nil {
-		params = release.Config
-	}
-	if configMap, ok := params["configuration"].(map[string]interface{}); ok {
-		configMap["packages"] = e.configurations
-	}
-	if providersMap, ok := params["providers"].(map[string]interface{}); ok {
-		providersMap["packages"] = e.providers
-	}
-	if functionsMap, ok := params["functions"].(map[string]interface{}); ok {
-		functionsMap["packages"] = e.functions
-	}
-
-	logger.Debug("Installing engine")
-	err = engine.InstallEngine(ctx, configClient, params, logger)
-	if err != nil {
-		// Check if engine is already installed
-		if strings.Contains(err.Error(), "chart already installed") {
-			logger.Info("Engine already installed, skipping installation")
-		} else {
+	for _, ch := range charts {
+		if err := ch.Install(ctx, configClient, logger); err != nil {
 			return err
 		}
-	} else {
-		logger.Debug("Done")
 	}
 
 	// Create admin service account if requested

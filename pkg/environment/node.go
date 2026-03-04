@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/url"
 	"strings"
 	"time"
 
@@ -13,51 +12,22 @@ import (
 	"github.com/docker/docker/api/types/container"
 	docker "github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
+	"github.com/web-seven/overlock/internal/chart"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	policyv1 "k8s.io/api/policy/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
-
-	"github.com/web-seven/overlock/internal/engine"
-	"github.com/web-seven/overlock/internal/install"
-	"github.com/web-seven/overlock/internal/install/helm"
-	"github.com/web-seven/overlock/internal/namespace"
 )
 
 const (
 	engineScopeLabel  = "overlock.io/scope"
 	engineScopeValue  = "engine"
 	engineScopeEffect = "NoSchedule"
-
-	kyvernoChartNameNode   = "kyverno"
-	kyvernoReleaseNameNode = "kyverno"
-	kyvernoRepoURLNode     = "https://kyverno.github.io/kyverno/"
-	kyvernoNamespaceNode   = "kyverno"
-
-	certManagerChartNameNode   = "cert-manager"
-	certManagerReleaseNameNode = "cert-manager"
-	certManagerRepoURLNode     = "https://charts.jetstack.io"
-	certManagerNamespaceNode   = "cert-manager"
 )
-
-// chartDef holds metadata required to create a Helm manager for a given chart.
-type chartDef struct {
-	name      string
-	repoURL   string
-	relName   string
-	namespace string
-}
-
-// engineCharts returns the three Helm charts that carry engine-scope scheduling.
-func engineCharts() []chartDef {
-	return []chartDef{
-		{engine.ChartName, engine.RepoUrl, engine.ReleaseName, namespace.Namespace},
-		{kyvernoChartNameNode, kyvernoRepoURLNode, kyvernoReleaseNameNode, kyvernoNamespaceNode},
-		{certManagerChartNameNode, certManagerRepoURLNode, certManagerReleaseNameNode, certManagerNamespaceNode},
-	}
-}
 
 // nodeContainerName returns the Docker container name for an agent node.
 // Pattern: <k3s-docker-prefix><environment>-<nodeName>
@@ -205,16 +175,31 @@ func (e *Environment) DeleteNode(ctx context.Context, nodeName string, scopes []
 		return fmt.Errorf("node management is only supported for the k3s-docker engine, got %q", e.engine)
 	}
 
-	// Remove engine scheduling constraints from Helm charts before removing the container.
-	for _, scope := range scopes {
-		if scope == "engine" {
-			contextName := e.K3sDockerContextName()
-			restConfig, err := config.GetConfigWithContext(contextName)
-			if err != nil {
-				return fmt.Errorf("failed to get kubeconfig for environment %q: %w", e.name, err)
+	// Drain and delete the Kubernetes node before removing the container.
+	k3sNodeName := e.name + "-" + nodeName
+	contextName := e.K3sDockerContextName()
+	restConfig, err := config.GetConfigWithContext(contextName)
+	if err != nil {
+		logger.Warnf("Failed to get kubeconfig, skipping node drain: %v", err)
+	} else {
+		kubeClient, err := kubernetes.NewForConfig(restConfig)
+		if err != nil {
+			logger.Warnf("Failed to create Kubernetes client, skipping node drain: %v", err)
+		} else {
+			// Check if node has engine taint and remove engine scope from Helm charts.
+			if e.nodeHasEngineTaint(ctx, kubeClient, k3sNodeName) {
+				if err := e.removeEngineScope(ctx, restConfig, logger); err != nil {
+					logger.Warnf("Failed to remove engine scope from Helm charts: %v", err)
+				}
 			}
-			if err := e.removeEngineScope(ctx, restConfig, logger); err != nil {
-				logger.Warnf("Failed to remove engine scope from Helm charts: %v", err)
+
+			if err := e.drainNode(ctx, kubeClient, k3sNodeName, logger); err != nil {
+				logger.Warnf("Failed to drain node %q: %v", k3sNodeName, err)
+			}
+			if err := kubeClient.CoreV1().Nodes().Delete(ctx, k3sNodeName, metav1.DeleteOptions{}); err != nil {
+				logger.Warnf("Failed to delete node %q from cluster: %v", k3sNodeName, err)
+			} else {
+				logger.Infof("Node %q removed from cluster.", k3sNodeName)
 			}
 		}
 	}
@@ -245,6 +230,71 @@ func (e *Environment) DeleteNode(ctx context.Context, nodeName string, scopes []
 
 	logger.Infof("Node %q deleted successfully.", nodeName)
 	return nil
+}
+
+// drainNode cordons the node and evicts all pods before deletion.
+func (e *Environment) drainNode(ctx context.Context, kubeClient *kubernetes.Clientset, nodeName string, logger *zap.SugaredLogger) error {
+	// Cordon the node.
+	node, err := kubeClient.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get node %q: %w", nodeName, err)
+	}
+	node.Spec.Unschedulable = true
+	if _, err := kubeClient.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{}); err != nil {
+		return fmt.Errorf("failed to cordon node %q: %w", nodeName, err)
+	}
+	logger.Infof("Node %q cordoned.", nodeName)
+
+	// List pods on the node.
+	podList, err := kubeClient.CoreV1().Pods("").List(ctx, metav1.ListOptions{
+		FieldSelector: fields.SelectorFromSet(fields.Set{"spec.nodeName": nodeName}).String(),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to list pods on node %q: %w", nodeName, err)
+	}
+
+	// Evict non-DaemonSet pods.
+	for i := range podList.Items {
+		pod := &podList.Items[i]
+		if isDaemonSetPod(pod) {
+			continue
+		}
+		eviction := &policyv1.Eviction{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      pod.Name,
+				Namespace: pod.Namespace,
+			},
+		}
+		if err := kubeClient.CoreV1().Pods(pod.Namespace).EvictV1(ctx, eviction); err != nil {
+			logger.Warnf("Failed to evict pod %s/%s: %v", pod.Namespace, pod.Name, err)
+		}
+	}
+	logger.Infof("Node %q drained.", nodeName)
+	return nil
+}
+
+// nodeHasEngineTaint returns true if the node has the engine scope taint.
+func (e *Environment) nodeHasEngineTaint(ctx context.Context, kubeClient *kubernetes.Clientset, nodeName string) bool {
+	node, err := kubeClient.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+	if err != nil {
+		return false
+	}
+	for _, t := range node.Spec.Taints {
+		if t.Key == engineScopeLabel && t.Value == engineScopeValue && t.Effect == corev1.TaintEffectNoSchedule {
+			return true
+		}
+	}
+	return false
+}
+
+// isDaemonSetPod returns true if the pod is owned by a DaemonSet.
+func isDaemonSetPod(pod *corev1.Pod) bool {
+	for _, ref := range pod.OwnerReferences {
+		if ref.Kind == "DaemonSet" {
+			return true
+		}
+	}
+	return false
 }
 
 // getK3sToken reads the K3s node join token from inside the server container.
@@ -356,91 +406,21 @@ func (e *Environment) applyEngineScope(ctx context.Context, kubeClient *kubernet
 		},
 	}
 
-	return e.applyNodeScopeToCharts(restConfig, nodeSelector, tolerations, logger)
+	for _, ch := range chart.EngineCharts() {
+		if err := ch.Apply(restConfig, nodeSelector, tolerations, logger); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // removeEngineScope clears nodeSelector and tolerations from the engine-related
 // Helm releases so workloads fall back to default scheduling.
 func (e *Environment) removeEngineScope(ctx context.Context, restConfig *rest.Config, logger *zap.SugaredLogger) error {
-	for _, ch := range engineCharts() {
-		// Retrieve current release to get its existing user-provided values.
-		readMgr, err := nodeHelmManager(restConfig, ch.name, ch.repoURL, ch.relName, ch.namespace, true)
-		if err != nil {
-			return fmt.Errorf("failed to create Helm manager for %q: %w", ch.relName, err)
+	for _, ch := range chart.EngineCharts() {
+		if err := ch.Remove(restConfig, logger); err != nil {
+			return err
 		}
-		rel, err := readMgr.GetRelease()
-		if err != nil {
-			logger.Warnf("Could not find release %q, skipping: %v", ch.relName, err)
-			continue
-		}
-
-		// Build a clean config without the engine-scope scheduling keys.
-		cleanCfg := make(map[string]any, len(rel.Config))
-		for k, v := range rel.Config {
-			cleanCfg[k] = v
-		}
-		delete(cleanCfg, "nodeSelector")
-		delete(cleanCfg, "tolerations")
-
-		version := rel.Chart.Metadata.Version
-
-		// Upgrade without reuseValues so the old nodeSelector/tolerations are
-		// not merged back from the stored release state.
-		upgMgr, err := nodeHelmManager(restConfig, ch.name, ch.repoURL, ch.relName, ch.namespace, false)
-		if err != nil {
-			return fmt.Errorf("failed to create Helm manager for %q: %w", ch.relName, err)
-		}
-		if err := upgMgr.Upgrade(version, cleanCfg); err != nil {
-			return fmt.Errorf("failed to upgrade %q: %w", ch.relName, err)
-		}
-		logger.Infof("Removed node scope from %q Helm release.", ch.relName)
 	}
 	return nil
-}
-
-// applyNodeScopeToCharts upgrades the engine Helm releases with the provided
-// nodeSelector and tolerations, merging them on top of existing values.
-func (e *Environment) applyNodeScopeToCharts(restConfig *rest.Config, nodeSelector map[string]interface{}, tolerations []interface{}, logger *zap.SugaredLogger) error {
-	scopeParams := map[string]any{
-		"nodeSelector": nodeSelector,
-		"tolerations":  tolerations,
-	}
-
-	for _, ch := range engineCharts() {
-		mgr, err := nodeHelmManager(restConfig, ch.name, ch.repoURL, ch.relName, ch.namespace, true)
-		if err != nil {
-			return fmt.Errorf("failed to create Helm manager for %q: %w", ch.relName, err)
-		}
-		version, err := mgr.GetCurrentVersion()
-		if err != nil {
-			return fmt.Errorf("failed to get current version for %q: %w", ch.relName, err)
-		}
-		if err := mgr.Upgrade(version, scopeParams); err != nil {
-			return fmt.Errorf("failed to upgrade %q with node scope values: %w", ch.relName, err)
-		}
-		logger.Infof("Updated %q Helm release with node scope values.", ch.relName)
-	}
-	return nil
-}
-
-// nodeHelmManager creates a Helm manager for upgrading an existing release.
-// When reuseValues is true, existing chart values are preserved and the
-// supplied parameters are merged on top.
-func nodeHelmManager(restConfig *rest.Config, chartName, repoURLStr, releaseName, ns string, reuseValues bool) (install.Manager, error) {
-	repoURL, err := url.Parse(repoURLStr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse repo URL %q: %w", repoURLStr, err)
-	}
-
-	return helm.NewManager(
-		restConfig,
-		chartName,
-		repoURL,
-		releaseName,
-		helm.InstallerModifierFn(helm.Wait()),
-		helm.InstallerModifierFn(helm.WithNamespace(ns)),
-		helm.InstallerModifierFn(helm.WithReuseValues(reuseValues)),
-		helm.InstallerModifierFn(helm.WithUpgradeInstall(false)),
-		helm.InstallerModifierFn(helm.WithCreateNamespace(false)),
-	)
 }
