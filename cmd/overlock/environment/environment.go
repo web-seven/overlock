@@ -8,4 +8,5 @@ type Cmd struct {
 	Stop    stopCmd    `cmd:"" help:"Stop an Environment"`
 	Start   startCmd   `cmd:"" help:"Start an Environment"`
 	Upgrade upgradeCmd `cmd:"" help:"Upgrade specified environment context with the latest engine"`
+	Node    nodeCmd    `cmd:"" help:"Manage nodes in an Environment"`
 }
