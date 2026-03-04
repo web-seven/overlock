@@ -43,6 +43,15 @@ var (
 				"enabled": "false",
 			},
 		},
+		"webhooksCleanup": map[string]interface{}{
+			"enabled": false,
+			"autoDeleteWebhooks": map[string]interface{}{
+				"enabled": true,
+			},
+		},
+		"policyReportsCleanup": map[string]interface{}{
+			"enabled": false,
+		},
 	}
 )
 

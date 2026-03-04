@@ -26,13 +26,19 @@ func (c CertManagerChart) Install(ctx context.Context, restConfig *rest.Config, 
 }
 
 func (c CertManagerChart) Apply(restConfig *rest.Config, nodeSelector map[string]interface{}, tolerations []interface{}, logger *zap.SugaredLogger) error {
+	scope := map[string]any{
+		"nodeSelector": nodeSelector,
+		"tolerations":  tolerations,
+	}
 	params := map[string]any{
 		"nodeSelector": nodeSelector,
 		"tolerations":  tolerations,
+		"webhook":      scope,
+		"cainjector":   scope,
 	}
 	return c.def().applyValues(restConfig, params, logger)
 }
 
 func (c CertManagerChart) Remove(restConfig *rest.Config, logger *zap.SugaredLogger) error {
-	return c.def().removeValues(restConfig, []string{"nodeSelector", "tolerations"}, logger)
+	return c.def().removeValues(restConfig, []string{"nodeSelector", "tolerations", "webhook", "cainjector"}, logger)
 }

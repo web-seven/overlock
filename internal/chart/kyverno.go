@@ -26,13 +26,16 @@ func (c KyvernoChart) Install(ctx context.Context, restConfig *rest.Config, logg
 }
 
 func (c KyvernoChart) Apply(restConfig *rest.Config, nodeSelector map[string]interface{}, tolerations []interface{}, logger *zap.SugaredLogger) error {
-	params := map[string]any{
+	scope := map[string]any{
 		"nodeSelector": nodeSelector,
 		"tolerations":  tolerations,
+	}
+	params := map[string]any{
+		"admissionController": scope,
 	}
 	return c.def().applyValues(restConfig, params, logger)
 }
 
 func (c KyvernoChart) Remove(restConfig *rest.Config, logger *zap.SugaredLogger) error {
-	return c.def().removeValues(restConfig, []string{"nodeSelector", "tolerations"}, logger)
+	return c.def().removeValues(restConfig, []string{"admissionController"}, logger)
 }
