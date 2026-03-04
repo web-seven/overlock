@@ -14,6 +14,7 @@ import (
 	docker "github.com/docker/docker/client"
 	"github.com/pterm/pterm"
 	"github.com/web-seven/overlock/internal/chart"
+	"k8s.io/client-go/kubernetes"
 	"github.com/web-seven/overlock/internal/engine"
 	"github.com/web-seven/overlock/internal/kube"
 	"github.com/web-seven/overlock/internal/namespace"
@@ -176,6 +177,21 @@ func (e *Environment) Setup(ctx context.Context, logger *zap.SugaredLogger) erro
 	for _, ch := range charts {
 		if err := ch.Install(ctx, configClient, logger); err != nil {
 			return err
+		}
+	}
+
+	// Label the master node with engine scope by default.
+	kubeClient, err := kubernetes.NewForConfig(configClient)
+	if err != nil {
+		logger.Warnf("Failed to create Kubernetes client for engine scope labeling: %v", err)
+	} else {
+		masterName, err := findMasterNode(ctx, kubeClient)
+		if err != nil {
+			logger.Warnf("Could not find master node for engine scope labeling: %v", err)
+		} else {
+			if err := addEngineScopeToNode(ctx, kubeClient, masterName, logger); err != nil {
+				logger.Warnf("Failed to label master node with engine scope: %v", err)
+			}
 		}
 	}
 

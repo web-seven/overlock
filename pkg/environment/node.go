@@ -188,7 +188,7 @@ func (e *Environment) DeleteNode(ctx context.Context, nodeName string, scopes []
 		} else {
 			// Check if node has engine taint and remove engine scope from Helm charts.
 			if e.nodeHasEngineTaint(ctx, kubeClient, k3sNodeName) {
-				if err := e.removeEngineScope(ctx, restConfig, logger); err != nil {
+				if err := e.removeEngineScope(ctx, kubeClient, restConfig, logger); err != nil {
 					logger.Warnf("Failed to remove engine scope from Helm charts: %v", err)
 				}
 			}
@@ -357,22 +357,34 @@ func (e *Environment) waitForNodeReady(ctx context.Context, kubeClient *kubernet
 	}
 }
 
-// applyEngineScope labels and taints the node for engine-only workloads, then
-// updates Crossplane, Kyverno, and cert-manager Helm releases to schedule onto
-// that node via nodeSelector and tolerations.
-func (e *Environment) applyEngineScope(ctx context.Context, kubeClient *kubernetes.Clientset, restConfig *rest.Config, nodeName string, logger *zap.SugaredLogger) error {
+// findMasterNode returns the name of the control-plane/master node.
+func findMasterNode(ctx context.Context, kubeClient *kubernetes.Clientset) (string, error) {
+	nodes, err := kubeClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to list nodes: %w", err)
+	}
+	for _, n := range nodes.Items {
+		for k := range n.Labels {
+			if k == "node-role.kubernetes.io/master" || k == "node-role.kubernetes.io/control-plane" {
+				return n.Name, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("no master node found")
+}
+
+// addEngineScopeToNode adds the engine scope label and taint to a node.
+func addEngineScopeToNode(ctx context.Context, kubeClient *kubernetes.Clientset, nodeName string, logger *zap.SugaredLogger) error {
 	node, err := kubeClient.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to get node %q: %w", nodeName, err)
 	}
 
-	// Add label so nodeSelector can target this node.
 	if node.Labels == nil {
 		node.Labels = make(map[string]string)
 	}
 	node.Labels[engineScopeLabel] = engineScopeValue
 
-	// Add taint so only pods with a matching toleration are scheduled here.
 	taint := corev1.Taint{
 		Key:    engineScopeLabel,
 		Value:  engineScopeValue,
@@ -393,6 +405,52 @@ func (e *Environment) applyEngineScope(ctx context.Context, kubeClient *kubernet
 		return fmt.Errorf("failed to update node %q: %w", nodeName, err)
 	}
 	logger.Infof("Applied label and taint %s=%s:%s to node %q.", engineScopeLabel, engineScopeValue, engineScopeEffect, nodeName)
+	return nil
+}
+
+// removeEngineScopeFromNode removes the engine scope label and taint from a node.
+func removeEngineScopeFromNode(ctx context.Context, kubeClient *kubernetes.Clientset, nodeName string, logger *zap.SugaredLogger) error {
+	node, err := kubeClient.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get node %q: %w", nodeName, err)
+	}
+
+	delete(node.Labels, engineScopeLabel)
+
+	var cleanTaints []corev1.Taint
+	for _, t := range node.Spec.Taints {
+		if t.Key == engineScopeLabel && t.Value == engineScopeValue && t.Effect == corev1.TaintEffectNoSchedule {
+			continue
+		}
+		cleanTaints = append(cleanTaints, t)
+	}
+	node.Spec.Taints = cleanTaints
+
+	if _, err := kubeClient.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{}); err != nil {
+		return fmt.Errorf("failed to update node %q: %w", nodeName, err)
+	}
+	logger.Infof("Removed label and taint %s=%s:%s from node %q.", engineScopeLabel, engineScopeValue, engineScopeEffect, nodeName)
+	return nil
+}
+
+// applyEngineScope moves the engine scope from the master node to the target
+// node, then updates Helm releases and the default DeploymentRuntimeConfig
+// to schedule engine workloads onto the target node.
+func (e *Environment) applyEngineScope(ctx context.Context, kubeClient *kubernetes.Clientset, restConfig *rest.Config, nodeName string, logger *zap.SugaredLogger) error {
+	// Remove engine scope from the master node.
+	masterName, err := findMasterNode(ctx, kubeClient)
+	if err != nil {
+		logger.Warnf("Could not find master node: %v", err)
+	} else if masterName != nodeName {
+		if err := removeEngineScopeFromNode(ctx, kubeClient, masterName, logger); err != nil {
+			logger.Warnf("Failed to remove engine scope from master node %q: %v", masterName, err)
+		}
+	}
+
+	// Add engine scope to the target node.
+	if err := addEngineScopeToNode(ctx, kubeClient, nodeName, logger); err != nil {
+		return err
+	}
 
 	nodeSelector := map[string]interface{}{
 		engineScopeLabel: engineScopeValue,
@@ -414,12 +472,22 @@ func (e *Environment) applyEngineScope(ctx context.Context, kubeClient *kubernet
 	return nil
 }
 
-// removeEngineScope clears nodeSelector and tolerations from the engine-related
-// Helm releases so workloads fall back to default scheduling.
-func (e *Environment) removeEngineScope(ctx context.Context, restConfig *rest.Config, logger *zap.SugaredLogger) error {
+// removeEngineScope clears engine scope from Helm releases and the default
+// DeploymentRuntimeConfig, then restores the engine scope label on the master node.
+func (e *Environment) removeEngineScope(ctx context.Context, kubeClient *kubernetes.Clientset, restConfig *rest.Config, logger *zap.SugaredLogger) error {
 	for _, ch := range chart.EngineCharts() {
 		if err := ch.Remove(restConfig, logger); err != nil {
 			return err
+		}
+	}
+
+	// Restore engine scope on the master node.
+	masterName, err := findMasterNode(ctx, kubeClient)
+	if err != nil {
+		logger.Warnf("Could not find master node to restore engine scope: %v", err)
+	} else {
+		if err := addEngineScopeToNode(ctx, kubeClient, masterName, logger); err != nil {
+			logger.Warnf("Failed to restore engine scope on master node %q: %v", masterName, err)
 		}
 	}
 	return nil
