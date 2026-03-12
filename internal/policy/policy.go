@@ -15,10 +15,10 @@ type RegistryPolicy struct {
 }
 
 // Add policy controller
-func AddPolicyConroller(ctx context.Context, config *rest.Config, plcType string) error {
+func AddPolicyConroller(ctx context.Context, config *rest.Config, plcType string, params map[string]any) error {
 	switch plcType {
 	case "kyverno":
-		err := addKyvernoPolicyConroller(ctx, config)
+		err := addKyvernoPolicyConroller(ctx, config, params)
 		if err != nil {
 			return err
 		}

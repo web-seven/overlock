@@ -9,6 +9,7 @@ This document provides solutions to common issues you may encounter when using O
   - [Package Installation Fails](#package-installation-fails)
   - [Provider Not Working](#provider-not-working)
   - [Freezing During Environment Creation](#freezing-during-environment-creation)
+- [Firewall Configuration for Remote Nodes](#firewall-configuration-for-remote-nodes)
 - [Getting Help](#getting-help)
 - [Debug Mode](#debug-mode)
 
@@ -159,6 +160,32 @@ The error indicates that the kubelet.service failed to start due to the system r
 **How did adjusting `fs.inotify.max_user_instances` solve the error?**
 
 Increasing the `fs.inotify.max_user_instances` setting allows more `inotify` instances to be allocated per user, resolving the resource limitation that caused the kubelet.service to fail.
+
+## Firewall Configuration for Remote Nodes
+
+When using `k3s-docker` engine with remote nodes via SSH, the server host firewall must allow K3s traffic. If using `firewalld`:
+
+### Open required ports
+
+```bash
+sudo firewall-cmd --zone=public --add-port=6443/tcp --permanent   # K3s API server
+sudo firewall-cmd --zone=public --add-port=6444/tcp --permanent   # K3s supervisor
+sudo firewall-cmd --zone=public --add-port=8472/udp --permanent   # Flannel VXLAN overlay
+sudo firewall-cmd --zone=public --add-port=10250/tcp --permanent  # Kubelet
+```
+
+### Trust K3s interfaces
+
+```bash
+sudo firewall-cmd --zone=trusted --add-interface=cni0 --permanent
+sudo firewall-cmd --zone=trusted --add-interface=flannel.1 --permanent
+```
+
+### Apply changes
+
+```bash
+sudo firewall-cmd --reload
+```
 
 ## Getting Help
 

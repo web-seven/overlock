@@ -15,9 +15,9 @@ func (KyvernoChart) def() chartDef {
 	return chartDef{"kyverno", "https://kyverno.github.io/kyverno/", "kyverno", "kyverno"}
 }
 
-func (c KyvernoChart) Install(ctx context.Context, restConfig *rest.Config, logger *zap.SugaredLogger) error {
+func (c KyvernoChart) Install(ctx context.Context, restConfig *rest.Config, params map[string]any, logger *zap.SugaredLogger) error {
 	logger.Debug("Installing policy controller")
-	err := policy.AddPolicyConroller(ctx, restConfig, "kyverno")
+	err := policy.AddPolicyConroller(ctx, restConfig, "kyverno", params)
 	if err != nil {
 		return err
 	}
@@ -25,15 +25,17 @@ func (c KyvernoChart) Install(ctx context.Context, restConfig *rest.Config, logg
 	return nil
 }
 
+func (c KyvernoChart) ScopeParams(nodeSelector map[string]interface{}, tolerations []interface{}) map[string]any {
+	return map[string]any{
+		"admissionController": map[string]any{
+			"nodeSelector": nodeSelector,
+			"tolerations":  tolerations,
+		},
+	}
+}
+
 func (c KyvernoChart) Apply(restConfig *rest.Config, nodeSelector map[string]interface{}, tolerations []interface{}, logger *zap.SugaredLogger) error {
-	scope := map[string]any{
-		"nodeSelector": nodeSelector,
-		"tolerations":  tolerations,
-	}
-	params := map[string]any{
-		"admissionController": scope,
-	}
-	return c.def().applyValues(restConfig, params, logger)
+	return c.def().applyValues(restConfig, c.ScopeParams(nodeSelector, tolerations), logger)
 }
 
 func (c KyvernoChart) Remove(restConfig *rest.Config, logger *zap.SugaredLogger) error {

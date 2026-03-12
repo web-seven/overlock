@@ -18,12 +18,26 @@ type nodeCreateCmd struct {
 	Environment string   `required:"" help:"Name of the target environment (k3s cluster)."`
 	Engine      string   `optional:"" help:"Specifies the Kubernetes engine to use for the runtime environment." default:"k3s-docker"`
 	Scopes      []string `optional:"" help:"Comma-separated list of node scopes (engine, workloads)."`
+	Host        string   `optional:"" help:"Remote host to create the node on via SSH."`
+	User        string   `optional:"" help:"SSH user for the remote host." default:"root"`
+	Port        int      `optional:"" help:"SSH port for the remote host." default:"22"`
+	Key         string   `optional:"" help:"Path to SSH private key." default:"~/.ssh/id_rsa"`
 }
 
 func (c *nodeCreateCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
+	var remote *environment.SSHClient
+	if c.Host != "" {
+		var err error
+		remote, err = environment.NewSSHClient(c.Host, c.User, c.Port, c.Key)
+		if err != nil {
+			return err
+		}
+		defer remote.Close()
+	}
+
 	return environment.
 		New(c.Engine, c.Environment).
-		CreateNode(ctx, c.Name, c.Scopes, logger)
+		CreateNode(ctx, c.Name, c.Scopes, remote, logger)
 }
 
 type nodeDeleteCmd struct {
@@ -31,10 +45,24 @@ type nodeDeleteCmd struct {
 	Environment string   `required:"" help:"Name of the target environment."`
 	Engine      string   `optional:"" help:"Specifies the Kubernetes engine to use for the runtime environment." default:"k3s-docker"`
 	Scopes      []string `optional:"" help:"Comma-separated list of node scopes (engine, workloads)."`
+	Host        string   `optional:"" help:"Remote host where the node container runs."`
+	User        string   `optional:"" help:"SSH user for the remote host." default:"root"`
+	Port        int      `optional:"" help:"SSH port for the remote host." default:"22"`
+	Key         string   `optional:"" help:"Path to SSH private key." default:"~/.ssh/id_rsa"`
 }
 
 func (c *nodeDeleteCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
+	var remote *environment.SSHClient
+	if c.Host != "" {
+		var err error
+		remote, err = environment.NewSSHClient(c.Host, c.User, c.Port, c.Key)
+		if err != nil {
+			return err
+		}
+		defer remote.Close()
+	}
+
 	return environment.
 		New(c.Engine, c.Environment).
-		DeleteNode(ctx, c.Name, c.Scopes, logger)
+		DeleteNode(ctx, c.Name, c.Scopes, remote, logger)
 }

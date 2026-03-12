@@ -75,7 +75,7 @@ func (r *Registry) CreateLocal(ctx context.Context, client *kubernetes.Clientset
 
 	// Install cert-manager and create TLS certificate
 	logger.Debug("Installing cert-manager")
-	if err := certmanager.InstallCertManager(ctx, configClient); err != nil {
+	if err := certmanager.InstallCertManager(ctx, configClient, nil); err != nil {
 		logger.Warnf("Failed to install cert-manager: %v", err)
 	} else {
 		logger.Debug("cert-manager installed")
@@ -316,7 +316,7 @@ server {
 
 			if deployIsReady {
 				logger.Debug("Installing policy controller")
-				err = policy.AddPolicyConroller(ctx, configClient, policy.DefaultPolicyController)
+				err = policy.AddPolicyConroller(ctx, configClient, policy.DefaultPolicyController, nil)
 				if err != nil {
 					logger.Warnln("Policy controller has issues, without it, local registry could not work normally.")
 					return err

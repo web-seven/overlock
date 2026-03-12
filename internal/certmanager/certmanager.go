@@ -34,7 +34,7 @@ var (
 )
 
 // InstallCertManager installs cert-manager via Helm if not already installed
-func InstallCertManager(ctx context.Context, config *rest.Config) error {
+func InstallCertManager(ctx context.Context, config *rest.Config, extraParams map[string]any) error {
 	repoURL, err := url.Parse(certManagerRepoUrl)
 	if err != nil {
 		return err
@@ -55,7 +55,15 @@ func InstallCertManager(ctx context.Context, config *rest.Config) error {
 		return nil
 	}
 
-	err = manager.Upgrade(certManagerChartVersion, certManagerValues)
+	values := make(map[string]interface{}, len(certManagerValues))
+	for k, v := range certManagerValues {
+		values[k] = v
+	}
+	for k, v := range extraParams {
+		values[k] = v
+	}
+
+	err = manager.Upgrade(certManagerChartVersion, values)
 	if err != nil {
 		return err
 	}
