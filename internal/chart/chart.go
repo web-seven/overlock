@@ -15,9 +15,26 @@ import (
 // Chart abstracts a Helm chart that participates in environment setup
 // and node scope management (nodeSelector / tolerations).
 type Chart interface {
-	Install(ctx context.Context, restConfig *rest.Config, logger *zap.SugaredLogger) error
+	Install(ctx context.Context, restConfig *rest.Config, scopeParams map[string]any, logger *zap.SugaredLogger) error
+	ScopeParams(nodeSelector map[string]interface{}, tolerations []interface{}) map[string]any
 	Apply(restConfig *rest.Config, nodeSelector map[string]interface{}, tolerations []interface{}, logger *zap.SugaredLogger) error
 	Remove(restConfig *rest.Config, logger *zap.SugaredLogger) error
+}
+
+// EngineScopeSelector returns the standard engine scope nodeSelector and tolerations.
+func EngineScopeSelector() (map[string]interface{}, []interface{}) {
+	nodeSelector := map[string]interface{}{
+		"overlock.io/scope": "engine",
+	}
+	tolerations := []interface{}{
+		map[string]interface{}{
+			"key":      "overlock.io/scope",
+			"operator": "Equal",
+			"value":    "engine",
+			"effect":   "NoSchedule",
+		},
+	}
+	return nodeSelector, tolerations
 }
 
 // EngineCharts returns the set of charts managed for engine-scope scheduling.

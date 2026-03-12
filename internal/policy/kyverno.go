@@ -55,7 +55,7 @@ var (
 	}
 )
 
-func addKyvernoPolicyConroller(ctx context.Context, config *rest.Config) error {
+func addKyvernoPolicyConroller(ctx context.Context, config *rest.Config, extraParams map[string]any) error {
 	repoURL, err := url.Parse(kyvernoRepoUrl)
 	if err != nil {
 		return err
@@ -76,7 +76,15 @@ func addKyvernoPolicyConroller(ctx context.Context, config *rest.Config) error {
 		return nil
 	}
 
-	err = manager.Upgrade(kyvernoChartVersion, chartValues)
+	values := make(map[string]interface{}, len(chartValues))
+	for k, v := range chartValues {
+		values[k] = v
+	}
+	for k, v := range extraParams {
+		values[k] = v
+	}
+
+	err = manager.Upgrade(kyvernoChartVersion, values)
 	if err != nil {
 		return err
 	}

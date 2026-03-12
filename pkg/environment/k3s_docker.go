@@ -6,15 +6,20 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
+	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	docker "github.com/docker/docker/client"
-	"github.com/docker/go-connections/nat"
 	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"strconv"
 )
 
 const (
@@ -53,33 +58,17 @@ func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (_ s
 		return e.K3sDockerContextName(), nil
 	}
 
-	// Build port bindings: always expose 6443 (API server) on a random host port.
-	apiContainerPort, _ := nat.NewPort("tcp", "6443")
-	exposedPorts := nat.PortSet{
-		apiContainerPort: struct{}{},
-	}
-	portBindings := nat.PortMap{
-		apiContainerPort: []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: "0"}},
-	}
-
-	if !e.disablePorts {
-		httpContainerPort, _ := nat.NewPort("tcp", "80")
-		exposedPorts[httpContainerPort] = struct{}{}
-		portBindings[httpContainerPort] = []nat.PortBinding{
-			{HostIP: "0.0.0.0", HostPort: fmt.Sprintf("%d", e.httpPort)},
-		}
-
-		httpsContainerPort, _ := nat.NewPort("tcp", "443")
-		exposedPorts[httpsContainerPort] = struct{}{}
-		portBindings[httpsContainerPort] = []nat.PortBinding{
-			{HostIP: "0.0.0.0", HostPort: fmt.Sprintf("%d", e.httpsPort)},
-		}
+	// Determine the host's outbound IP so the K3s server advertises a
+	// routable address instead of 127.0.0.1. Without this, remote agents
+	// receive 127.0.0.1:6444 as the supervisor URL and fail to connect.
+	hostIP, err := localIP()
+	if err != nil {
+		return "", fmt.Errorf("failed to determine host IP: %w", err)
 	}
 
 	containerConfig := &container.Config{
-		Image:        k3sDockerImage,
-		Cmd:          []string{"server", "--disable=traefik"},
-		ExposedPorts: exposedPorts,
+		Image: k3sDockerImage,
+		Cmd:   []string{"server", "--disable-agent", "--disable=traefik", "--disable-network-policy", "--egress-selector-mode", "pod", "--bind-address", "0.0.0.0", "--node-ip", hostIP, "--advertise-address", hostIP, "--tls-san", hostIP},
 		Env: []string{
 			"K3S_KUBECONFIG_MODE=644",
 		},
@@ -91,9 +80,9 @@ func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (_ s
 	}
 
 	hostConfig := &container.HostConfig{
-		Privileged:   true,
-		PortBindings: portBindings,
-		Binds:        binds,
+		Privileged:  true,
+		NetworkMode: "host",
+		Binds:       binds,
 		Tmpfs: map[string]string{
 			"/run":     "",
 			"/var/run": "",
@@ -102,7 +91,7 @@ func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (_ s
 
 	// Pull the image explicitly; the Docker daemon does not auto-pull when
 	// using ContainerCreate via the Go client.
-	logger.Infof("Pulling image %s...", k3sDockerImage)
+	logger.Debugf("Pulling image %s...", k3sDockerImage)
 	pullReader, err := dockerClient.ImagePull(ctx, k3sDockerImage, types.ImagePullOptions{})
 	if err != nil {
 		return "", fmt.Errorf("failed to pull image %s: %w", k3sDockerImage, err)
@@ -129,22 +118,11 @@ func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (_ s
 		return "", fmt.Errorf("failed to start k3s-docker container: %w", err)
 	}
 
-	logger.Info("k3s-docker container started, waiting for k3s to be ready...")
+	logger.Debug("k3s-docker container started, waiting for k3s to be ready...")
 
 	if err := e.waitForK3sDockerReady(ctx, dockerClient, resp.ID, logger); err != nil {
 		return "", err
 	}
-
-	// Determine the host port that Docker assigned to the API server.
-	containerInfo, err := dockerClient.ContainerInspect(ctx, resp.ID)
-	if err != nil {
-		return "", fmt.Errorf("failed to inspect container: %w", err)
-	}
-	mappedPorts := containerInfo.NetworkSettings.Ports[apiContainerPort]
-	if len(mappedPorts) == 0 {
-		return "", fmt.Errorf("no host port mapped for API server port 6443")
-	}
-	apiHostPort := mappedPorts[0].HostPort
 
 	// Copy kubeconfig from the container.
 	kubeconfigData, err := e.copyKubeconfigFromContainer(ctx, dockerClient, resp.ID)
@@ -152,18 +130,20 @@ func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (_ s
 		return "", err
 	}
 
-	// Merge kubeconfig into host kubeconfig with the rewritten server address.
+	// Merge kubeconfig into host kubeconfig. With host networking the API
+	// server listens directly on port 6443.
 	contextName := e.K3sDockerContextName()
-	serverURL := fmt.Sprintf("https://localhost:%s", apiHostPort)
+	serverURL := "https://localhost:6443"
 	if err := mergeK3sDockerKubeconfig(kubeconfigData, contextName, serverURL); err != nil {
 		return "", fmt.Errorf("failed to merge kubeconfig: %w", err)
 	}
 
-	logger.Info("k3s-docker environment created successfully")
+	logger.Debug("k3s-docker environment created successfully")
 	return contextName, nil
 }
 
-// DeleteK3sDockerEnvironment stops and removes the k3s-docker container.
+// DeleteK3sDockerEnvironment stops and removes the k3s-docker server and all
+// agent node containers for this environment.
 func (e *Environment) DeleteK3sDockerEnvironment(logger *zap.SugaredLogger) error {
 	ctx := context.Background()
 
@@ -173,17 +153,40 @@ func (e *Environment) DeleteK3sDockerEnvironment(logger *zap.SugaredLogger) erro
 	}
 	defer dockerClient.Close()
 
-	containerName := e.k3sDockerContainerName()
-	c, err := e.findK3sDockerContainer(ctx, dockerClient, containerName)
+	// Remove remote node containers discovered via K8s node annotations.
+	e.deleteRemoteNodes(ctx, logger)
+
+	// Remove all local agent node containers (k3s-docker-<env>-*).
+	serverName := e.k3sDockerContainerName()
+	agentPrefix := serverName + "-"
+	containers, err := dockerClient.ContainerList(ctx, types.ContainerListOptions{All: true})
+	if err != nil {
+		return fmt.Errorf("failed to list containers: %w", err)
+	}
+	timeout := 10
+	for _, c := range containers {
+		for _, name := range c.Names {
+			n := strings.TrimPrefix(name, "/")
+			if strings.HasPrefix(n, agentPrefix) {
+				logger.Infof("Removing node container %q...", n)
+				_ = dockerClient.ContainerStop(ctx, c.ID, container.StopOptions{Timeout: &timeout})
+				if err := dockerClient.ContainerRemove(ctx, c.ID, types.ContainerRemoveOptions{Force: true}); err != nil {
+					logger.Warnf("Failed to remove container %s: %v", n, err)
+				}
+			}
+		}
+	}
+
+	// Remove the server container.
+	c, err := e.findK3sDockerContainer(ctx, dockerClient, serverName)
 	if err != nil {
 		return err
 	}
 	if c == nil {
-		logger.Infof("Container '%s' not found, nothing to delete.", containerName)
+		logger.Infof("Container '%s' not found, nothing to delete.", serverName)
 		return nil
 	}
 
-	timeout := 10
 	if err := dockerClient.ContainerStop(ctx, c.ID, container.StopOptions{Timeout: &timeout}); err != nil {
 		logger.Warnf("Failed to stop container %s: %v", c.ID, err)
 	}
@@ -193,6 +196,55 @@ func (e *Environment) DeleteK3sDockerEnvironment(logger *zap.SugaredLogger) erro
 
 	logger.Info("k3s-docker environment deleted successfully")
 	return nil
+}
+
+// deleteRemoteNodes finds K8s nodes with SSH annotations and removes their
+// containers on the remote hosts before the cluster is torn down.
+func (e *Environment) deleteRemoteNodes(ctx context.Context, logger *zap.SugaredLogger) {
+	contextName := e.K3sDockerContextName()
+	restConfig, err := config.GetConfigWithContext(contextName)
+	if err != nil {
+		logger.Debugf("Could not get kubeconfig for remote node cleanup: %v", err)
+		return
+	}
+	kubeClient, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		logger.Debugf("Could not create kube client for remote node cleanup: %v", err)
+		return
+	}
+
+	nodes, err := kubeClient.CoreV1().Nodes().List(ctx, v1.ListOptions{})
+	if err != nil {
+		logger.Debugf("Could not list nodes for remote node cleanup: %v", err)
+		return
+	}
+
+	for _, node := range nodes.Items {
+		host := node.Annotations[annSSHHost]
+		if host == "" {
+			continue
+		}
+		user := node.Annotations[annSSHUser]
+		if user == "" {
+			user = "root"
+		}
+		port := 22
+		if p, err := strconv.Atoi(node.Annotations[annSSHPort]); err == nil && p > 0 {
+			port = p
+		}
+		key := node.Annotations[annSSHKey]
+
+		shortName := strings.TrimPrefix(node.Name, e.name+"-")
+		remote, err := NewSSHClient(host, user, port, key)
+		if err != nil {
+			logger.Warnf("Failed to connect to remote host %s for node %q cleanup: %v", host, node.Name, err)
+			continue
+		}
+		if err := e.DeleteNode(ctx, shortName, nil, remote, logger); err != nil {
+			logger.Warnf("Failed to delete remote node %q: %v", node.Name, err)
+		}
+		remote.Close()
+	}
 }
 
 // K3sDockerContextName returns the kubeconfig context name for this engine.
@@ -262,7 +314,7 @@ func (e *Environment) waitForK3sDockerReady(ctx context.Context, dockerClient *d
 
 			inspectResp, err := dockerClient.ContainerExecInspect(ctx, execID.ID)
 			if err == nil && inspectResp.ExitCode == 0 {
-				logger.Info("k3s is ready")
+				logger.Info("k3s server is ready")
 				return nil
 			}
 
@@ -355,4 +407,14 @@ func mergeK3sDockerKubeconfig(kubeconfigData []byte, contextName, serverURL stri
 	existingConfig.CurrentContext = contextName
 
 	return clientcmd.ModifyConfig(po, *existingConfig, true)
+}
+
+// localIP returns the preferred outbound IP of this machine.
+func localIP() (string, error) {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		return "", err
+	}
+	defer conn.Close()
+	return conn.LocalAddr().(*net.UDPAddr).IP.String(), nil
 }
