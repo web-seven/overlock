@@ -174,6 +174,9 @@ func (e *Environment) createLocalNode(ctx context.Context, dockerClient *docker.
 
 	hostConfig := &container.HostConfig{
 		Privileged: true,
+		Binds: []string{
+			"/lib/modules:/lib/modules:ro",
+		},
 		Tmpfs: map[string]string{
 			"/run":     "",
 			"/var/run": "",
@@ -235,7 +238,7 @@ func (e *Environment) createRemoteNode(ctx context.Context, dockerClient *docker
 		}
 	}
 	dockerRunCmd := fmt.Sprintf(
-		"docker run -d --privileged --network host --name %s --tmpfs /run --tmpfs /var/run -e K3S_URL=%s -e K3S_TOKEN=%s %s agent --node-name %s --node-external-ip %s --node-ip %s%s",
+		"docker run -d --privileged --network host --name %s -v /lib/modules:/lib/modules:ro --tmpfs /run --tmpfs /var/run -e K3S_URL=%s -e K3S_TOKEN=%s %s agent --node-name %s --node-external-ip %s --node-ip %s%s",
 		agentContainerName, k3sURL, token, k3sDockerImage, k3sNodeName, remote.Host, remote.Host, scopeFlags,
 	)
 
