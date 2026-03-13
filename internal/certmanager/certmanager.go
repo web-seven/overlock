@@ -127,8 +127,8 @@ func CreateRegistryCertificate(ctx context.Context, config *rest.Config) error {
 				"namespace": namespace.Namespace,
 			},
 			"spec": map[string]interface{}{
-				"secretName": registrySecretName,
-				"duration":   "8760h",
+				"secretName":  registrySecretName,
+				"duration":    "8760h",
 				"renewBefore": "720h",
 				"dnsNames": []interface{}{
 					"registry",

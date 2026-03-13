@@ -36,22 +36,22 @@ import (
 )
 
 const (
-	deployName          = "overlock-registry"
-	svcName             = "registry"
-	deployPort          = 5000
-	nginxPortHTTP       = 80
-	nginxPortHTTPS      = 443
-	svcPort             = 80
-	svcPortTLS          = 443
-	nodePort            = 30100
-	tlsCertPath         = "/certs/tls.crt"
-	tlsKeyPath          = "/certs/tls.key"
-	tlsVolumeName       = "registry-tls"
-	tlsMountPath        = "/certs"
-	configVolumeName    = "registry-config"
-	configMountPath     = "/etc/docker/registry"
-	configMapName       = "registry-config"
-	nginxConfigMapName  = "nginx-proxy-config"
+	deployName           = "overlock-registry"
+	svcName              = "registry"
+	deployPort           = 5000
+	nginxPortHTTP        = 80
+	nginxPortHTTPS       = 443
+	svcPort              = 80
+	svcPortTLS           = 443
+	nodePort             = 30100
+	tlsCertPath          = "/certs/tls.crt"
+	tlsKeyPath           = "/certs/tls.key"
+	tlsVolumeName        = "registry-tls"
+	tlsMountPath         = "/certs"
+	configVolumeName     = "registry-config"
+	configMountPath      = "/etc/docker/registry"
+	configMapName        = "registry-config"
+	nginxConfigMapName   = "nginx-proxy-config"
 	nginxConfigMountPath = "/etc/nginx/conf.d"
 )
 

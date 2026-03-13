@@ -14,8 +14,8 @@ import (
 	"github.com/docker/docker/pkg/stdcopy"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	policyv1 "k8s.io/api/policy/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -372,7 +372,6 @@ func (e *Environment) drainNode(ctx context.Context, kubeClient *kubernetes.Clie
 	return nil
 }
 
-
 // isDaemonSetPod returns true if the pod is owned by a DaemonSet.
 func isDaemonSetPod(pod *corev1.Pod) bool {
 	for _, ref := range pod.OwnerReferences {
@@ -474,4 +473,3 @@ func (e *Environment) waitForNodeReady(ctx context.Context, kubeClient *kubernet
 		}
 	}
 }
-

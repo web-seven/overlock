@@ -92,7 +92,7 @@ func createServiceAccount(ctx context.Context, client *kubernetes.Clientset, nam
 // createClusterRoleBinding creates a cluster role binding for cluster-admin access
 func createClusterRoleBinding(ctx context.Context, client *kubernetes.Clientset, serviceAccountName, namespace string) error {
 	crbName := fmt.Sprintf("%s-cluster-admin", serviceAccountName)
-	
+
 	crb := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: crbName,
@@ -123,12 +123,10 @@ func createClusterRoleBinding(ctx context.Context, client *kubernetes.Clientset,
 	return nil
 }
 
-
 // displayServiceAccountInfo displays the service account information to the user
 func displayServiceAccountInfo(info *AdminServiceAccountInfo, logger *zap.SugaredLogger) {
 	logger.Info("Admin service account created successfully!")
-	
+
 	// Security warning
 	pterm.Warning.Println("This service account has cluster-admin privileges.")
 }
-

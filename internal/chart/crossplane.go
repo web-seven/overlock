@@ -140,4 +140,3 @@ func PatchDefaultRuntimeConfig(restConfig *rest.Config, nodeSelector map[string]
 	logger.Debug("Patched default DeploymentRuntimeConfig with engine scope.")
 	return nil
 }
-
