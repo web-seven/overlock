@@ -6,6 +6,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -98,6 +101,9 @@ func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (_ s
 			"/run":     "",
 			"/var/run": "",
 		},
+		Resources: container.Resources{
+			NanoCPUs: cpuToNanoCPUs(e.cpu),
+		},
 	}
 
 	// Pull the image explicitly; the Docker daemon does not auto-pull when
@@ -161,6 +167,123 @@ func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (_ s
 
 	logger.Info("k3s-docker environment created successfully")
 	return contextName, nil
+}
+
+// CreateNode creates a k3s agent container that joins an existing k3s-docker server.
+func (e *Environment) CreateNode(ctx context.Context, nodeName string, logger *zap.SugaredLogger) error {
+	dockerClient, err := docker.NewClientWithOpts(docker.FromEnv, docker.WithAPIVersionNegotiation())
+	if err != nil {
+		return fmt.Errorf("failed to create Docker client: %w", err)
+	}
+	defer dockerClient.Close()
+
+	serverContainerName := e.k3sDockerContainerName()
+	server, err := e.findK3sDockerContainer(ctx, dockerClient, serverContainerName)
+	if err != nil {
+		return err
+	}
+	if server == nil {
+		return fmt.Errorf("environment '%s' not found; create it first with 'env create'", e.name)
+	}
+
+	// Retrieve the cluster token from the server container.
+	execID, err := dockerClient.ContainerExecCreate(ctx, server.ID, types.ExecConfig{
+		Cmd:          []string{"cat", "/var/lib/rancher/k3s/server/node-token"},
+		AttachStdout: true,
+		AttachStderr: true,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to exec into server container: %w", err)
+	}
+	attachResp, err := dockerClient.ContainerExecAttach(ctx, execID.ID, types.ExecStartCheck{})
+	if err != nil {
+		return fmt.Errorf("failed to attach to exec: %w", err)
+	}
+	var tokenBuf bytes.Buffer
+	_, _ = io.Copy(&tokenBuf, attachResp.Reader)
+	attachResp.Close()
+	token := strings.TrimSpace(tokenBuf.String())
+	// The output may contain a docker multiplexed stream header; strip non-printable prefix bytes.
+	if idx := strings.Index(token, "K10"); idx > 0 {
+		token = token[idx:]
+	}
+	if token == "" {
+		return fmt.Errorf("failed to retrieve cluster token from server container")
+	}
+
+	// Determine the server container's IP on the default bridge network.
+	serverInfo, err := dockerClient.ContainerInspect(ctx, server.ID)
+	if err != nil {
+		return fmt.Errorf("failed to inspect server container: %w", err)
+	}
+	serverIP := serverInfo.NetworkSettings.IPAddress
+	if serverIP == "" {
+		for _, net := range serverInfo.NetworkSettings.Networks {
+			serverIP = net.IPAddress
+			break
+		}
+	}
+	if serverIP == "" {
+		return fmt.Errorf("could not determine IP address of server container")
+	}
+
+	nodeContainerName := k3sDockerContainerPrefix + e.name + "-node-" + nodeName
+
+	// Check if node container already exists.
+	existing, err := e.findK3sDockerContainer(ctx, dockerClient, nodeContainerName)
+	if err != nil {
+		return err
+	}
+	if existing != nil {
+		logger.Infof("Node '%s' already exists in environment '%s'.", nodeName, e.name)
+		if existing.State != "running" {
+			if err := dockerClient.ContainerStart(ctx, existing.ID, types.ContainerStartOptions{}); err != nil {
+				return fmt.Errorf("failed to start existing node container: %w", err)
+			}
+		}
+		return nil
+	}
+
+	containerConfig := &container.Config{
+		Image: k3sDockerImage,
+		Cmd: []string{
+			"agent",
+			"--server", fmt.Sprintf("https://%s:6443", serverIP),
+			"--token", token,
+		},
+	}
+
+	hostConfig := &container.HostConfig{
+		Privileged: true,
+		Tmpfs: map[string]string{
+			"/run":     "",
+			"/var/run": "",
+		},
+		Resources: container.Resources{
+			NanoCPUs: cpuToNanoCPUs(e.cpu),
+		},
+	}
+
+	logger.Infof("Pulling image %s...", k3sDockerImage)
+	pullReader, err := dockerClient.ImagePull(ctx, k3sDockerImage, types.ImagePullOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to pull image %s: %w", k3sDockerImage, err)
+	}
+	_, _ = io.Copy(io.Discard, pullReader)
+	pullReader.Close()
+
+	resp, err := dockerClient.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, nodeContainerName)
+	if err != nil {
+		return fmt.Errorf("failed to create node container: %w", err)
+	}
+
+	if err := dockerClient.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
+		_ = dockerClient.ContainerRemove(ctx, resp.ID, types.ContainerRemoveOptions{Force: true})
+		return fmt.Errorf("failed to start node container: %w", err)
+	}
+
+	logger.Infof("Node '%s' added to environment '%s' successfully.", nodeName, e.name)
+	return nil
 }
 
 // DeleteK3sDockerEnvironment stops and removes the k3s-docker container.
@@ -291,6 +414,19 @@ func (e *Environment) copyKubeconfigFromContainer(ctx context.Context, dockerCli
 	}
 
 	return buf.Bytes(), nil
+}
+
+// cpuToNanoCPUs converts a CPU string (e.g. "2", "0.5") to Docker NanoCPUs.
+// Returns 0 (no limit) if the string is empty or invalid.
+func cpuToNanoCPUs(cpu string) int64 {
+	if cpu == "" {
+		return 0
+	}
+	f, err := strconv.ParseFloat(cpu, 64)
+	if err != nil || f <= 0 {
+		return 0
+	}
+	return int64(math.Round(f * 1e9))
 }
 
 // mergeK3sDockerKubeconfig loads the raw kubeconfig bytes from the container,

@@ -42,6 +42,7 @@ type Environment struct {
 	providers                 []string
 	createAdminServiceAccount bool
 	adminServiceAccountName   string
+	cpu                       string
 }
 
 // New Environment entity
@@ -407,6 +408,11 @@ func (e *Environment) WithDisabledPorts(disablePorts bool) *Environment {
 func (e *Environment) WithAdminServiceAccount(create bool, name string) *Environment {
 	e.createAdminServiceAccount = create
 	e.adminServiceAccountName = name
+	return e
+}
+
+func (e *Environment) WithCpu(cpu string) *Environment {
+	e.cpu = cpu
 	return e
 }
 

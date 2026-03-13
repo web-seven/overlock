@@ -32,6 +32,7 @@ type createOptions struct {
 	Functions                 []string `optional:"" help:"List of functions to apply to the environment."`
 	CreateAdminServiceAccount bool     `optional:"" help:"Create admin service account with cluster-admin privileges."`
 	AdminServiceAccountName   string   `optional:"" help:"Name for the admin service account. Only relevant when create-admin-service-account is enabled. Defaults to 'overlock-admin' if not specified."`
+	Cpu                       string   `optional:"" help:"CPU limit for k3s-docker container (e.g., 2, 0.5, 1.5)." default:""`
 }
 
 func (c *createCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
@@ -74,6 +75,7 @@ func (c *createCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
 		WithConfigurations(c.Configurations).
 		WithFunctions(c.Functions).
 		WithAdminServiceAccount(c.CreateAdminServiceAccount, c.AdminServiceAccountName).
+		WithCpu(c.Cpu).
 		Create(ctx, logger)
 }
 
