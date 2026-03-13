@@ -19,7 +19,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
-	"strconv"
 )
 
 const (
@@ -222,25 +221,13 @@ func (e *Environment) deleteRemoteNodes(ctx context.Context, logger *zap.Sugared
 	}
 
 	for _, node := range nodes.Items {
-		host := node.Annotations[annSSHHost]
-		if host == "" {
+		remote := remoteFromNodeAnnotations(ctx, kubeClient, node.Name, logger)
+		if remote == nil {
 			continue
 		}
-		user := node.Annotations[annSSHUser]
-		if user == "" {
-			user = "root"
-		}
-		port := 22
-		if p, err := strconv.Atoi(node.Annotations[annSSHPort]); err == nil && p > 0 {
-			port = p
-		}
-		key := node.Annotations[annSSHKey]
-
-		shortName := strings.TrimPrefix(node.Name, e.name+"-")
-		remote, err := NewSSHClient(host, user, port, key)
-		if err != nil {
-			logger.Warnf("Failed to connect to remote host %s for node %q cleanup: %v", host, node.Name, err)
-			continue
+		shortName := node.Labels[nodeLabel]
+		if shortName == "" {
+			shortName = strings.TrimPrefix(node.Name, e.name+"-")
 		}
 		if err := e.DeleteNode(ctx, shortName, nil, remote, logger); err != nil {
 			logger.Warnf("Failed to delete remote node %q: %v", node.Name, err)

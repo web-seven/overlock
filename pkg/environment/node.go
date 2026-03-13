@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"time"
 
@@ -23,6 +24,7 @@ import (
 
 const (
 	scopeLabel     = "overlock.io/scope"
+	nodeLabel      = "overlock.io/node"
 	scopeEngine    = "engine"
 	scopeWorkloads = "workloads"
 	scopeEffect    = "NoSchedule"
@@ -69,16 +71,18 @@ func (e *Environment) CreateNode(ctx context.Context, nodeName string, scopes []
 		return fmt.Errorf("failed to get K3s token: %w", err)
 	}
 
-	// The Kubernetes node name follows the pattern <environment>-<nodeName>.
+	// The Kubernetes node name prefix follows the pattern <environment>-<nodeName>.
+	// --with-node-id appends a random suffix so each container gets a unique
+	// name in K3s's password store, avoiding conflicts on retries.
 	k3sNodeName := e.name + "-" + nodeName
 	agentContainerName := e.nodeContainerName(nodeName)
 
 	if remote != nil {
-		if err := e.createRemoteNode(ctx, dockerClient, serverContainer.ID, remote, agentContainerName, k3sNodeName, token, scopes, logger); err != nil {
+		if err := e.createRemoteNode(ctx, dockerClient, serverContainer.ID, remote, agentContainerName, k3sNodeName, nodeName, token, scopes, logger); err != nil {
 			return err
 		}
 	} else {
-		if err := e.createLocalNode(ctx, dockerClient, serverContainer.ID, agentContainerName, k3sNodeName, token, scopes, logger); err != nil {
+		if err := e.createLocalNode(ctx, dockerClient, serverContainer.ID, agentContainerName, k3sNodeName, nodeName, token, scopes, logger); err != nil {
 			return err
 		}
 	}
@@ -95,14 +99,17 @@ func (e *Environment) CreateNode(ctx context.Context, nodeName string, scopes []
 		return fmt.Errorf("failed to create Kubernetes client: %w", err)
 	}
 
-	if err := e.waitForNodeReady(ctx, kubeClient, k3sNodeName, logger); err != nil {
+	// Discover the node by the overlock.io/node label since --with-node-id
+	// appends a random suffix to the actual Kubernetes node name.
+	actualNodeName, err := e.waitForNodeReadyByLabel(ctx, kubeClient, nodeName, logger)
+	if err != nil {
 		return err
 	}
 
 	// Store SSH connection info as annotations for remote node cleanup on env delete.
 	if remote != nil {
-		if err := annotateRemoteNode(ctx, kubeClient, k3sNodeName, remote); err != nil {
-			logger.Warnf("Failed to annotate remote node %q: %v", k3sNodeName, err)
+		if err := annotateRemoteNode(ctx, kubeClient, actualNodeName, remote); err != nil {
+			logger.Warnf("Failed to annotate remote node %q: %v", actualNodeName, err)
 		}
 	}
 
@@ -111,10 +118,9 @@ func (e *Environment) CreateNode(ctx context.Context, nodeName string, scopes []
 	// so pods migrate automatically via label selectors.
 	for _, scope := range scopes {
 		oldNode, err := findNodeWithScope(ctx, kubeClient, scope)
-		if err == nil && oldNode != k3sNodeName {
-			oldShortName := strings.TrimPrefix(oldNode, e.name+"-")
+		if err == nil && oldNode != actualNodeName {
 			logger.Debugf("Replacing old %s-scoped node %q...", scope, oldNode)
-			if err := e.DeleteNode(ctx, oldShortName, nil, nil, logger); err != nil {
+			if err := e.deleteNodeByName(ctx, kubeClient, oldNode, logger); err != nil {
 				logger.Warnf("Failed to delete old %s-scoped node %q: %v", scope, oldNode, err)
 			}
 		}
@@ -128,7 +134,7 @@ func (e *Environment) CreateNode(ctx context.Context, nodeName string, scopes []
 // Each agent uses default bridge networking so it gets its own network
 // namespace with no port conflicts. The server's --egress-selector-mode=pod
 // allows it to reach agent pods through the agent tunnel.
-func (e *Environment) createLocalNode(ctx context.Context, dockerClient *docker.Client, serverContainerID, agentContainerName, k3sNodeName, token string, scopes []string, logger *zap.SugaredLogger) error {
+func (e *Environment) createLocalNode(ctx context.Context, dockerClient *docker.Client, serverContainerID, agentContainerName, k3sNodeName, nodeName, token string, scopes []string, logger *zap.SugaredLogger) error {
 	// Check if the agent container already exists.
 	existing, err := e.findK3sDockerContainer(ctx, dockerClient, agentContainerName)
 	if err != nil {
@@ -150,7 +156,8 @@ func (e *Environment) createLocalNode(ctx context.Context, dockerClient *docker.
 		return fmt.Errorf("failed to determine host IP: %w", err)
 	}
 
-	agentCmd := []string{"agent", "--node-name", k3sNodeName}
+	agentCmd := []string{"agent", "--with-node-id", "--node-name", k3sNodeName,
+		"--node-label", fmt.Sprintf("%s=%s", nodeLabel, nodeName)}
 	for _, scope := range scopes {
 		agentCmd = append(agentCmd, "--node-label", fmt.Sprintf("%s=%s", scopeLabel, scope))
 		// Only taint the engine node; workloads node stays open so
@@ -172,10 +179,15 @@ func (e *Environment) createLocalNode(ctx context.Context, dockerClient *docker.
 		},
 	}
 
+	// Use a named volume for the K3s data directory to avoid the
+	// overlayfs-on-overlayfs problem that crashes containerd.
+	volumeName := agentContainerName + "-data"
+
 	hostConfig := &container.HostConfig{
 		Privileged: true,
 		Binds: []string{
 			"/lib/modules:/lib/modules:ro",
+			volumeName + ":/var/lib/rancher/k3s",
 		},
 		Tmpfs: map[string]string{
 			"/run":     "",
@@ -207,7 +219,7 @@ func (e *Environment) createLocalNode(ctx context.Context, dockerClient *docker.
 }
 
 // createRemoteNode creates a K3s agent container on a remote host via SSH.
-func (e *Environment) createRemoteNode(ctx context.Context, dockerClient *docker.Client, serverContainerID string, remote *SSHClient, agentContainerName, k3sNodeName, token string, scopes []string, logger *zap.SugaredLogger) error {
+func (e *Environment) createRemoteNode(ctx context.Context, dockerClient *docker.Client, serverContainerID string, remote *SSHClient, agentContainerName, k3sNodeName, nodeName, token string, scopes []string, logger *zap.SugaredLogger) error {
 	// Determine the local IP reachable from the remote host.
 	localIP, err := remote.LocalIPFor()
 	if err != nil {
@@ -228,8 +240,10 @@ func (e *Environment) createRemoteNode(ctx context.Context, dockerClient *docker
 		return nil
 	}
 
-	// Run the K3s agent container on the remote host with host networking
-	// so the agent's tunnel and kubelet bind to the host's real IP.
+	// Run the K3s agent container on the remote host using default bridge
+	// networking. Multiple agents can run on the same host without port
+	// conflicts. The server's --egress-selector-mode=pod routes traffic
+	// to pods through each agent's tunnel.
 	scopeFlags := ""
 	for _, scope := range scopes {
 		scopeFlags += fmt.Sprintf(" --node-label %s=%s", scopeLabel, scope)
@@ -237,9 +251,10 @@ func (e *Environment) createRemoteNode(ctx context.Context, dockerClient *docker
 			scopeFlags += fmt.Sprintf(" --node-taint %s=%s:%s", scopeLabel, scope, scopeEffect)
 		}
 	}
+	volumeName := agentContainerName + "-data"
 	dockerRunCmd := fmt.Sprintf(
-		"docker run -d --privileged --network host --name %s -v /lib/modules:/lib/modules:ro --tmpfs /run --tmpfs /var/run -e K3S_URL=%s -e K3S_TOKEN=%s %s agent --node-name %s --node-external-ip %s --node-ip %s%s",
-		agentContainerName, k3sURL, token, k3sDockerImage, k3sNodeName, remote.Host, remote.Host, scopeFlags,
+		"docker run -d --privileged --name %s -v /lib/modules:/lib/modules:ro -v %s:/var/lib/rancher/k3s --tmpfs /run --tmpfs /var/run -e K3S_URL=%s -e K3S_TOKEN=%s %s agent --with-node-id --node-name %s --node-label %s=%s --node-external-ip %s%s",
+		agentContainerName, volumeName, k3sURL, token, k3sDockerImage, k3sNodeName, nodeLabel, nodeName, remote.Host, scopeFlags,
 	)
 
 	logger.Debugf("Creating node container %q on remote host %s...", agentContainerName, remote.Host)
@@ -261,7 +276,7 @@ func (e *Environment) DeleteNode(ctx context.Context, nodeName string, scopes []
 	}
 
 	// Drain and delete the Kubernetes node before removing the container.
-	k3sNodeName := e.name + "-" + nodeName
+	// Find the actual node name by label since --with-node-id appends a random suffix.
 	contextName := e.K3sDockerContextName()
 	restConfig, err := config.GetConfigWithContext(contextName)
 	if err != nil {
@@ -271,13 +286,26 @@ func (e *Environment) DeleteNode(ctx context.Context, nodeName string, scopes []
 		if err != nil {
 			logger.Warnf("Failed to create Kubernetes client, skipping node drain: %v", err)
 		} else {
-			if err := e.drainNode(ctx, kubeClient, k3sNodeName, logger); err != nil {
-				logger.Warnf("Failed to drain node %q: %v", k3sNodeName, err)
-			}
-			if err := kubeClient.CoreV1().Nodes().Delete(ctx, k3sNodeName, metav1.DeleteOptions{}); err != nil {
-				logger.Warnf("Failed to delete node %q from cluster: %v", k3sNodeName, err)
+			actualName, err := findNodeByLabel(ctx, kubeClient, nodeName)
+			if err != nil {
+				logger.Warnf("Failed to find node with label %s=%s: %v", nodeLabel, nodeName, err)
 			} else {
-				logger.Debugf("Node %q removed from cluster.", k3sNodeName)
+				// If remote is not provided, check node annotations for SSH details.
+				if remote == nil {
+					remote = remoteFromNodeAnnotations(ctx, kubeClient, actualName, logger)
+					if remote != nil {
+						defer remote.Close()
+					}
+				}
+
+				if err := e.drainNode(ctx, kubeClient, actualName, logger); err != nil {
+					logger.Warnf("Failed to drain node %q: %v", actualName, err)
+				}
+				if err := kubeClient.CoreV1().Nodes().Delete(ctx, actualName, metav1.DeleteOptions{}); err != nil {
+					logger.Warnf("Failed to delete node %q from cluster: %v", actualName, err)
+				} else {
+					logger.Debugf("Node %q removed from cluster.", actualName)
+				}
 			}
 		}
 	}
@@ -315,6 +343,12 @@ func (e *Environment) deleteLocalNode(ctx context.Context, agentContainerName st
 		return fmt.Errorf("failed to remove node container: %w", err)
 	}
 
+	// Remove the named volume used for the K3s data directory.
+	volumeName := agentContainerName + "-data"
+	if err := dockerClient.VolumeRemove(ctx, volumeName, true); err != nil {
+		logger.Warnf("Failed to remove volume %s: %v", volumeName, err)
+	}
+
 	logger.Debugf("Node container %q deleted successfully.", agentContainerName)
 	return nil
 }
@@ -328,6 +362,12 @@ func (e *Environment) deleteRemoteNode(remote *SSHClient, agentContainerName str
 	}
 	if _, err := remote.Run(fmt.Sprintf("docker rm %s", agentContainerName)); err != nil {
 		return fmt.Errorf("failed to remove remote node container: %w", err)
+	}
+
+	// Remove the named volume used for the K3s data directory.
+	volumeName := agentContainerName + "-data"
+	if _, err := remote.Run(fmt.Sprintf("docker volume rm %s", volumeName)); err != nil {
+		logger.Warnf("Failed to remove remote volume %s: %v", volumeName, err)
 	}
 
 	logger.Debugf("Node container %q deleted from remote host.", agentContainerName)
@@ -400,6 +440,34 @@ func findNodeWithScope(ctx context.Context, kubeClient *kubernetes.Clientset, sc
 	return nodes.Items[0].Name, nil
 }
 
+// remoteFromNodeAnnotations builds an SSHClient from the node's SSH annotations.
+// Returns nil if the node has no SSH host annotation (i.e. it's a local node).
+func remoteFromNodeAnnotations(ctx context.Context, kubeClient *kubernetes.Clientset, nodeName string, logger *zap.SugaredLogger) *SSHClient {
+	node, err := kubeClient.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+	if err != nil {
+		return nil
+	}
+	host := node.Annotations[annSSHHost]
+	if host == "" {
+		return nil
+	}
+	user := node.Annotations[annSSHUser]
+	if user == "" {
+		user = "root"
+	}
+	port := 22
+	if p, err := strconv.Atoi(node.Annotations[annSSHPort]); err == nil && p > 0 {
+		port = p
+	}
+	key := node.Annotations[annSSHKey]
+	remote, err := NewSSHClient(host, user, port, key)
+	if err != nil {
+		logger.Warnf("Failed to connect to remote host %s for node %q cleanup: %v", host, nodeName, err)
+		return nil
+	}
+	return remote
+}
+
 // annotateRemoteNode stores SSH connection info as annotations on the node
 // so that env delete can discover and clean up remote containers.
 func annotateRemoteNode(ctx context.Context, kubeClient *kubernetes.Clientset, nodeName string, remote *SSHClient) error {
@@ -447,9 +515,11 @@ func (e *Environment) getK3sToken(ctx context.Context, dockerClient *docker.Clie
 	return token, nil
 }
 
-// waitForNodeReady polls the Kubernetes API until the named node has the Ready
-// condition set to True.
-func (e *Environment) waitForNodeReady(ctx context.Context, kubeClient *kubernetes.Clientset, nodeName string, logger *zap.SugaredLogger) error {
+// waitForNodeReadyByLabel polls the Kubernetes API until a node with the
+// overlock.io/node=<nodeName> label appears and has the Ready condition.
+// Returns the actual Kubernetes node name (which includes the random suffix).
+func (e *Environment) waitForNodeReadyByLabel(ctx context.Context, kubeClient *kubernetes.Clientset, nodeName string, logger *zap.SugaredLogger) (string, error) {
+	labelSelector := fmt.Sprintf("%s=%s", nodeLabel, nodeName)
 	timeoutTimer := time.NewTimer(k3sReadinessTimeout)
 	defer timeoutTimer.Stop()
 	ticker := time.NewTicker(k3sReadinessPollInterval)
@@ -458,23 +528,53 @@ func (e *Environment) waitForNodeReady(ctx context.Context, kubeClient *kubernet
 	for {
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
+			return "", ctx.Err()
 		case <-timeoutTimer.C:
-			return fmt.Errorf("timeout waiting for node %q to become ready after %s", nodeName, k3sReadinessTimeout)
+			return "", fmt.Errorf("timeout waiting for node with label %s to become ready after %s", labelSelector, k3sReadinessTimeout)
 		case <-ticker.C:
-			node, err := kubeClient.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
-			if err != nil {
-				logger.Debugf("Waiting for node %q to appear: %v", nodeName, err)
+			nodes, err := kubeClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{
+				LabelSelector: labelSelector,
+			})
+			if err != nil || len(nodes.Items) == 0 {
+				logger.Debugf("Waiting for node with label %s to appear...", labelSelector)
 				continue
 			}
+			node := &nodes.Items[0]
 			for _, cond := range node.Status.Conditions {
 				if cond.Type == corev1.NodeReady && cond.Status == corev1.ConditionTrue {
-					logger.Debugf("Node %q is ready.", nodeName)
-					return nil
+					logger.Debugf("Node %q is ready.", node.Name)
+					return node.Name, nil
 				}
 			}
-			logger.Debugf("Waiting for node %q to be ready...", nodeName)
+			logger.Debugf("Waiting for node %q to be ready...", node.Name)
 		}
 	}
+}
+
+// findNodeByLabel returns the actual Kubernetes node name for a node with
+// the overlock.io/node=<nodeName> label.
+func findNodeByLabel(ctx context.Context, kubeClient *kubernetes.Clientset, nodeName string) (string, error) {
+	nodes, err := kubeClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s", nodeLabel, nodeName),
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to list nodes with label %s=%s: %w", nodeLabel, nodeName, err)
+	}
+	if len(nodes.Items) == 0 {
+		return "", fmt.Errorf("no node found with label %s=%s", nodeLabel, nodeName)
+	}
+	return nodes.Items[0].Name, nil
+}
+
+// deleteNodeByName drains and deletes a Kubernetes node by its actual name.
+func (e *Environment) deleteNodeByName(ctx context.Context, kubeClient *kubernetes.Clientset, actualName string, logger *zap.SugaredLogger) error {
+	if err := e.drainNode(ctx, kubeClient, actualName, logger); err != nil {
+		logger.Warnf("Failed to drain node %q: %v", actualName, err)
+	}
+	if err := kubeClient.CoreV1().Nodes().Delete(ctx, actualName, metav1.DeleteOptions{}); err != nil {
+		return fmt.Errorf("failed to delete node %q from cluster: %w", actualName, err)
+	}
+	logger.Debugf("Node %q removed from cluster.", actualName)
+	return nil
 }
 
