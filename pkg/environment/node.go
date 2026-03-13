@@ -117,11 +117,42 @@ func (e *Environment) CreateNode(ctx context.Context, nodeName string, scopes []
 	// The new node already has scope labels/taints via K3s agent flags,
 	// so pods migrate automatically via label selectors.
 	for _, scope := range scopes {
-		oldNode, err := findNodeWithScope(ctx, kubeClient, scope)
-		if err == nil && oldNode != actualNodeName {
-			logger.Debugf("Replacing old %s-scoped node %q...", scope, oldNode)
-			if err := e.deleteNodeByName(ctx, kubeClient, oldNode, logger); err != nil {
-				logger.Warnf("Failed to delete old %s-scoped node %q: %v", scope, oldNode, err)
+		oldNodes, err := findNodesWithScope(ctx, kubeClient, scope)
+		if err != nil {
+			continue
+		}
+		for i := range oldNodes {
+			oldNode := &oldNodes[i]
+			if oldNode.Name == actualNodeName {
+				continue
+			}
+			logger.Debugf("Replacing old %s-scoped node %q...", scope, oldNode.Name)
+
+			// Discover SSH details from annotations for remote container cleanup.
+			oldRemote := remoteFromNodeAnnotations(ctx, kubeClient, oldNode.Name, logger)
+			if oldRemote != nil {
+				defer oldRemote.Close()
+			}
+
+			// Drain and remove the K8s node.
+			if err := e.deleteNodeByName(ctx, kubeClient, oldNode.Name, logger); err != nil {
+				logger.Warnf("Failed to delete old node %q from cluster: %v", oldNode.Name, err)
+			}
+
+			// Remove the Docker container.
+			oldShortName := oldNode.Labels[nodeLabel]
+			if oldShortName == "" {
+				oldShortName = strings.TrimPrefix(oldNode.Name, e.name+"-")
+			}
+			agentContainer := e.nodeContainerName(oldShortName)
+			if oldRemote != nil {
+				if err := e.deleteRemoteNode(oldRemote, agentContainer, logger); err != nil {
+					logger.Warnf("Failed to delete remote container %q: %v", agentContainer, err)
+				}
+			} else {
+				if err := e.deleteLocalNode(ctx, agentContainer, logger); err != nil {
+					logger.Warnf("Failed to delete local container %q: %v", agentContainer, err)
+				}
 			}
 		}
 	}
@@ -426,18 +457,15 @@ func isDaemonSetPod(pod *corev1.Pod) bool {
 	return false
 }
 
-// findNodeWithScope returns the name of the first node that has the given scope label.
-func findNodeWithScope(ctx context.Context, kubeClient *kubernetes.Clientset, scope string) (string, error) {
+// findNodesWithScope returns all nodes that have the given scope label.
+func findNodesWithScope(ctx context.Context, kubeClient *kubernetes.Clientset, scope string) ([]corev1.Node, error) {
 	nodes, err := kubeClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s", scopeLabel, scope),
 	})
 	if err != nil {
-		return "", fmt.Errorf("failed to list nodes with scope %q: %w", scope, err)
+		return nil, fmt.Errorf("failed to list nodes with scope %q: %w", scope, err)
 	}
-	if len(nodes.Items) == 0 {
-		return "", fmt.Errorf("no node found with scope %q", scope)
-	}
-	return nodes.Items[0].Name, nil
+	return nodes.Items, nil
 }
 
 // remoteFromNodeAnnotations builds an SSHClient from the node's SSH annotations.
