@@ -6,8 +6,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"math"
-	"strconv"
 	"strings"
 	"time"
 
@@ -88,6 +86,11 @@ func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (_ s
 		},
 	}
 
+	nanoCPUs, err := parseCPU(e.cpu)
+	if err != nil {
+		return "", fmt.Errorf("invalid --cpu value: %w", err)
+	}
+
 	var binds []string
 	if e.mountPath != "" {
 		binds = append(binds, e.mountPath+":"+e.containerPath)
@@ -102,7 +105,7 @@ func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (_ s
 			"/var/run": "",
 		},
 		Resources: container.Resources{
-			NanoCPUs: cpuToNanoCPUs(e.cpu),
+			NanoCPUs: nanoCPUs,
 		},
 	}
 
@@ -244,6 +247,11 @@ func (e *Environment) CreateNode(ctx context.Context, nodeName string, logger *z
 		return nil
 	}
 
+	nanoCPUs, err := parseCPU(e.cpu)
+	if err != nil {
+		return fmt.Errorf("invalid --cpu value: %w", err)
+	}
+
 	containerConfig := &container.Config{
 		Image: k3sDockerImage,
 		Cmd: []string{
@@ -260,7 +268,7 @@ func (e *Environment) CreateNode(ctx context.Context, nodeName string, logger *z
 			"/var/run": "",
 		},
 		Resources: container.Resources{
-			NanoCPUs: cpuToNanoCPUs(e.cpu),
+			NanoCPUs: nanoCPUs,
 		},
 	}
 
@@ -414,19 +422,6 @@ func (e *Environment) copyKubeconfigFromContainer(ctx context.Context, dockerCli
 	}
 
 	return buf.Bytes(), nil
-}
-
-// cpuToNanoCPUs converts a CPU string (e.g. "2", "0.5") to Docker NanoCPUs.
-// Returns 0 (no limit) if the string is empty or invalid.
-func cpuToNanoCPUs(cpu string) int64 {
-	if cpu == "" {
-		return 0
-	}
-	f, err := strconv.ParseFloat(cpu, 64)
-	if err != nil || f <= 0 {
-		return 0
-	}
-	return int64(math.Round(f * 1e9))
 }
 
 // mergeK3sDockerKubeconfig loads the raw kubeconfig bytes from the container,
