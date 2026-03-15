@@ -1,10 +1,14 @@
 [![Discord](https://img.shields.io/badge/discord-join-7289DA.svg?logo=discord&longCache=true&style=flat)](https://discord.gg/W7AsrUb5GC)
 [![Go Version](https://img.shields.io/badge/Go-1.24.0+-00ADD8?logo=go)](https://golang.org/doc/install)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![GitHub Release](https://img.shields.io/github/v/release/overlock-network/overlock)](https://github.com/overlock-network/overlock/releases)
+[![GitHub Release](https://img.shields.io/github/v/release/web-seven/overlock)](https://github.com/web-seven/overlock/releases)
 
 <p align="center">
-  <img width="170" src="https://raw.githubusercontent.com/overlock-network/overlock/refs/heads/main/docs/overlock_white_alpha.png"/>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/web-seven/overlock/refs/heads/main/docs/overlock_white_alpha.png">
+    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/web-seven/overlock/refs/heads/main/docs/overlock_dark_alpha.png">
+    <img width="170" alt="Overlock Logo" src="https://raw.githubusercontent.com/web-seven/overlock/refs/heads/main/docs/overlock_dark_alpha.png">
+  </picture>
 </p>
 
 # Overlock
@@ -27,13 +31,14 @@ Overlock handles the complexity of setting up Crossplane environments, making it
 
 ## Features
 
-- **⚡ Quick Environment Setup** - Create fully configured Crossplane environments with a single command
-- **🎯 Multi-Engine Support** - Works seamlessly with KinD, K3s, K3d, and K3s-Docker Kubernetes distributions
-- **🖥️ Multi-Node & Remote Nodes** - Add remote Linux machines as worker nodes via SSH to distribute Crossplane workloads across multiple hosts
-- **📦 Package Management** - Install and manage Crossplane configurations, providers, and functions
-- **🔄 Live Development** - Hot-reload support for local package development
-- **🏗️ Registry Integration** - Support for both local and remote package registries
-- **🔌 Plugin System** - Extensible architecture for custom functionality
+- **⚡ [Quick Environment Setup](docs/overview.md#quick-environment-setup)** - Create fully configured Crossplane environments with a single command
+- **🎯 [Multi-Engine Support](docs/overview.md#multi-engine-support)** - Works seamlessly with KinD, K3s, K3d, and K3s-Docker Kubernetes distributions
+- **🖥️ [Multi-Node & Remote Nodes](docs/overview.md#multi-node--remote-nodes-k3s-docker)** - Add remote Linux machines as worker nodes via SSH to distribute Crossplane workloads across multiple hosts
+- **🔋 [CPU Limits](docs/overview.md#cpu-limits)** - Cap CPU usage per container node to keep your machine responsive during complex control plane development
+- **📦 [Package Management](docs/overview.md#package-management)** - Install and manage Crossplane configurations, providers, and functions
+- **🔄 [Live Development](docs/overview.md#live-development)** - Hot-reload support for local package development
+- **🏗️ [Registry Integration](docs/overview.md#registry-integration)** - Support for both local and remote package registries
+- **🔌 [Plugin System](docs/overview.md#plugin-system)** - Extensible architecture for custom functionality
 
 ## Quick Start
 
@@ -53,30 +58,6 @@ overlock environment list
 
 That's it! You now have a fully functional Crossplane environment ready for development.
 
-### Multi-Node & Remote Nodes (k3s-docker)
-
-The `k3s-docker` engine supports multi-node clusters with dedicated node scoping and remote node management via SSH.
-
-```bash
-# Create environment with k3s-docker engine (includes workloads + engine nodes)
-overlock env create my-env --engine k3s-docker
-
-# Add a remote machine as an engine node (Crossplane, providers, functions, Kyverno, CertManager)
-overlock env node create my-remote-node --env my-env --host 192.168.1.100 --scopes engine
-
-# Remove a remote node
-overlock env node delete my-remote-node --env my-env --host 192.168.1.100
-
-# Delete environment (automatically cleans up all local and remote nodes)
-overlock env delete my-env --engine k3s-docker
-```
-
-**How it works:**
-- The k3s-docker engine creates an agentless K3s server with two default agent nodes: **workloads** (for user workloads and system services) and **engine** (dedicated to Crossplane, providers, functions, Kyverno, CertManager)
-- Remote nodes join the cluster via SSH — any Linux host with Docker installed can be added as a worker
-- Node scoping uses Kubernetes labels and taints to isolate engine components from user workloads
-- On environment deletion, remote node containers are automatically discovered and cleaned up
-
 ## Installation
 
 ### Prerequisites
@@ -88,13 +69,13 @@ overlock env delete my-env --engine k3s-docker
 
 **Latest version:**
 ```bash
-curl -sL "https://raw.githubusercontent.com/overlock-network/overlock/refs/heads/main/scripts/install.sh" | sh
+curl -sL "https://raw.githubusercontent.com/web-seven/overlock/refs/heads/main/scripts/install.sh" | sh
 sudo mv overlock /usr/local/bin/
 ```
 
 **Specific version:**
 ```bash
-curl -sL "https://raw.githubusercontent.com/overlock-network/overlock/refs/heads/main/scripts/install.sh" | sh -s -- -v 0.11.0-beta.11
+curl -sL "https://raw.githubusercontent.com/web-seven/overlock/refs/heads/main/scripts/install.sh" | sh -s -- -v 0.11.0-beta.11
 sudo mv overlock /usr/local/bin/
 ```
 
@@ -106,7 +87,7 @@ overlock --version
 ### Building from Source
 
 ```bash
-git clone https://github.com/overlock-network/overlock.git
+git clone https://github.com/web-seven/overlock.git
 cd overlock
 go build -o overlock ./cmd/overlock
 ```
@@ -117,10 +98,11 @@ See the [Development Guide](docs/development.md) for detailed build instructions
 
 ### User Guides
 
+- **[Feature Overview](docs/overview.md)** - Multi-node environments, CPU limits, and more
 - **[Command Reference](docs/commands.md)** - Complete CLI command documentation
 - **[Configuration Guide](docs/configuration.md)** - Environment variables and configuration options
 - **[Usage Examples](docs/examples.md)** - Common workflows and practical examples
-- **[Troubleshooting](docs/troubleshooting.md)** - Solutions to common issues
+- **[Troubleshooting](docs/troubleshoot.md)** - Solutions to common issues
 
 ### Developer Resources
 
@@ -208,15 +190,15 @@ Overlock bridges the gap between simple kubectl/helm workflows and full-featured
 ### Get Help & Connect
 
 - **💬 Discord**: [Join our Discord](https://discord.gg/W7AsrUb5GC) for questions and community support
-- **🐛 Issues**: [Report bugs or request features](https://github.com/overlock-network/overlock/issues)
-- **📖 Discussions**: [Join discussions](https://github.com/overlock-network/overlock/discussions)
+- **🐛 Issues**: [Report bugs or request features](https://github.com/web-seven/overlock/issues)
+- **📖 Discussions**: [Join discussions](https://github.com/web-seven/overlock/discussions)
 
 ### Contributing
 
 We welcome contributions from the community! Whether you're fixing bugs, adding features, or improving documentation, your help is appreciated.
 
 - Read our [Contributing Guide](CONTRIBUTING.md) to get started
-- Check out [Good First Issues](https://github.com/overlock-network/overlock/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
+- Check out [Good First Issues](https://github.com/web-seven/overlock/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
 - Review the [Development Guide](docs/development.md) for technical details
 
 ### Code of Conduct

@@ -25,8 +25,9 @@ overlock environment create <name> [options]
 ```
 
 **Options:**
-- `--engine`: Kubernetes engine to use (kind, k3s, k3d)
+- `--engine`: Kubernetes engine to use (kind, k3s, k3d, k3s-docker)
 - `--crossplane-version`: Specific Crossplane version to install
+- `--cpu`: CPU limit for k3s-docker containers (e.g., `2`, `0.5`, `50%`)
 - Additional options available via `overlock environment create --help`
 
 **Example:**
@@ -72,6 +73,45 @@ Delete an environment and all its resources.
 
 ```bash
 overlock environment delete <name>
+```
+
+### `overlock environment node create`
+
+Add a remote node to a k3s-docker environment via SSH.
+
+```bash
+overlock environment node create <name> [options]
+```
+
+**Options:**
+- `--env`: Target environment name
+- `--host`: Remote host IP address
+- `--scopes`: Node scopes (e.g., `engine`, `workloads`)
+- `--user`: SSH user (default: `root`)
+- `--port`: SSH port (default: `22`)
+- `--key`: Path to SSH private key (default: `~/.ssh/id_rsa`)
+- `--cpu`: CPU limit for the node container (e.g., `2`, `0.5`, `50%`)
+
+**Example:**
+```bash
+overlock env node create my-node --env my-env --host 192.168.1.100 --scopes engine
+```
+
+### `overlock environment node delete`
+
+Remove a remote node from a k3s-docker environment.
+
+```bash
+overlock environment node delete <name> [options]
+```
+
+**Options:**
+- `--env`: Target environment name
+- `--host`: Remote host IP address
+
+**Example:**
+```bash
+overlock env node delete my-node --env my-env --host 192.168.1.100
 ```
 
 ## Provider Management
