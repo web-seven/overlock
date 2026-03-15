@@ -84,7 +84,7 @@ func displayBanner() string {
 	content := fmt.Sprintf("%s\n\n%s\n%s",
 		contentStyle.Render("Crossplane Environment Management"),
 		versionStyle.Render(fmt.Sprintf("Version: %s", version.Version)),
-		urlStyle.Render("https://github.com/overlock-network/overlock"),
+		urlStyle.Render("https://github.com/web-seven/overlock"),
 	)
 
 	// Create the box with fixed width
