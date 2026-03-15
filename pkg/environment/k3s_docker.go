@@ -80,6 +80,11 @@ func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (_ s
 		binds = append(binds, e.mountPath+":"+e.containerPath)
 	}
 
+	nanoCPUs, err := parseCPU(e.cpu)
+	if err != nil {
+		return "", fmt.Errorf("invalid --cpu value: %w", err)
+	}
+
 	hostConfig := &container.HostConfig{
 		Privileged:  true,
 		NetworkMode: "host",
@@ -87,6 +92,9 @@ func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (_ s
 		Tmpfs: map[string]string{
 			"/run":     "",
 			"/var/run": "",
+		},
+		Resources: container.Resources{
+			NanoCPUs: nanoCPUs,
 		},
 	}
 

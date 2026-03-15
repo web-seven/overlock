@@ -35,6 +35,7 @@ type Environment struct {
 	httpsPort                 int
 	mountPath                 string
 	containerPath             string
+	cpu                       string
 	context                   string
 	options                   EnvironmentOptions
 	disablePorts              bool
@@ -382,6 +383,11 @@ func (e *Environment) WithMountPath(path string) *Environment {
 
 func (e *Environment) WithContainerPath(path string) *Environment {
 	e.containerPath = path
+	return e
+}
+
+func (e *Environment) WithCpu(cpu string) *Environment {
+	e.cpu = cpu
 	return e
 }
 
