@@ -221,9 +221,9 @@ This will show:
 
 If you're still experiencing issues:
 
-1. **Check existing issues**: Search [GitHub Issues](https://github.com/overlock-network/overlock/issues)
+1. **Check existing issues**: Search [GitHub Issues](https://github.com/web-seven/overlock/issues)
 2. **Join Discord**: Get help from the community on [Discord](https://discord.gg/W7AsrUb5GC)
-3. **Create an issue**: Report bugs or request features on [GitHub](https://github.com/overlock-network/overlock/issues/new)
+3. **Create an issue**: Report bugs or request features on [GitHub](https://github.com/web-seven/overlock/issues/new)
 
 ### Providing Debug Information
 
