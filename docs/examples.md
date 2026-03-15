@@ -307,7 +307,7 @@ jobs:
 
       - name: Install Overlock
         run: |
-          curl -sL "https://raw.githubusercontent.com/overlock-network/overlock/refs/heads/main/scripts/install.sh" | sh
+          curl -sL "https://raw.githubusercontent.com/web-seven/overlock/refs/heads/main/scripts/install.sh" | sh
           sudo mv overlock /usr/local/bin/
 
       - name: Create test environment
@@ -337,7 +337,7 @@ test-configuration:
   image: ubuntu:22.04
   before_script:
     - apt-get update && apt-get install -y curl docker.io
-    - curl -sL "https://raw.githubusercontent.com/overlock-network/overlock/refs/heads/main/scripts/install.sh" | sh
+    - curl -sL "https://raw.githubusercontent.com/web-seven/overlock/refs/heads/main/scripts/install.sh" | sh
     - mv overlock /usr/local/bin/
   script:
     - overlock environment create ci-test
