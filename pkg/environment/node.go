@@ -220,6 +220,11 @@ func (e *Environment) createLocalNode(ctx context.Context, dockerClient *docker.
 	// overlayfs-on-overlayfs problem that crashes containerd.
 	volumeName := agentContainerName + "-data"
 
+	nanoCPUs, err := parseCPU(e.cpu)
+	if err != nil {
+		return fmt.Errorf("invalid --cpu value: %w", err)
+	}
+
 	hostConfig := &container.HostConfig{
 		Privileged: true,
 		Binds: []string{
@@ -229,6 +234,9 @@ func (e *Environment) createLocalNode(ctx context.Context, dockerClient *docker.
 		Tmpfs: map[string]string{
 			"/run":     "",
 			"/var/run": "",
+		},
+		Resources: container.Resources{
+			NanoCPUs: nanoCPUs,
 		},
 	}
 
@@ -299,10 +307,22 @@ func (e *Environment) createRemoteNode(_ context.Context, _ *docker.Client, _ st
 			scopeFlags += fmt.Sprintf(" --node-taint %s=%s:%s", scopeLabel, scope, scopeEffect)
 		}
 	}
+
+	cpuFlag := ""
+	if e.cpu != "" && e.cpu != "0" {
+		nanoCPUs, err := parseCPU(e.cpu)
+		if err != nil {
+			return fmt.Errorf("invalid --cpu value: %w", err)
+		}
+		if nanoCPUs > 0 {
+			cpuFlag = fmt.Sprintf(" --cpus %g", float64(nanoCPUs)/1e9)
+		}
+	}
+
 	volumeName := agentContainerName + "-data"
 	dockerRunCmd := fmt.Sprintf(
-		"docker run -d --privileged --name %s -v /lib/modules:/lib/modules:ro -v %s:/var/lib/rancher/k3s --tmpfs /run --tmpfs /var/run -e K3S_URL=%s -e K3S_TOKEN=%s %s agent --with-node-id --node-name %s --node-label %s=%s --node-external-ip %s%s",
-		agentContainerName, volumeName, k3sURL, token, k3sDockerImage, k3sNodeName, nodeLabel, nodeName, remote.Host, scopeFlags,
+		"docker run -d --privileged --name %s -v /lib/modules:/lib/modules:ro -v %s:/var/lib/rancher/k3s --tmpfs /run --tmpfs /var/run -e K3S_URL=%s -e K3S_TOKEN=%s%s %s agent --with-node-id --node-name %s --node-label %s=%s --node-external-ip %s%s",
+		agentContainerName, volumeName, k3sURL, token, cpuFlag, k3sDockerImage, k3sNodeName, nodeLabel, nodeName, remote.Host, scopeFlags,
 	)
 
 	logger.Debugf("Creating node container %q on remote host %s...", agentContainerName, remote.Host)
