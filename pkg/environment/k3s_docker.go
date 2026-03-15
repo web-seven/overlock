@@ -15,7 +15,7 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	docker "github.com/docker/docker/client"
 	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -170,7 +170,9 @@ func (e *Environment) DeleteK3sDockerEnvironment(logger *zap.SugaredLogger) erro
 			n := strings.TrimPrefix(name, "/")
 			if strings.HasPrefix(n, agentPrefix) {
 				logger.Infof("Removing node container %q...", n)
-				_ = dockerClient.ContainerStop(ctx, c.ID, container.StopOptions{Timeout: &timeout})
+				if err := dockerClient.ContainerStop(ctx, c.ID, container.StopOptions{Timeout: &timeout}); err != nil {
+					logger.Warnf("Failed to stop container %s: %v", n, err)
+				}
 				if err := dockerClient.ContainerRemove(ctx, c.ID, types.ContainerRemoveOptions{Force: true}); err != nil {
 					logger.Warnf("Failed to remove container %s: %v", n, err)
 				}
@@ -214,7 +216,7 @@ func (e *Environment) deleteRemoteNodes(ctx context.Context, logger *zap.Sugared
 		return
 	}
 
-	nodes, err := kubeClient.CoreV1().Nodes().List(ctx, v1.ListOptions{})
+	nodes, err := kubeClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		logger.Debugf("Could not list nodes for remote node cleanup: %v", err)
 		return
@@ -402,8 +404,16 @@ func mergeK3sDockerKubeconfig(kubeconfigData []byte, contextName, serverURL stri
 func localIP() (string, error) {
 	conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to dial for local IP: %w", err)
 	}
-	defer conn.Close()
-	return conn.LocalAddr().(*net.UDPAddr).IP.String(), nil
+	defer func() {
+		if cerr := conn.Close(); cerr != nil {
+			err = cerr
+		}
+	}()
+	udpAddr, ok := conn.LocalAddr().(*net.UDPAddr)
+	if !ok {
+		return "", fmt.Errorf("unexpected address type: %T", conn.LocalAddr())
+	}
+	return udpAddr.IP.String(), nil
 }

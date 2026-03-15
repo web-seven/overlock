@@ -15,10 +15,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/web-seven/overlock/internal/certmanager"
-	"github.com/web-seven/overlock/internal/kube"
-	"github.com/web-seven/overlock/internal/namespace"
-	"github.com/web-seven/overlock/internal/policy"
 	"go.uber.org/zap"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -33,25 +29,30 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	"github.com/web-seven/overlock/internal/certmanager"
+	"github.com/web-seven/overlock/internal/kube"
+	"github.com/web-seven/overlock/internal/namespace"
+	"github.com/web-seven/overlock/internal/policy"
 )
 
 const (
-	deployName          = "overlock-registry"
-	svcName             = "registry"
-	deployPort          = 5000
-	nginxPortHTTP       = 80
-	nginxPortHTTPS      = 443
-	svcPort             = 80
-	svcPortTLS          = 443
-	nodePort            = 30100
-	tlsCertPath         = "/certs/tls.crt"
-	tlsKeyPath          = "/certs/tls.key"
-	tlsVolumeName       = "registry-tls"
-	tlsMountPath        = "/certs"
-	configVolumeName    = "registry-config"
-	configMountPath     = "/etc/docker/registry"
-	configMapName       = "registry-config"
-	nginxConfigMapName  = "nginx-proxy-config"
+	deployName           = "overlock-registry"
+	svcName              = "registry"
+	deployPort           = 5000
+	nginxPortHTTP        = 80
+	nginxPortHTTPS       = 443
+	svcPort              = 80
+	svcPortTLS           = 443
+	nodePort             = 30100
+	tlsCertPath          = "/certs/tls.crt"
+	tlsKeyPath           = "/certs/tls.key"
+	tlsVolumeName        = "registry-tls"
+	tlsMountPath         = "/certs"
+	configVolumeName     = "registry-config"
+	configMountPath      = "/etc/docker/registry"
+	configMapName        = "registry-config"
+	nginxConfigMapName   = "nginx-proxy-config"
 	nginxConfigMountPath = "/etc/nginx/conf.d"
 )
 
@@ -369,7 +370,6 @@ func (r *Registry) DeleteLocal(ctx context.Context, client *kubernetes.Clientset
 }
 
 func IsLocalRegistry(ctx context.Context, client *kubernetes.Clientset) (bool, error) {
-
 	pods := client.CoreV1().Pods(namespace.Namespace)
 	regs, err := pods.List(ctx, v1.ListOptions{Limit: 1, LabelSelector: "app=" + deployName})
 	if err != nil {
@@ -382,7 +382,6 @@ func IsLocalRegistry(ctx context.Context, client *kubernetes.Clientset) (bool, e
 }
 
 func PushLocalRegistry(ctx context.Context, imageName string, image regv1.Image, config *rest.Config, logger *zap.SugaredLogger) error {
-
 	client, err := kube.Client(config)
 	if err != nil {
 		return err

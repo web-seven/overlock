@@ -3,10 +3,11 @@ package provider
 import (
 	"context"
 
-	"github.com/web-seven/overlock/internal/provider"
 	"go.uber.org/zap"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
+
+	"github.com/web-seven/overlock/internal/provider"
 )
 
 type deleteCmd struct {

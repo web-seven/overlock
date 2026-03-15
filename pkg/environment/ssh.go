@@ -74,12 +74,16 @@ func NewSSHClient(host, user string, port int, keyPath string) (*SSHClient, erro
 }
 
 // Run executes a command on the remote host and returns its combined output.
-func (s *SSHClient) Run(cmd string) (string, error) {
+func (s *SSHClient) Run(cmd string) (_ string, err error) {
 	session, err := s.client.NewSession()
 	if err != nil {
 		return "", fmt.Errorf("failed to create SSH session: %w", err)
 	}
-	defer session.Close()
+	defer func() {
+		if cerr := session.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
 
 	output, err := session.CombinedOutput(cmd)
 	if err != nil {
@@ -91,19 +95,28 @@ func (s *SSHClient) Run(cmd string) (string, error) {
 // Close closes the underlying SSH connection.
 func (s *SSHClient) Close() {
 	if s.client != nil {
-		s.client.Close()
+		if err := s.client.Close(); err != nil {
+			return
+		}
 	}
 }
 
 // LocalIPFor returns the local machine's outgoing IP address toward the remote host.
 // This is used to construct the K3S_URL that the remote agent node connects back to.
-func (s *SSHClient) LocalIPFor() (string, error) {
+func (s *SSHClient) LocalIPFor() (_ string, err error) {
 	conn, err := net.Dial("udp", fmt.Sprintf("%s:%d", s.Host, s.Port))
 	if err != nil {
 		return "", fmt.Errorf("failed to determine local IP toward %s: %w", s.Host, err)
 	}
-	defer conn.Close()
+	defer func() {
+		if cerr := conn.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
 
-	localAddr := conn.LocalAddr().(*net.UDPAddr)
+	localAddr, ok := conn.LocalAddr().(*net.UDPAddr)
+	if !ok {
+		return "", fmt.Errorf("unexpected address type: %T", conn.LocalAddr())
+	}
 	return localAddr.IP.String(), nil
 }

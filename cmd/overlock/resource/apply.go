@@ -4,8 +4,9 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-	"github.com/web-seven/overlock/internal/resources"
 	"go.uber.org/zap"
+
+	"github.com/web-seven/overlock/internal/resources"
 
 	"k8s.io/client-go/dynamic"
 )

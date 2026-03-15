@@ -9,9 +9,10 @@ import (
 	"time"
 
 	"github.com/charmbracelet/huh"
+	"go.uber.org/zap"
+
 	"github.com/web-seven/overlock/internal/engine"
 	"github.com/web-seven/overlock/internal/kube"
-	"go.uber.org/zap"
 
 	crossv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
 	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
@@ -32,7 +33,6 @@ var apiFields = []string{"apiVersion", "kind"}
 var metadataFields = []string{"metadata"}
 
 func (xr *XResource) GetSchemaFormFromXRDefinition(ctx context.Context, xrd crossv1.CompositeResourceDefinition, client *dynamic.DynamicClient, logger *zap.SugaredLogger) *huh.Form {
-
 	xrdInstance, err := client.Resource(schema.GroupVersionResource{
 		Group:    xrd.GroupVersionKind().Group,
 		Version:  xrd.GroupVersionKind().Version,
@@ -69,7 +69,7 @@ func (xr *XResource) GetSchemaFormFromXRDefinition(ctx context.Context, xrd cros
 		selectedVersion = xrd.Spec.Versions[selectedVersionIndex]
 	}
 
-	versionSchema, _ := parseSchema(selectedVersion.Schema, logger)
+	versionSchema := parseSchema(selectedVersion.Schema, logger)
 
 	logger.Info("Type: \t\t" + xrd.Name)
 	logger.Info("Description: \t" + versionSchema.Description)
@@ -106,7 +106,6 @@ func (xr *XResource) getFormGroupsByProps(schema *extv1.JSONSchemaProps, parent 
 		xr.Unstructured.Object = make(map[string]interface{})
 	}
 	for propertyName, property := range schema.Properties {
-
 		breadCrumbs := parent + "[" + propertyName + "]"
 
 		shortDescription := strings.SplitN(property.Description, ".", 2)[0]
@@ -119,7 +118,6 @@ func (xr *XResource) getFormGroupsByProps(schema *extv1.JSONSchemaProps, parent 
 
 			if property.Type == "array" {
 				if property.Items.Schema.Type == "string" {
-
 					propertyValue := []string{}
 
 					if property.Items.Schema.Description != "" {
@@ -136,7 +134,6 @@ func (xr *XResource) getFormGroupsByProps(schema *extv1.JSONSchemaProps, parent 
 							Title(description).
 							Lines(3).
 							Validate(func(s string) error {
-
 								if s != "" {
 									if len(enums) > 0 {
 										propertyValues := strings.Split(s, "\n")
@@ -147,7 +144,6 @@ func (xr *XResource) getFormGroupsByProps(schema *extv1.JSONSchemaProps, parent 
 										}
 									}
 									propertyValue = strings.Split(s, "\n")
-
 								}
 								return nil
 							}),
@@ -157,15 +153,12 @@ func (xr *XResource) getFormGroupsByProps(schema *extv1.JSONSchemaProps, parent 
 					propertyGroups := schemaXr.getFormGroupsByProps(property.Items.Schema, breadCrumbs)
 					formGroups = append(formGroups, propertyGroups...)
 					(xr.Unstructured.Object)[propertyName] = &[]map[string]interface{}{schemaXr.Unstructured.Object}
-
 				}
-
 			} else {
 				propertyGroups := schemaXr.getFormGroupsByProps(&property, breadCrumbs)
 				formGroups = append(formGroups, propertyGroups...)
 				(xr.Unstructured.Object)[propertyName] = &schemaXr.Unstructured.Object
 			}
-
 		} else if property.Type == "string" && !isStringInArray(apiFields, propertyName) {
 			propertyValue := ""
 			(xr.Unstructured.Object)[propertyName] = &propertyValue
@@ -189,21 +182,18 @@ func (xr *XResource) getFormGroupsByProps(schema *extv1.JSONSchemaProps, parent 
 					Validate(func(s string) error {
 						if isRequired && s == "" {
 							return errors.New(propertyName + " is required")
-						} else {
-							return nil
 						}
+						return nil
 					}).
 					Title(description).
 					Value(&propertyValue),
 				)
 			}
-
 		} else if property.Type == "number" && !isStringInArray(apiFields, propertyName) {
 			propertyValue := json.Number("")
 			(xr.Unstructured.Object)[propertyName] = &propertyValue
 			formFields = append(formFields, huh.NewInput().
 				Validate(func(s string) error {
-
 					if s != "" && !regexp.MustCompile(`\d`).MatchString(s) {
 						return errors.New(propertyName + " shall be numeric")
 					}
@@ -214,7 +204,6 @@ func (xr *XResource) getFormGroupsByProps(schema *extv1.JSONSchemaProps, parent 
 
 					propertyValue = json.Number(s)
 					return nil
-
 				}).
 				Title(description),
 			)
@@ -240,15 +229,13 @@ func (xr *XResource) getFormGroupsByProps(schema *extv1.JSONSchemaProps, parent 
 				Validate(func(s string) error {
 					if s == "" {
 						return errors.New("name is required")
-					} else {
-						return nil
 					}
+					return nil
 				}).
 				Title("Name of resource").
 				Value(&propertyValue.Name),
 			)
 		}
-
 	}
 	if len(formFields) > 0 {
 		group := huh.NewGroup(formFields...).Description(schema.Description)
@@ -260,16 +247,16 @@ func (xr *XResource) getFormGroupsByProps(schema *extv1.JSONSchemaProps, parent 
 	return formGroups
 }
 
-func parseSchema(v *v1.CompositeResourceValidation, logger *zap.SugaredLogger) (*extv1.JSONSchemaProps, error) {
+func parseSchema(v *v1.CompositeResourceValidation, logger *zap.SugaredLogger) *extv1.JSONSchemaProps {
 	if v == nil {
-		return nil, nil
+		return nil
 	}
 
 	s := &extv1.JSONSchemaProps{}
 	if err := json.Unmarshal(v.OpenAPIV3Schema.Raw, s); err != nil {
 		logger.Error(err)
 	}
-	return s, nil
+	return s
 }
 
 func isStringInArray(a []string, s string) bool {
@@ -282,7 +269,7 @@ func isStringInArray(a []string, s string) bool {
 }
 
 func ApplyResources(ctx context.Context, client *dynamic.DynamicClient, logger *zap.SugaredLogger, file string) error {
-	resources, err := transformToUnstructured(file, logger)
+	resources, err := transformToUnstructured(file)
 
 	if err != nil {
 		return err
@@ -301,15 +288,13 @@ func ApplyResources(ctx context.Context, client *dynamic.DynamicClient, logger *
 
 		if err != nil {
 			return err
-		} else {
-			logger.Infof("Resource %s from %s successfully applied", res.GetName(), res.GetAPIVersion())
 		}
+		logger.Infof("Resource %s from %s successfully applied", res.GetName(), res.GetAPIVersion())
 	}
 	return nil
 }
 
 func CopyComposites(ctx context.Context, logger *zap.SugaredLogger, sourceContext dynamic.Interface, destinationContext dynamic.Interface) error {
-
 	//Get composite resources from XRDs definition and apply them
 	XRDs, err := kube.GetKubeResources(kube.ResourceParams{
 		Dynamic:    sourceContext,

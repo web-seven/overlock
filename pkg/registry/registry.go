@@ -12,9 +12,6 @@ import (
 
 	validator "github.com/go-playground/validator/v10"
 	"github.com/pkg/errors"
-	"github.com/web-seven/overlock/internal/engine"
-	"github.com/web-seven/overlock/internal/kube"
-	"github.com/web-seven/overlock/internal/namespace"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,6 +19,10 @@ import (
 	kv1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	cfg "sigs.k8s.io/controller-runtime/pkg/client/config"
+
+	"github.com/web-seven/overlock/internal/engine"
+	"github.com/web-seven/overlock/internal/kube"
+	"github.com/web-seven/overlock/internal/namespace"
 )
 
 var (
@@ -185,7 +186,6 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.
 }
 
 func (r *Registry) SetRegistyPullSecret(ctx context.Context, config *rest.Config) error {
-
 	installer, err := engine.GetEngine(config)
 	if err != nil {
 		return err
@@ -217,7 +217,6 @@ func (r *Registry) SetRegistyPullSecret(ctx context.Context, config *rest.Config
 }
 
 func (r *Registry) SetRegistyDefault(ctx context.Context, config *rest.Config) error {
-
 	installer, err := engine.GetEngine(config)
 	if err != nil {
 		return err
@@ -285,7 +284,6 @@ func (r *Registry) ToSecret() *corev1.Secret {
 
 // Delete registry
 func (r *Registry) Delete(ctx context.Context, config *rest.Config, logger *zap.SugaredLogger) error {
-
 	installer, err := engine.GetEngine(config)
 	if err != nil {
 		logger.Errorf(" %v\n", err)
@@ -349,7 +347,6 @@ func (r *Registry) Delete(ctx context.Context, config *rest.Config, logger *zap.
 
 // Copy registries from source to destination contexts
 func CopyRegistries(ctx context.Context, logger *zap.SugaredLogger, sourceConfig *rest.Config, destinationConfig *rest.Config) error {
-
 	destClient, err := kube.Client(destinationConfig)
 	if err != nil {
 		return err
@@ -376,7 +373,6 @@ func CopyRegistries(ctx context.Context, logger *zap.SugaredLogger, sourceConfig
 			} else {
 				logger.Warn("Registry for " + registry.Secret.Annotations[RegistryServerLabel] + " already exist inside of destination context.")
 			}
-
 		}
 		logger.Info("Registries copied successfully.")
 	} else {

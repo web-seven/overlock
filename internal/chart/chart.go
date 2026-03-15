@@ -56,17 +56,21 @@ func (c chartDef) helmManager(restConfig *rest.Config, reuseValues bool) (instal
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse repo URL %q: %w", c.repoURL, err)
 	}
-	return helm.NewManager(
+	mgr, err := helm.NewManager(
 		restConfig,
 		c.name,
 		repoURL,
 		c.relName,
-		helm.InstallerModifierFn(helm.Wait()),
-		helm.InstallerModifierFn(helm.WithNamespace(c.namespace)),
-		helm.InstallerModifierFn(helm.WithReuseValues(reuseValues)),
-		helm.InstallerModifierFn(helm.WithUpgradeInstall(false)),
-		helm.InstallerModifierFn(helm.WithCreateNamespace(false)),
+		helm.Wait(),
+		helm.WithNamespace(c.namespace),
+		helm.WithReuseValues(reuseValues),
+		helm.WithUpgradeInstall(false),
+		helm.WithCreateNamespace(false),
 	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Helm manager for %q: %w", c.relName, err)
+	}
+	return mgr, nil
 }
 
 // applyValues upgrades the chart with nodeSelector and tolerations merged

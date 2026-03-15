@@ -2,6 +2,7 @@ package chart
 
 import (
 	"context"
+	"fmt"
 
 	"go.uber.org/zap"
 	"k8s.io/client-go/rest"
@@ -19,7 +20,7 @@ func (c KyvernoChart) Install(ctx context.Context, restConfig *rest.Config, para
 	logger.Debug("Installing policy controller")
 	err := policy.AddPolicyConroller(ctx, restConfig, "kyverno", params)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to install kyverno: %w", err)
 	}
 	logger.Debug("Done")
 	return nil

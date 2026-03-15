@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/web-seven/overlock/internal/install/helm"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
+
+	"github.com/web-seven/overlock/internal/install/helm"
 )
 
 const (
@@ -55,7 +56,7 @@ var (
 	}
 )
 
-func addKyvernoPolicyConroller(ctx context.Context, config *rest.Config, extraParams map[string]any) error {
+func addKyvernoPolicyConroller(_ context.Context, config *rest.Config, extraParams map[string]any) error {
 	repoURL, err := url.Parse(kyvernoRepoUrl)
 	if err != nil {
 		return err
@@ -99,7 +100,6 @@ func addKyvernoDefaultPolicies(ctx context.Context, config *rest.Config) error {
 
 // Add registry policies to sync and apply image pull secrets
 func addKyvernoRegistryPolicies(ctx context.Context, config *rest.Config, registry *RegistryPolicy) error {
-
 	regplc := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "kyverno.io/v1",

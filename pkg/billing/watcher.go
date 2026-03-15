@@ -7,10 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/web-seven/overlock/internal/kube"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
+
+	"github.com/web-seven/overlock/internal/kube"
 )
 
 type ReconciliationCallback func(payload map[string]string)

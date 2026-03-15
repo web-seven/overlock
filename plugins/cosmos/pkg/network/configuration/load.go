@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	stderrors "errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -32,7 +33,6 @@ const authContextKey contextKey = "auth"
 const maxDecompressedSize = 200 * 1024 * 1024
 
 func fetchPackage(ctx context.Context, refName string, key string) ([]map[string]interface{}, []string) {
-
 	var yamlSchemas []map[string]interface{}
 	var errors []string
 	var extractedSchemas [][]byte
@@ -71,7 +71,6 @@ func fetchPackage(ctx context.Context, refName string, key string) ([]map[string
 	var controlCharRegex = regexp.MustCompile(`[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]`)
 
 	for _, schema := range extractedSchemas {
-
 		cleanSchema := controlCharRegex.ReplaceAll(schema, []byte(""))
 		aesKey, err := base64.StdEncoding.DecodeString(key)
 		if err != nil {
@@ -81,7 +80,6 @@ func fetchPackage(ctx context.Context, refName string, key string) ([]map[string
 		decrypted, err := decryptPackage(string(cleanSchema), aesKey)
 		if err == nil {
 			cleanSchema = decrypted
-
 		} else {
 			log.Printf("Decryption failed for %s: %v", refName, err)
 		}
@@ -91,7 +89,7 @@ func fetchPackage(ctx context.Context, refName string, key string) ([]map[string
 		for {
 			var yamlSchema map[string]interface{}
 			if err := decoder.Decode(&yamlSchema); err != nil {
-				if err == io.EOF {
+				if stderrors.Is(err, io.EOF) {
 					break
 				}
 				log.Printf("Skipping invalid YAML schema in %s: %v", refName, err)
@@ -108,7 +106,6 @@ func fetchPackage(ctx context.Context, refName string, key string) ([]map[string
 	}
 
 	return yamlSchemas, errors
-
 }
 
 func FetchBaseLayer(ctx context.Context, image string) (*conregv1.Layer, error) {
@@ -392,7 +389,6 @@ func extractLayer(layer conregv1.Layer, destDir string) error {
 	return nil
 }
 func LoadBinaryLayerStream(content []byte, fileName string, permissions fs.FileMode) (conregv1.Layer, error) {
-
 	tarBuf := new(bytes.Buffer)
 	tw := tar.NewWriter(tarBuf)
 

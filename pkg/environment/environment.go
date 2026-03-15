@@ -13,6 +13,9 @@ import (
 	"github.com/docker/docker/api/types/container"
 	docker "github.com/docker/docker/client"
 	"github.com/pterm/pterm"
+	"k8s.io/client-go/tools/clientcmd"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
+
 	"github.com/web-seven/overlock/internal/chart"
 	"github.com/web-seven/overlock/internal/engine"
 	"github.com/web-seven/overlock/internal/kube"
@@ -20,8 +23,6 @@ import (
 	"github.com/web-seven/overlock/internal/resources"
 	overlockerrors "github.com/web-seven/overlock/pkg/errors"
 	"github.com/web-seven/overlock/pkg/registry"
-	"k8s.io/client-go/tools/clientcmd"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	"go.uber.org/zap"
 )
@@ -95,7 +96,7 @@ func (e *Environment) Create(ctx context.Context, logger *zap.SugaredLogger) err
 	return nil
 }
 
-// Upgrade environemnt with options or new features
+// Upgrade environment with options or new features
 func (e *Environment) Upgrade(ctx context.Context, logger *zap.SugaredLogger) error {
 	var err error
 	if e.context == "" {
@@ -199,7 +200,7 @@ func (e *Environment) Setup(ctx context.Context, logger *zap.SugaredLogger) erro
 			scopeParams = ch.ScopeParams(nodeSelector, tolerations)
 		}
 		if err := ch.Install(ctx, configClient, scopeParams, logger); err != nil {
-			return err
+			return fmt.Errorf("failed to install chart: %w", err)
 		}
 	}
 
@@ -244,7 +245,6 @@ func (e *Environment) GetContextName() string {
 
 // Copy Environment from source to destination contexts
 func (e *Environment) CopyEnvironment(ctx context.Context, logger *zap.SugaredLogger, source string, destination string) error {
-
 	// Create a REST clients
 	sourceConfig, err := kube.Config(source)
 	if err != nil {
@@ -293,7 +293,7 @@ func (e *Environment) CopyEnvironment(ctx context.Context, logger *zap.SugaredLo
 	engine.InstallEngine(ctx, destConfig, sourceRelease.Config, logger)
 	logger.Info("Engine copied successfully!")
 
-	// Copy composities
+	// Copy composite
 	err = resources.CopyComposites(ctx, logger, sourceContext, destinationContext)
 	if err != nil {
 		return err

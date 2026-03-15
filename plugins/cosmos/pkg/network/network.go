@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/url"
@@ -17,6 +18,7 @@ import (
 	"github.com/gorilla/websocket"
 	crossplanev1beta1 "github.com/overlock-network/api/go/node/overlock/crossplane/v1beta1"
 	storagev1beta1 "github.com/overlock-network/api/go/node/overlock/storage/v1beta1"
+
 	"github.com/web-seven/overlock/plugins/cosmos/pkg/network/provider"
 	"github.com/web-seven/overlock/plugins/cosmos/pkg/types"
 
@@ -27,7 +29,6 @@ import (
 )
 
 func Subscribe(engine, creator, host, port, path, grpcAddress string, client *kubernetes.Clientset, config *rest.Config, dc *dynamic.DynamicClient, providerMeta crossplanev1beta1.MsgCreateProvider, importKeyName, importKeyPath, chainId, keyringBackend string) error {
-
 	err := provider.ValidateProvider(&providerMeta)
 	if err != nil {
 		return fmt.Errorf("provider validation failed: %w", err)
@@ -116,7 +117,6 @@ func Subscribe(engine, creator, host, port, path, grpcAddress string, client *ku
 				logger.Infof("Received registry creation request: %s", decodedRegMsg.Name)
 				go createRegistry(engine, context.Background(), logger, regMsg, client, config, grpcAddress)
 			}
-
 		}
 
 		logger.Warn("Reconnecting to WebSocket in 3 seconds...")
@@ -171,12 +171,16 @@ func ValidateRequest(i interface{}) error {
 	validate := validator.New(validator.WithRequiredStructEnabled())
 
 	if err := validate.Struct(i); err != nil {
-		if _, ok := err.(*validator.InvalidValidationError); ok {
+		var invalidErr *validator.InvalidValidationError
+		if errors.As(err, &invalidErr) {
 			return fmt.Errorf("invalid validation error: %w", err)
 		}
 
-		for _, err := range err.(validator.ValidationErrors) {
-			return fmt.Errorf("validation error: field %s is invalid", err.Field())
+		var validationErrs validator.ValidationErrors
+		if errors.As(err, &validationErrs) {
+			for _, e := range validationErrs {
+				return fmt.Errorf("validation error: field %s is invalid", e.Field())
+			}
 		}
 	}
 

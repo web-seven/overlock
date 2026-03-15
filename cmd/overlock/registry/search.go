@@ -4,10 +4,11 @@ import (
 	"context"
 
 	"github.com/pterm/pterm"
-	"github.com/web-seven/overlock/internal/search"
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+
+	"github.com/web-seven/overlock/internal/search"
 )
 
 // SearchCmd is the struct representing the search command

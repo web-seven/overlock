@@ -4,8 +4,9 @@ import (
 	"context"
 
 	"github.com/posener/complete"
-	"github.com/web-seven/overlock/pkg/registry"
 	"k8s.io/client-go/kubernetes"
+
+	"github.com/web-seven/overlock/pkg/registry"
 )
 
 type Cmd struct {

@@ -30,7 +30,7 @@ func (CrossplaneChart) def() chartDef {
 func (c CrossplaneChart) Install(ctx context.Context, restConfig *rest.Config, extraParams map[string]any, logger *zap.SugaredLogger) error {
 	installer, err := engine.GetEngine(restConfig)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get engine: %w", err)
 	}
 
 	var params map[string]any
@@ -62,7 +62,7 @@ func (c CrossplaneChart) Install(ctx context.Context, restConfig *rest.Config, e
 			logger.Info("Engine already installed, skipping installation")
 			return nil
 		}
-		return err
+		return fmt.Errorf("failed to install engine: %w", err)
 	}
 	logger.Debug("Done")
 	return nil
@@ -140,4 +140,3 @@ func PatchDefaultRuntimeConfig(restConfig *rest.Config, nodeSelector map[string]
 	logger.Debug("Patched default DeploymentRuntimeConfig with engine scope.")
 	return nil
 }
-

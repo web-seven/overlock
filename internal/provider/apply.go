@@ -9,16 +9,16 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
 	"github.com/pkg/errors"
-	"github.com/web-seven/overlock/internal/engine"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/web-seven/overlock/internal/engine"
 )
 
 const apiName = "providers.pkg.crossplane.io"
 
 func (p *Provider) ApplyProvider(ctx context.Context, links []string, config *rest.Config, logger *zap.SugaredLogger) error {
-
 	_, err := engine.VerifyApi(ctx, config, apiName)
 	if err != nil {
 		logger.Debug(err)
@@ -35,7 +35,7 @@ func (p *Provider) ApplyProvider(ctx context.Context, links []string, config *re
 			pa := resource.NewAPIPatchingApplicator(kube)
 
 			if err := pa.Apply(ctx, cfg); err != nil {
-				return errors.Wrap(err, "Error apply Provider(s).")
+				return errors.Wrap(err, "error applying provider(s)")
 			}
 		}
 	} else {
@@ -47,7 +47,6 @@ func (p *Provider) ApplyProvider(ctx context.Context, links []string, config *re
 }
 
 func (p *Provider) ApplyPackage(ctx context.Context, config *rest.Config, logger *zap.SugaredLogger) error {
-
 	_, err := engine.VerifyApi(ctx, config, apiName)
 	if err != nil {
 		logger.Debug(err)
@@ -66,7 +65,7 @@ func (p *Provider) ApplyPackage(ctx context.Context, config *rest.Config, logger
 			pa := resource.NewAPIPatchingApplicator(kube)
 
 			if err := pa.Apply(ctx, cfg); err != nil {
-				return errors.Wrap(err, "Error apply Provider(s).")
+				return errors.Wrap(err, "error applying provider(s)")
 			}
 		}
 	} else {
