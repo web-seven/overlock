@@ -7,11 +7,12 @@ import (
 
 	storagev1beta1 "github.com/overlock-network/api/go/node/overlock/storage/v1beta1"
 	"github.com/pterm/pterm"
-	"github.com/web-seven/overlock/pkg/environment"
-	"github.com/web-seven/overlock/pkg/registry"
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+
+	"github.com/web-seven/overlock/pkg/environment"
+	"github.com/web-seven/overlock/pkg/registry"
 )
 
 func createRegistry(engine string, ctx context.Context, logger *zap.SugaredLogger, msg storagev1beta1.MsgCreateRegistry, client *kubernetes.Clientset, config *rest.Config, clientAddress string) {

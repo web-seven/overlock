@@ -6,13 +6,14 @@ import (
 	condition "github.com/crossplane/crossplane-runtime/apis/common/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 
-	"github.com/web-seven/overlock/internal/image"
-	"github.com/web-seven/overlock/internal/kube"
-	"github.com/web-seven/overlock/internal/packages"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+
+	"github.com/web-seven/overlock/internal/image"
+	"github.com/web-seven/overlock/internal/kube"
+	"github.com/web-seven/overlock/internal/packages"
 )
 
 const (
@@ -45,7 +46,6 @@ func CheckHealthStatus(status []condition.Condition) bool {
 }
 
 func GetFunction(ctx context.Context, logger *zap.SugaredLogger, sourceDynamicClient dynamic.Interface, paramsFunction kube.ResourceParams) ([]unstructured.Unstructured, error) {
-
 	functions, err := kube.GetKubeResources(paramsFunction)
 	if err != nil {
 		return nil, err

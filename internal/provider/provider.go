@@ -7,13 +7,14 @@ import (
 
 	provider "github.com/crossplane/crossplane/apis/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
-	"github.com/web-seven/overlock/internal/image"
-	"github.com/web-seven/overlock/internal/kube"
-	"github.com/web-seven/overlock/internal/packages"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
+
+	"github.com/web-seven/overlock/internal/image"
+	"github.com/web-seven/overlock/internal/kube"
+	"github.com/web-seven/overlock/internal/packages"
 )
 
 type Provider struct {
@@ -44,7 +45,6 @@ func (p *Provider) WithApply(apply bool) *Provider {
 
 // Get list of providers from k8s context
 func ListProviders(ctx context.Context, dynamicClient dynamic.Interface, logger *zap.SugaredLogger) []provider.Provider {
-
 	destConf, _ := kube.GetKubeResources(kube.ResourceParams{
 		Dynamic:    dynamicClient,
 		Ctx:        ctx,

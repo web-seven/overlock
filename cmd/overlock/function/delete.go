@@ -3,9 +3,10 @@ package function
 import (
 	"context"
 
-	"github.com/web-seven/overlock/internal/function"
 	"go.uber.org/zap"
 	"k8s.io/client-go/dynamic"
+
+	"github.com/web-seven/overlock/internal/function"
 )
 
 type deleteCmd struct {

@@ -8,11 +8,12 @@ import (
 	"github.com/pterm/pterm"
 	"go.uber.org/zap"
 
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+
 	"github.com/web-seven/overlock/internal/github"
 	overlockerrors "github.com/web-seven/overlock/pkg/errors"
 	"github.com/web-seven/overlock/pkg/registry"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
 
 func SearchPackages(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, query string, versions bool, logger *zap.SugaredLogger) (pterm.TableData, error) {
@@ -37,7 +38,6 @@ func SearchPackages(ctx context.Context, client *kubernetes.Clientset, config *r
 		default:
 			return nil, overlockerrors.NewPackageNotFoundError(query, registryUrl, "", "registry type not supported for package search")
 		}
-
 	}
 	return nil, err
 }

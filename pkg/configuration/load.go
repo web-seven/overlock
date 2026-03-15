@@ -8,13 +8,14 @@ import (
 	"os"
 
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"go.uber.org/zap"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/rest"
+
 	"github.com/web-seven/overlock/internal/image"
 	"github.com/web-seven/overlock/internal/kube"
 	"github.com/web-seven/overlock/internal/packages"
 	"github.com/web-seven/overlock/pkg/registry"
-	"go.uber.org/zap"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/rest"
 )
 
 func (c *Configuration) UpgradeConfiguration(ctx context.Context, config *rest.Config, dc *dynamic.DynamicClient) error {

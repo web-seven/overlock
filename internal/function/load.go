@@ -10,13 +10,14 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"go.uber.org/zap"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/rest"
+
 	"github.com/web-seven/overlock/internal/image"
 	"github.com/web-seven/overlock/internal/kube"
 	"github.com/web-seven/overlock/internal/packages"
 	"github.com/web-seven/overlock/pkg/registry"
-	"go.uber.org/zap"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/rest"
 )
 
 const (
@@ -62,7 +63,6 @@ func (c *Function) LoadStdinArchive(stream *bufio.Reader) error {
 
 // Load function package from directory
 func (c *Function) LoadDirectory(ctx context.Context, config *rest.Config, logger *zap.SugaredLogger, path string) error {
-
 	logger.Debug("Building function...")
 	fileContent, err := c.build(path)
 	if err != nil {
@@ -116,7 +116,6 @@ func (c *Function) LoadDirectory(ctx context.Context, config *rest.Config, logge
 
 // Build Go module
 func (c *Function) build(path string) ([]byte, error) {
-
 	args := []string{
 		"build", "-C", path, "-o", functionFileName,
 	}

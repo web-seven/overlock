@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/web-seven/overlock/internal/engine"
 	"go.uber.org/zap"
 	"k8s.io/client-go/rest"
+
+	"github.com/web-seven/overlock/internal/engine"
 )
 
 // DeleteProvider deletes a crossplane provider from current environment
 func DeleteProvider(ctx context.Context, configClient *rest.Config, url string, logger *zap.SugaredLogger) error {
-
 	logger.Debug("Preparing engine")
 	installer, err := engine.GetEngine(configClient)
 	if err != nil {
@@ -42,7 +42,6 @@ func DeleteProvider(ctx context.Context, configClient *rest.Config, url string, 
 		if !strings.Contains(pstr, url) {
 			newpackages = append(newpackages, pstr)
 		}
-
 	}
 	provider["packages"] = newpackages
 	params["provider"] = provider

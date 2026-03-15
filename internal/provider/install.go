@@ -3,14 +3,14 @@ package provider
 import (
 	"fmt"
 
-	"github.com/web-seven/overlock/internal/engine"
 	"go.uber.org/zap"
+
+	"github.com/web-seven/overlock/internal/engine"
 
 	"k8s.io/client-go/rest"
 )
 
 func InstallProvider(provider string, config *rest.Config, logger *zap.SugaredLogger) error {
-
 	installer, err := engine.GetEngine(config)
 	if err != nil {
 		return err

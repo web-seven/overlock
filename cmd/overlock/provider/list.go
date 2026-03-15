@@ -6,9 +6,10 @@ import (
 	"github.com/pterm/pterm"
 	"go.uber.org/zap"
 
-	"github.com/web-seven/overlock/internal/provider"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
+
+	"github.com/web-seven/overlock/internal/provider"
 )
 
 type listCmd struct {

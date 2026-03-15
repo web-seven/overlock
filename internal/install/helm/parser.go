@@ -17,8 +17,9 @@ package helm
 import (
 	"fmt"
 
-	"github.com/web-seven/overlock/internal/install"
 	"helm.sh/helm/v3/pkg/strvals"
+
+	"github.com/web-seven/overlock/internal/install"
 )
 
 // Parser is a helm-style parameter parser.

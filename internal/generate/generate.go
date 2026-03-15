@@ -33,10 +33,7 @@ func GenerateCompositeResource(ctx context.Context, path string, logger *zap.Sug
 		logger.Errorf("failed to unmarshal YAML: %v", err)
 	}
 
-	xrSpec, err := generateSpec(xrd, logger)
-	if err != nil {
-		logger.Errorf("failed to generate spec: %v", err)
-	}
+	xrSpec := generateSpec(xrd, logger)
 
 	xr := xr{
 		TypeMeta: metav1.TypeMeta{
@@ -59,7 +56,7 @@ func GenerateCompositeResource(ctx context.Context, path string, logger *zap.Sug
 }
 
 // generateSpec creates an example spec map based on the schema defined in the CompositeResourceDefinition.
-func generateSpec(xrd crossv1.CompositeResourceDefinition, logger *zap.SugaredLogger) (map[string]interface{}, error) {
+func generateSpec(xrd crossv1.CompositeResourceDefinition, logger *zap.SugaredLogger) map[string]interface{} {
 	xrSpec := make(map[string]interface{})
 	rawData := xrd.Spec.Versions[0].Schema.OpenAPIV3Schema.Raw
 
@@ -81,7 +78,7 @@ func generateSpec(xrd crossv1.CompositeResourceDefinition, logger *zap.SugaredLo
 		}
 		xrSpec[key] = assignValues(propMap)
 	}
-	return xrSpec, nil
+	return xrSpec
 }
 
 // asignValues checks each type of properties and assign example data for a given property schema.

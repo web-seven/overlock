@@ -6,8 +6,9 @@ import (
 	"log"
 	"net/http"
 
-	eventwatcher "github.com/web-seven/overlock/pkg/billing"
 	"k8s.io/client-go/rest"
+
+	eventwatcher "github.com/web-seven/overlock/pkg/billing"
 )
 
 func Watch(mockURL string, config *rest.Config) {

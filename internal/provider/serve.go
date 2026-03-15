@@ -8,12 +8,13 @@ import (
 
 	cmv1 "github.com/crossplane/crossplane/apis/pkg/meta/v1"
 	"github.com/rjeczalik/notify"
-	"github.com/web-seven/overlock/internal/packages"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/yaml"
+
+	"github.com/web-seven/overlock/internal/packages"
 )
 
 func Serve(ctx context.Context, dc *dynamic.DynamicClient, config *rest.Config, logger *zap.SugaredLogger, path string, mainPath string) error {
@@ -88,13 +89,11 @@ func loadServed(ctx context.Context, dc *dynamic.DynamicClient, config *rest.Con
 				if err != nil {
 					logger.Error(err)
 				} else {
-
 					logger.Debugf("Loading provider: %s", pvd)
 					err = pvd.LoadDirectory(ctx, config, logger, path, mainPath)
 					if err != nil {
 						logger.Error(err)
 					} else {
-
 						logger.Debugf("Loading provider: %s", pvd)
 						err = pvd.ApplyPackage(ctx, config, logger)
 						if err != nil {

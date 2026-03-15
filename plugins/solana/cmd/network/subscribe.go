@@ -8,6 +8,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	crossplanev1beta1 "github.com/overlock-network/api/go/node/overlock/crossplane/v1beta1"
+
 	"github.com/web-seven/overlock/plugins/solana/pkg/network"
 )
 
@@ -19,12 +20,12 @@ type subscribeCmd struct {
 	Path        string `optional:"" short:"P" help:"Specifies the path to connect to."  default:"/websocket"`
 	GrpcAddress string `optional:"" short:"g" help:"Specifies the gRPC address to connect to." default:"http://127.0.0.1:8899"`
 
-	ProviderName    string `arg:"" requried:"" help:"The name of the provider to register."`
-	ProviderIP      string `arg:"" requried:"" help:"The IP address of the provider."`
-	ProviderPort    string `arg:"" requried:"" help:"The port of the provider service."`
-	CountryCode     string `arg:"" requried:"" help:"The country code where the provider is located (e.g., US, DE)."`
-	EnvironmentType string `arg:"" requried:"" help:"The environment type of the provider (e.g., crossplane, argocd)."`
-	Availability    string `arg:"" requried:"" help:"Current availability status (e.g., available, maintenance)."`
+	ProviderName    string `arg:"" required:"" help:"The name of the provider to register."`
+	ProviderIP      string `arg:"" required:"" help:"The IP address of the provider."`
+	ProviderPort    string `arg:"" required:"" help:"The port of the provider service."`
+	CountryCode     string `arg:"" required:"" help:"The country code where the provider is located (e.g., US, DE)."`
+	EnvironmentType string `arg:"" required:"" help:"The environment type of the provider (e.g., crossplane, argocd)."`
+	Availability    string `arg:"" required:"" help:"Current availability status (e.g., available, maintenance)."`
 
 	ProgramId string `arg:"" required:"" help:"The program ID of the Solana provider."`
 	KeyPath   string `arg:"" required:"" help:"The path to the key file for the Solana provider."`

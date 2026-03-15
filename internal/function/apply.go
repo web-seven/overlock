@@ -23,7 +23,6 @@ const apiName = "functions.pkg.crossplane.io"
 
 // RunFunctionHealthCheck performs a health check on functions defined by the links string.
 func HealthCheck(ctx context.Context, dc dynamic.Interface, links string, wait bool, timeoutChan <-chan time.Time, logger *zap.SugaredLogger) error {
-
 	linkSet := make(map[string]struct{})
 	for _, link := range strings.Split(links, ",") {
 		linkSet[link] = struct{}{}
@@ -55,7 +54,6 @@ func HealthCheck(ctx context.Context, dc dynamic.Interface, links string, wait b
 }
 
 func ApplyFunction(ctx context.Context, links string, config *rest.Config, logger *zap.SugaredLogger) error {
-
 	_, err := engine.VerifyApi(ctx, config, apiName)
 	if err != nil {
 		logger.Debug(err)
@@ -73,7 +71,7 @@ func ApplyFunction(ctx context.Context, links string, config *rest.Config, logge
 			pa := resource.NewAPIPatchingApplicator(kube)
 
 			if err := pa.Apply(ctx, cfg); err != nil {
-				return errors.Wrap(err, "Error apply function(s).")
+				return errors.Wrap(err, "error applying function(s)")
 			}
 		}
 	} else {
@@ -85,7 +83,6 @@ func ApplyFunction(ctx context.Context, links string, config *rest.Config, logge
 }
 
 func (c *Function) Apply(ctx context.Context, config *rest.Config, logger *zap.SugaredLogger) error {
-
 	_, err := engine.VerifyApi(ctx, config, apiName)
 	if err != nil {
 		logger.Debug(err)
@@ -104,7 +101,7 @@ func (c *Function) Apply(ctx context.Context, config *rest.Config, logger *zap.S
 			pa := resource.NewAPIPatchingApplicator(kube)
 
 			if err := pa.Apply(ctx, cfg); err != nil {
-				return errors.Wrap(err, "Error apply Function(s).")
+				return errors.Wrap(err, "error applying function(s)")
 			}
 		}
 	} else {

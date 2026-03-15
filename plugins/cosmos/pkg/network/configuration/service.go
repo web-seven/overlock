@@ -9,10 +9,11 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
-	"github.com/web-seven/overlock/pkg/configuration"
 	"go.uber.org/zap"
 	yaml "gopkg.in/yaml.v2"
 	"k8s.io/client-go/rest"
+
+	"github.com/web-seven/overlock/pkg/configuration"
 )
 
 func PackageYamlToImageTarball(yamlDocs []map[string]interface{}, packageURL string) (*bytes.Buffer, error) {

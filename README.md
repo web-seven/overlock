@@ -4,7 +4,7 @@
 [![GitHub Release](https://img.shields.io/github/v/release/overlock-network/overlock)](https://github.com/overlock-network/overlock/releases)
 
 <p align="center">
-  <img width="500" src="https://raw.githubusercontent.com/overlock-network/overlock/refs/heads/main/docs/overlock_galaxy_text.png"/>
+  <img width="170" src="https://raw.githubusercontent.com/overlock-network/overlock/refs/heads/main/docs/overlock_white_alpha.png"/>
 </p>
 
 # Overlock
@@ -28,7 +28,8 @@ Overlock handles the complexity of setting up Crossplane environments, making it
 ## Features
 
 - **⚡ Quick Environment Setup** - Create fully configured Crossplane environments with a single command
-- **🎯 Multi-Engine Support** - Works seamlessly with KinD, K3s, and K3d Kubernetes distributions
+- **🎯 Multi-Engine Support** - Works seamlessly with KinD, K3s, K3d, and K3s-Docker Kubernetes distributions
+- **🖥️ Multi-Node & Remote Nodes** - Add remote Linux machines as worker nodes via SSH to distribute Crossplane workloads across multiple hosts
 - **📦 Package Management** - Install and manage Crossplane configurations, providers, and functions
 - **🔄 Live Development** - Hot-reload support for local package development
 - **🏗️ Registry Integration** - Support for both local and remote package registries
@@ -51,6 +52,30 @@ overlock environment list
 ```
 
 That's it! You now have a fully functional Crossplane environment ready for development.
+
+### Multi-Node & Remote Nodes (k3s-docker)
+
+The `k3s-docker` engine supports multi-node clusters with dedicated node scoping and remote node management via SSH.
+
+```bash
+# Create environment with k3s-docker engine (includes workloads + engine nodes)
+overlock env create my-env --engine k3s-docker
+
+# Add a remote machine as an engine node (Crossplane, providers, functions, Kyverno, CertManager)
+overlock env node create my-remote-node --env my-env --host 192.168.1.100 --scopes engine
+
+# Remove a remote node
+overlock env node delete my-remote-node --env my-env --host 192.168.1.100
+
+# Delete environment (automatically cleans up all local and remote nodes)
+overlock env delete my-env --engine k3s-docker
+```
+
+**How it works:**
+- The k3s-docker engine creates an agentless K3s server with two default agent nodes: **workloads** (for user workloads and system services) and **engine** (dedicated to Crossplane, providers, functions, Kyverno, CertManager)
+- Remote nodes join the cluster via SSH — any Linux host with Docker installed can be added as a worker
+- Node scoping uses Kubernetes labels and taints to isolate engine components from user workloads
+- On environment deletion, remote node containers are automatically discovered and cleaned up
 
 ## Installation
 
@@ -127,8 +152,8 @@ Overlock is built with a modular architecture designed for extensibility and mai
 ├─────────────────────────────────────────────────────┤
 │  Environment Manager  │  Package Manager            │
 │  - KinD               │  - Configurations           │
-│  - K3s                │  - Providers                │
-│  - K3d                │  - Functions                │
+│  - K3s / K3d          │  - Providers                │
+│  - K3s-Docker         │  - Functions                │
 ├─────────────────────────────────────────────────────┤
 │  Engine Manager       │  Registry Manager           │
 │  - Crossplane Install │  - Local Registries         │
@@ -140,11 +165,11 @@ Overlock is built with a modular architecture designed for extensibility and mai
 └─────────────────────────────────────────────────────┘
                           │
                           ▼
-        ┌─────────────────────────────────┐
-        │    Kubernetes Cluster           │
-        │  (KinD / K3s / K3d)             │
-        │    + Crossplane                 │
-        └─────────────────────────────────┘
+        ┌─────────────────────────────────────┐
+        │         Kubernetes Cluster          │
+        │  (KinD / K3s / K3d / K3s-Docker)    │
+        │         + Crossplane                │
+        └─────────────────────────────────────┘
 ```
 
 ### Key Components
@@ -162,7 +187,8 @@ For detailed architecture information, see the [Development Guide](docs/developm
 | Feature | Overlock | kubectl + helm | Crossplane CLI | up CLI |
 |---------|----------|----------------|----------------|--------|
 | Environment creation | ✅ Single command | ❌ Manual setup | ❌ Manual setup | ✅ Automated |
-| Multi-engine support | ✅ KinD/K3s/K3d | ✅ Any K8s | ✅ Any K8s | ⚠️ Limited |
+| Multi-engine support | ✅ KinD/K3s/K3d/K3s-Docker | ✅ Any K8s | ✅ Any K8s | ⚠️ Limited |
+| Hybrid environments | ✅ Local + remote nodes via SSH | ❌ Manual | ❌ No | ❌ No |
 | Package management | ✅ Built-in | ❌ Manual | ✅ Limited | ✅ Built-in |
 | Live reload dev | ✅ Yes | ❌ No | ❌ No | ⚠️ Partial |
 | Registry support | ✅ Local + Remote | ❌ Manual | ⚠️ Remote only | ✅ Yes |

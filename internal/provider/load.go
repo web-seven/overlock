@@ -8,14 +8,15 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"go.uber.org/zap"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/rest"
+
 	"github.com/web-seven/overlock/internal/image"
 	"github.com/web-seven/overlock/internal/kube"
 	"github.com/web-seven/overlock/internal/loader"
 	"github.com/web-seven/overlock/internal/packages"
 	"github.com/web-seven/overlock/pkg/registry"
-	"go.uber.org/zap"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/rest"
 )
 
 const (
@@ -77,7 +78,6 @@ func (p *Provider) LoadProvider(ctx context.Context, path string, config *rest.C
 
 // Load provider package from directory
 func (p *Provider) LoadDirectory(ctx context.Context, config *rest.Config, logger *zap.SugaredLogger, path string, mainPath string) error {
-
 	logger.Debug("Building provider...")
 	fileContent, err := p.build(fmt.Sprintf("%s/%s", strings.TrimRight(path, "/"), mainPath))
 	if err != nil {
@@ -134,7 +134,6 @@ func (p *Provider) LoadDirectory(ctx context.Context, config *rest.Config, logge
 
 // Build Go module
 func (p *Provider) build(path string) ([]byte, error) {
-
 	args := []string{
 		"build", "-C", path, "-o", providerFileName,
 	}

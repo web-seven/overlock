@@ -14,10 +14,11 @@ import (
 	"github.com/google/go-containerregistry/pkg/crane"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
-	"github.com/web-seven/overlock/internal/loader"
 	yaml "gopkg.in/yaml.v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
+
+	"github.com/web-seven/overlock/internal/loader"
 )
 
 const (
@@ -40,7 +41,6 @@ func (im *Image) LoadPathArchive(path string) error {
 
 // Load layer from file path
 func LoadBinaryLayer(content []byte, fileName string, permissions fs.FileMode) (v1.Layer, error) {
-
 	tarBuf := new(bytes.Buffer)
 	tw := tar.NewWriter(tarBuf)
 

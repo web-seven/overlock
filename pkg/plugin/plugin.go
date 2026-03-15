@@ -23,12 +23,12 @@ func LoadPlugins() ([]kong.Option, error) {
 			pluginPath := filepath.Join(PluginPath, file.Name())
 			plug, err := plugin.Open(pluginPath)
 			if err != nil {
-				return nil, fmt.Errorf("failed to load plugin: %v", err)
+				return nil, fmt.Errorf("failed to load plugin: %w", err)
 			}
 
 			sym, err := plug.Lookup("RegisterCommands")
 			if err != nil {
-				return nil, fmt.Errorf("failed to find RegisterCommands function: %v", err)
+				return nil, fmt.Errorf("failed to find RegisterCommands function: %w", err)
 			}
 
 			registerPlugin, ok := sym.(func() []kong.Option)

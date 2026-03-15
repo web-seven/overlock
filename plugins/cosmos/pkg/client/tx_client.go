@@ -18,7 +18,6 @@ import (
 )
 
 func BuildClientContext(from, rpcUri, chainId, keyringBackend string) (client.Context, error) {
-
 	tempKeyringDir, err := os.MkdirTemp("", "overlock-keyring-*")
 	if err != nil {
 		return client.Context{}, fmt.Errorf("failed to create temporary keyring directory: %w", err)

@@ -3,8 +3,9 @@ package provider
 import (
 	"context"
 
-	"github.com/web-seven/overlock/internal/provider"
 	"go.uber.org/zap"
+
+	"github.com/web-seven/overlock/internal/provider"
 
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
