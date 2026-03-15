@@ -4,13 +4,14 @@ import (
 	"context"
 	"net/url"
 
-	"github.com/web-seven/overlock/internal/install/helm"
-	"github.com/web-seven/overlock/internal/namespace"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
+
+	"github.com/web-seven/overlock/internal/install/helm"
+	"github.com/web-seven/overlock/internal/namespace"
 )
 
 const (
@@ -127,8 +128,8 @@ func CreateRegistryCertificate(ctx context.Context, config *rest.Config) error {
 				"namespace": namespace.Namespace,
 			},
 			"spec": map[string]interface{}{
-				"secretName": registrySecretName,
-				"duration":   "8760h",
+				"secretName":  registrySecretName,
+				"duration":    "8760h",
 				"renewBefore": "720h",
 				"dnsNames": []interface{}{
 					"registry",

@@ -2,6 +2,7 @@ package environment
 
 import (
 	"context"
+	"fmt"
 
 	"go.uber.org/zap"
 
@@ -30,14 +31,17 @@ func (c *nodeCreateCmd) Run(ctx context.Context, logger *zap.SugaredLogger) erro
 		var err error
 		remote, err = environment.NewSSHClient(c.Host, c.User, c.Port, c.Key)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to create SSH client: %w", err)
 		}
 		defer remote.Close()
 	}
 
-	return environment.
+	if err := environment.
 		New(c.Engine, c.Environment).
-		CreateNode(ctx, c.Name, c.Scopes, remote, logger)
+		CreateNode(ctx, c.Name, c.Scopes, remote, logger); err != nil {
+		return fmt.Errorf("failed to create node %q: %w", c.Name, err)
+	}
+	return nil
 }
 
 type nodeDeleteCmd struct {
@@ -57,12 +61,15 @@ func (c *nodeDeleteCmd) Run(ctx context.Context, logger *zap.SugaredLogger) erro
 		var err error
 		remote, err = environment.NewSSHClient(c.Host, c.User, c.Port, c.Key)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to create SSH client: %w", err)
 		}
 		defer remote.Close()
 	}
 
-	return environment.
+	if err := environment.
 		New(c.Engine, c.Environment).
-		DeleteNode(ctx, c.Name, c.Scopes, remote, logger)
+		DeleteNode(ctx, c.Name, c.Scopes, remote, logger); err != nil {
+		return fmt.Errorf("failed to delete node %q: %w", c.Name, err)
+	}
+	return nil
 }

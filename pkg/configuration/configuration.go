@@ -8,15 +8,16 @@ import (
 
 	configuration "github.com/crossplane/crossplane/apis/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
-	"github.com/web-seven/overlock/internal/image"
-	"github.com/web-seven/overlock/internal/kube"
-	"github.com/web-seven/overlock/internal/packages"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+
+	"github.com/web-seven/overlock/internal/image"
+	"github.com/web-seven/overlock/internal/kube"
+	"github.com/web-seven/overlock/internal/packages"
 )
 
 const (
@@ -49,7 +50,6 @@ func CheckHealthStatus(status []condition.Condition) bool {
 }
 
 func GetConfiguration(ctx context.Context, logger *zap.SugaredLogger, sourceDynamicClient dynamic.Interface, paramsConfiguration kube.ResourceParams) ([]unstructured.Unstructured, error) {
-
 	configurations, err := kube.GetKubeResources(paramsConfiguration)
 	if err != nil {
 		return nil, err
@@ -72,11 +72,8 @@ func MoveConfigurations(ctx context.Context, logger *zap.SugaredLogger, destClie
 			_, err := destClientset.Resource(resourceId).Namespace(paramsConfiguration.Namespace).Create(ctx, &item, metav1.CreateOptions{})
 			if err != nil {
 				return err
-			} else {
-				logger.Infof("Configuration created successfully %s", item.GetName())
-
 			}
-
+			logger.Infof("Configuration created successfully %s", item.GetName())
 		}
 
 		//Check configuration health status

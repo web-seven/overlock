@@ -2,6 +2,7 @@ package chart
 
 import (
 	"context"
+	"fmt"
 
 	"go.uber.org/zap"
 	"k8s.io/client-go/rest"
@@ -19,7 +20,7 @@ func (c CertManagerChart) Install(ctx context.Context, restConfig *rest.Config, 
 	logger.Debug("Installing cert-manager")
 	err := certmanager.InstallCertManager(ctx, restConfig, params)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to install cert-manager: %w", err)
 	}
 	logger.Debug("Done")
 	return nil

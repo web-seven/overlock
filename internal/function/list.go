@@ -4,9 +4,10 @@ import (
 	"context"
 
 	crossv1 "github.com/crossplane/crossplane/apis/pkg/v1beta1"
-	"github.com/web-seven/overlock/internal/kube"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
+
+	"github.com/web-seven/overlock/internal/kube"
 )
 
 func GetFunctions(ctx context.Context, dynamicClient dynamic.Interface) []crossv1.Function {

@@ -20,7 +20,6 @@ type EncodingConfig struct {
 }
 
 func MakeEncodingConfig(modules ...module.AppModuleBasic) EncodingConfig {
-
 	aminoCodec := codec.NewLegacyAmino()
 	interfaceRegistry := NewInterfaceRegistry()
 	codec := codec.NewProtoCodec(interfaceRegistry)

@@ -3,8 +3,9 @@ package generate
 import (
 	"context"
 
-	"github.com/web-seven/overlock/internal/generate"
 	"go.uber.org/zap"
+
+	"github.com/web-seven/overlock/internal/generate"
 )
 
 type exampleCmd struct {

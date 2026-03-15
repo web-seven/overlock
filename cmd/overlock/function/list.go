@@ -4,8 +4,9 @@ import (
 	"context"
 
 	"github.com/pterm/pterm"
-	"github.com/web-seven/overlock/internal/function"
 	"go.uber.org/zap"
+
+	"github.com/web-seven/overlock/internal/function"
 
 	"k8s.io/client-go/dynamic"
 )

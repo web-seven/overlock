@@ -6,10 +6,11 @@ import (
 	"go.uber.org/zap"
 
 	crossv1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
-	"github.com/web-seven/overlock/internal/resources"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+
+	"github.com/web-seven/overlock/internal/resources"
 )
 
 type createCmd struct {
@@ -17,7 +18,6 @@ type createCmd struct {
 }
 
 func (c *createCmd) Run(ctx context.Context, client *dynamic.DynamicClient, logger *zap.SugaredLogger) error {
-
 	xrd := crossv1.CompositeResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: c.Type,
@@ -47,7 +47,6 @@ func CreateXResource(ctx context.Context, xrd crossv1.CompositeResourceDefinitio
 	}
 
 	if form.GetBool("confirm") {
-
 		groupVersion := schema.GroupVersionResource{
 			Group:    xResource.GroupVersionKind().Group,
 			Version:  xResource.GroupVersionKind().Version,

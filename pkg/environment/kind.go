@@ -7,9 +7,10 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	overlockerrors "github.com/web-seven/overlock/pkg/errors"
 	"go.uber.org/zap"
 	yaml "gopkg.in/yaml.v3"
+
+	overlockerrors "github.com/web-seven/overlock/pkg/errors"
 )
 
 type KindCluster struct {
@@ -82,10 +83,9 @@ func (e *Environment) CreateKindEnvironment(logger *zap.SugaredLogger) (string, 
 		line := stderrScanner.Text()
 		if strings.Contains(line, "ERROR") {
 			return "", errors.Wrap(errors.New(line), "kind cluster creation failed")
-		} else {
-			if !strings.Contains(line, " • ") {
-				logger.Debug(line)
-			}
+		}
+		if !strings.Contains(line, " • ") {
+			logger.Debug(line)
 		}
 	}
 
@@ -125,7 +125,7 @@ func (e *Environment) KindContextName() string {
 }
 
 // Return YAML of cluster config file
-func (e *Environment) configYaml(logger *zap.SugaredLogger) (string, error) {
+func (e *Environment) configYaml(_ *zap.SugaredLogger) (string, error) {
 	ports := []KindPortMapping{
 		{
 			ContainerPort: 80,

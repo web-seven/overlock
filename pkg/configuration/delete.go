@@ -5,14 +5,14 @@ import (
 	"strings"
 
 	crossv1 "github.com/crossplane/crossplane/apis/pkg/v1"
-	"github.com/web-seven/overlock/internal/engine"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/dynamic"
+
+	"github.com/web-seven/overlock/internal/engine"
 )
 
 func DeleteConfiguration(ctx context.Context, urls string, dynamicClient *dynamic.DynamicClient, logger *zap.SugaredLogger) error {
-
 	for _, url := range strings.Split(urls, ",") {
 		cfg := crossv1.Configuration{}
 		engine.BuildPack(&cfg, url, map[string]string{})

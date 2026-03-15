@@ -23,7 +23,6 @@ const apiName = "configurations.pkg.crossplane.io"
 
 // RunConfigurationHealthCheck performs a health check on configurations defined by the links string.
 func HealthCheck(ctx context.Context, dc dynamic.Interface, links string, wait bool, timeoutChan <-chan time.Time, logger *zap.SugaredLogger) error {
-
 	linkSet := make(map[string]struct{})
 	for _, link := range strings.Split(links, ",") {
 		linkSet[link] = struct{}{}
@@ -55,7 +54,6 @@ func HealthCheck(ctx context.Context, dc dynamic.Interface, links string, wait b
 }
 
 func (c *Configuration) Apply(ctx context.Context, config *rest.Config, logger *zap.SugaredLogger) error {
-
 	_, err := engine.VerifyApi(ctx, config, apiName)
 	if err != nil {
 		logger.Debug(err)
@@ -74,7 +72,7 @@ func (c *Configuration) Apply(ctx context.Context, config *rest.Config, logger *
 			pa := resource.NewAPIPatchingApplicator(kube)
 
 			if err := pa.Apply(ctx, cfg); err != nil {
-				return errors.Wrap(err, "Error apply configuration(s).")
+				return errors.Wrap(err, "error applying configuration(s)")
 			}
 		}
 	} else {

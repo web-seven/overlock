@@ -3,8 +3,9 @@ package registry
 import (
 	"context"
 
-	"github.com/web-seven/overlock/pkg/registry"
 	"go.uber.org/zap"
+
+	"github.com/web-seven/overlock/pkg/registry"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -46,8 +47,7 @@ func (c *createCmd) Run(ctx context.Context, client *kubernetes.Clientset, confi
 	err = reg.Create(ctx, config, logger)
 	if err != nil {
 		return err
-	} else {
-		logger.Info("Registry created successfully.")
 	}
+	logger.Info("Registry created successfully.")
 	return nil
 }

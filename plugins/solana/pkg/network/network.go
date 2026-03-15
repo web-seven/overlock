@@ -15,17 +15,17 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/gorilla/websocket"
 	crossplanev1beta1 "github.com/overlock-network/api/go/node/overlock/crossplane/v1beta1"
-	"github.com/web-seven/overlock/plugins/solana/pkg/types"
 	"go.uber.org/zap"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
+	"github.com/web-seven/overlock/plugins/solana/pkg/types"
+
 	prv "github.com/web-seven/overlock/plugins/solana/pkg/provider"
 )
 
 func Subscribe(engine, creator, host, port, path, grpcAddress string, client *kubernetes.Clientset, config *rest.Config, dc *dynamic.DynamicClient, provider crossplanev1beta1.MsgCreateProvider, programId, keyPath string) {
-
 	logger := zap.NewExample().Sugar()
 	defer logger.Sync()
 

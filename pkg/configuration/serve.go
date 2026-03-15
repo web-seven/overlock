@@ -85,13 +85,11 @@ func loadServed(ctx context.Context, dc *dynamic.DynamicClient, config *rest.Con
 				if err != nil {
 					logger.Error(err)
 				} else {
-
 					logger.Debugf("Loading Configuration: %s", cfg)
 					err = cfg.LoadDirectory(ctx, config, logger, path)
 					if err != nil {
 						logger.Error(err)
 					} else {
-
 						logger.Debugf("Loading Configuration: %s", cfg)
 						err = cfg.Apply(ctx, config, logger)
 						if err != nil {

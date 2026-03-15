@@ -4,16 +4,16 @@ import (
 	"context"
 
 	v1 "github.com/crossplane/crossplane/apis/apiextensions/v1"
-	"github.com/web-seven/overlock/internal/kube"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
+
+	"github.com/web-seven/overlock/internal/kube"
 )
 
 func GetXResources(ctx context.Context, dynamicClient *dynamic.DynamicClient, logger *zap.SugaredLogger) []unstructured.Unstructured {
-
 	paramsXRDs := kube.ResourceParams{
 		Dynamic:   dynamicClient,
 		Ctx:       ctx,

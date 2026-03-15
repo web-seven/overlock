@@ -16,7 +16,7 @@ func TestInvalidConfigError(t *testing.T) {
 	// Test InvalidConfigError with cause
 	cause := errors.New("parsing error")
 	err = NewInvalidConfigErrorWithCause("port", "abc", "must be numeric", cause)
-	if err.Unwrap() != cause {
+	if !errors.Is(err.Unwrap(), cause) {
 		t.Error("Expected unwrapped error to be the cause")
 	}
 
@@ -37,7 +37,7 @@ func TestKubernetesConnectionError(t *testing.T) {
 	// Test KubernetesConnectionError with cause
 	cause := errors.New("network unreachable")
 	err = NewKubernetesConnectionErrorWithCause("prod", "prod-cluster.example.com", "timeout", cause)
-	if err.Unwrap() != cause {
+	if !errors.Is(err.Unwrap(), cause) {
 		t.Error("Expected unwrapped error to be the cause")
 	}
 
@@ -58,7 +58,7 @@ func TestPackageNotFoundError(t *testing.T) {
 	// Test PackageNotFoundError with cause
 	cause := errors.New("HTTP 404")
 	err = NewPackageNotFoundErrorWithCause("my-package", "registry.local", "", "package removed", cause)
-	if err.Unwrap() != cause {
+	if !errors.Is(err.Unwrap(), cause) {
 		t.Error("Expected unwrapped error to be the cause")
 	}
 

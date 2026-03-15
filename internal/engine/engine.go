@@ -9,10 +9,11 @@ import (
 	v1 "github.com/crossplane/crossplane/apis/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/pkg/errors"
+	"k8s.io/client-go/rest"
+
 	"github.com/web-seven/overlock/internal/install"
 	"github.com/web-seven/overlock/internal/install/helm"
 	"github.com/web-seven/overlock/internal/namespace"
-	"k8s.io/client-go/rest"
 
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -56,7 +57,7 @@ var (
 func GetEngine(configClient *rest.Config) (install.Manager, error) {
 	repoURL, err := url.Parse(RepoUrl)
 	if err != nil {
-		return nil, fmt.Errorf("error parsing repository URL: %v", err)
+		return nil, fmt.Errorf("error parsing repository URL: %w", err)
 	}
 	setWait := helm.InstallerModifierFn(helm.Wait())
 	setNamespace := helm.InstallerModifierFn(helm.WithNamespace(namespace.Namespace))
@@ -79,7 +80,7 @@ func GetEngine(configClient *rest.Config) (install.Manager, error) {
 	)
 
 	if err != nil {
-		return nil, fmt.Errorf("error creating Helm manager: %v", err)
+		return nil, fmt.Errorf("error creating Helm manager: %w", err)
 	}
 
 	return installer, nil
@@ -116,14 +117,12 @@ func VerifyApi(ctx context.Context, configClient *rest.Config, apiName string) (
 
 // Check if engine release exists
 func IsHelmReleaseFound(configClient *rest.Config) bool {
-
 	installer, err := GetEngine(configClient)
 	if err != nil {
 		return false
 	}
 	_, err = installer.GetRelease()
 	return err == nil
-
 }
 
 // Lables for engine system resources, mixed with provided

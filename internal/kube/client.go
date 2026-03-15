@@ -23,13 +23,14 @@ import (
 
 	ctrl "sigs.k8s.io/controller-runtime/pkg/client/config"
 
-	overlockerrors "github.com/web-seven/overlock/pkg/errors"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/transport"
+
+	overlockerrors "github.com/web-seven/overlock/pkg/errors"
 )
 
 const (
@@ -46,7 +47,6 @@ const (
 )
 
 func Context(ctx context.Context, context string) (*dynamic.DynamicClient, error) {
-
 	config, err := Config(context)
 	if err != nil {
 		return nil, err
@@ -61,7 +61,6 @@ func Context(ctx context.Context, context string) (*dynamic.DynamicClient, error
 }
 
 func ConfigContext(ctx context.Context, config *rest.Config) (*dynamic.DynamicClient, error) {
-
 	dynamicClient, err := dynamic.NewForConfig(config)
 	if err != nil {
 		return nil, overlockerrors.NewKubernetesConnectionErrorWithCause("", config.Host, "failed to create dynamic client", err)

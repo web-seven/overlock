@@ -9,6 +9,9 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/go-logr/logr"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+
 	"github.com/web-seven/overlock/cmd/overlock/configuration"
 	"github.com/web-seven/overlock/cmd/overlock/environment"
 	"github.com/web-seven/overlock/cmd/overlock/function"
@@ -17,16 +20,15 @@ import (
 	"github.com/web-seven/overlock/internal/engine"
 	"github.com/web-seven/overlock/internal/kube"
 	"github.com/web-seven/overlock/internal/namespace"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 
 	pluginPkg "github.com/web-seven/overlock/pkg/plugin"
 
-	"github.com/web-seven/overlock/cmd/overlock/registry"
-	"github.com/web-seven/overlock/cmd/overlock/resource"
 	"github.com/willabides/kongplete"
 	"k8s.io/client-go/dynamic"
 	ctrl "sigs.k8s.io/controller-runtime"
+
+	"github.com/web-seven/overlock/cmd/overlock/registry"
+	"github.com/web-seven/overlock/cmd/overlock/resource"
 )
 
 type Globals struct {
@@ -168,7 +170,7 @@ type cli struct {
 	Environment        environment.Cmd              `cmd:"" name:"environment" aliases:"env" help:"Overlock Environment commands"`
 	Configuration      configuration.Cmd            `cmd:"" name:"configuration" aliases:"cfg" help:"Overlock Configuration commands"`
 	Resource           resource.Cmd                 `cmd:"" name:"resource" aliases:"res" help:"Overlock Resource commands"`
-	Registry           registry.Cmd                 `cmd:"" name:"registry" aliases:"reg" help:"Packages registy commands"`
+	Registry           registry.Cmd                 `cmd:"" name:"registry" aliases:"reg" help:"Packages registry commands"`
 	InstallCompletions kongplete.InstallCompletions `cmd:"" help:"Install shell completions"`
 	Provider           provider.Cmd                 `cmd:"" name:"provider" aliases:"prv" help:"Overlock Provider commands"`
 	Function           function.Cmd                 `cmd:"" name:"function" aliases:"fnc" help:"Overlock Function commands"`
@@ -179,8 +181,7 @@ type cli struct {
 type helpCmd struct{}
 
 func main() {
-
-	homeDir, err := os.UserHomeDir()
+	homeDir, _ := os.UserHomeDir()
 	c := cli{
 		Globals: Globals{
 			Version:    VersionFlag(version.Version),

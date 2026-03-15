@@ -5,13 +5,14 @@ import (
 	"context"
 	"os"
 
+	"go.uber.org/zap"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/rest"
+
 	"github.com/web-seven/overlock/internal/function"
 	"github.com/web-seven/overlock/internal/kube"
 	"github.com/web-seven/overlock/internal/packages"
 	"github.com/web-seven/overlock/pkg/registry"
-	"go.uber.org/zap"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/rest"
 )
 
 type loadCmd struct {
@@ -23,7 +24,6 @@ type loadCmd struct {
 }
 
 func (c *loadCmd) Run(ctx context.Context, config *rest.Config, dc *dynamic.DynamicClient, logger *zap.SugaredLogger) error {
-
 	client, err := kube.Client(config)
 	if err != nil {
 		return err

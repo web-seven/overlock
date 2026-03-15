@@ -20,7 +20,6 @@ type CLI struct {
 }
 
 func RegisterCommands() []kong.Option {
-
 	cli := CLI{}
 	var options []kong.Option
 	cliType := reflect.TypeOf(cli)
