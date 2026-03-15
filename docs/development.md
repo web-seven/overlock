@@ -26,7 +26,7 @@ To develop Overlock, you'll need:
 ### Clone the Repository
 
 ```bash
-git clone https://github.com/overlock-network/overlock.git
+git clone https://github.com/web-seven/overlock.git
 cd overlock
 ```
 
@@ -364,7 +364,7 @@ Closes #123
 ### Getting Help
 
 - Join our [Discord](https://discord.gg/W7AsrUb5GC)
-- Check [existing issues](https://github.com/overlock-network/overlock/issues)
+- Check [existing issues](https://github.com/web-seven/overlock/issues)
 - Review [CONTRIBUTING.md](../CONTRIBUTING.md) for detailed guidelines
 
 ## Development Tools
