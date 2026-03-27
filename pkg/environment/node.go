@@ -75,6 +75,22 @@ func (e *Environment) CreateNode(ctx context.Context, nodeName string, scopes []
 		return fmt.Errorf("failed to get K3s token: %w", err)
 	}
 
+	contextName := e.K3sDockerContextName()
+	restConfig, err := config.GetConfigWithContext(contextName)
+	if err != nil {
+		return fmt.Errorf("failed to get kubeconfig for environment %q: %w", e.name, err)
+	}
+	kubeClient, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create Kubernetes client: %w", err)
+	}
+
+	// Prevent name conflicts: reject if a node with this name already exists.
+	existingNode, _ := findNodeByLabel(ctx, kubeClient, nodeName)
+	if existingNode != "" {
+		return fmt.Errorf("node %q already exists; use a different name", nodeName)
+	}
+
 	// The Kubernetes node name prefix follows the pattern <environment>-<nodeName>.
 	// --with-node-id appends a random suffix so each container gets a unique
 	// name in K3s's password store, avoiding conflicts on retries.
@@ -89,18 +105,6 @@ func (e *Environment) CreateNode(ctx context.Context, nodeName string, scopes []
 		if err := e.createLocalNode(ctx, dockerClient, serverContainer.ID, agentContainerName, k3sNodeName, nodeName, token, scopes, logger); err != nil {
 			return err
 		}
-	}
-
-	// Get kubeconfig context for this environment.
-	contextName := e.K3sDockerContextName()
-	restConfig, err := config.GetConfigWithContext(contextName)
-	if err != nil {
-		return fmt.Errorf("failed to get kubeconfig for environment %q: %w", e.name, err)
-	}
-
-	kubeClient, err := kubernetes.NewForConfig(restConfig)
-	if err != nil {
-		return fmt.Errorf("failed to create Kubernetes client: %w", err)
 	}
 
 	// Discover the node by the overlock.io/node label since --with-node-id
@@ -172,19 +176,24 @@ func (e *Environment) replaceScopedNodes(ctx context.Context, kubeClient *kubern
 // namespace with no port conflicts. The server's --egress-selector-mode=pod
 // allows it to reach agent pods through the agent tunnel.
 func (e *Environment) createLocalNode(ctx context.Context, dockerClient *docker.Client, _, agentContainerName, k3sNodeName, nodeName, token string, scopes []string, logger *zap.SugaredLogger) error {
-	// Check if the agent container already exists.
+	// Remove existing container so a fresh node is always created.
 	existing, err := e.findK3sDockerContainer(ctx, dockerClient, agentContainerName)
 	if err != nil {
 		return err
 	}
 	if existing != nil {
-		logger.Debugf("Node container %q already exists.", agentContainerName)
-		if existing.State != "running" {
-			if err := dockerClient.ContainerStart(ctx, existing.ID, types.ContainerStartOptions{}); err != nil {
-				return fmt.Errorf("failed to start existing node container: %w", err)
-			}
+		logger.Debugf("Removing existing node container %q to create a fresh node.", agentContainerName)
+		timeout := 10
+		if err := dockerClient.ContainerStop(ctx, existing.ID, container.StopOptions{Timeout: &timeout}); err != nil {
+			logger.Warnf("Failed to stop existing node container: %v", err)
 		}
-		return nil
+		if err := dockerClient.ContainerRemove(ctx, existing.ID, types.ContainerRemoveOptions{Force: true}); err != nil {
+			return fmt.Errorf("failed to remove existing node container: %w", err)
+		}
+		volumeName := agentContainerName + "-data"
+		if err := dockerClient.VolumeRemove(ctx, volumeName, true); err != nil {
+			logger.Warnf("Failed to remove volume %s: %v", volumeName, err)
+		}
 	}
 
 	// The server uses host networking; local agents reach it via the host IP.
@@ -286,18 +295,24 @@ func (e *Environment) createRemoteNode(_ context.Context, _ *docker.Client, _ st
 	k3sURL := fmt.Sprintf("https://%s:6443", localIP)
 	logger.Debugf("Remote node will connect to K3s server at %s", k3sURL)
 
-	// Check if container already exists on remote host.
+	// Remove existing container so a fresh node is always created.
 	checkCmd := fmt.Sprintf("docker inspect %s >/dev/null 2>&1 && echo exists || echo missing", agentContainerName)
 	checkOut, err := remote.Run(checkCmd)
 	if err != nil {
 		logger.Debugf("Failed to check remote container: %v", err)
 	}
 	if strings.TrimSpace(checkOut) == "exists" {
-		logger.Debugf("Node container %q already exists on remote host.", agentContainerName)
-		if _, err := remote.Run(fmt.Sprintf("docker start %s", agentContainerName)); err != nil {
-			return fmt.Errorf("failed to start existing remote container: %w", err)
+		logger.Debugf("Removing existing node container %q on remote host to create a fresh node.", agentContainerName)
+		if _, err := remote.Run(fmt.Sprintf("docker stop %s", agentContainerName)); err != nil {
+			logger.Warnf("Failed to stop existing remote container: %v", err)
 		}
-		return nil
+		if _, err := remote.Run(fmt.Sprintf("docker rm %s", agentContainerName)); err != nil {
+			return fmt.Errorf("failed to remove existing remote container: %w", err)
+		}
+		volumeName := agentContainerName + "-data"
+		if _, err := remote.Run(fmt.Sprintf("docker volume rm %s", volumeName)); err != nil {
+			logger.Warnf("Failed to remove remote volume %s: %v", volumeName, err)
+		}
 	}
 
 	// Run the K3s agent container on the remote host using default bridge
