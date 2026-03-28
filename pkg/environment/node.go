@@ -35,6 +35,15 @@ const (
 	annSSHKey  = "overlock.io/ssh-key"
 )
 
+// formatTaint converts a user-provided "key:value" taint to K8s format "key=value:NoSchedule".
+func formatTaint(taint string) string {
+	parts := strings.SplitN(taint, ":", 2)
+	if len(parts) == 2 {
+		return fmt.Sprintf("%s=%s:%s", parts[0], parts[1], scopeEffect)
+	}
+	return fmt.Sprintf("%s:%s", taint, scopeEffect)
+}
+
 // nodeContainerName returns the Docker container name for an agent node.
 // Pattern: <k3s-docker-prefix><environment>-<nodeName>
 func (e *Environment) nodeContainerName(nodeName string) string {
@@ -44,7 +53,7 @@ func (e *Environment) nodeContainerName(nodeName string) string {
 // CreateNode creates a new K3s agent node as a Docker container that joins the
 // existing K3s server for this environment. Only supported for the k3s-docker engine.
 // When remote is non-nil, the Docker container is created on the remote host via SSH.
-func (e *Environment) CreateNode(ctx context.Context, nodeName string, scopes []string, remote *SSHClient, logger *zap.SugaredLogger) error {
+func (e *Environment) CreateNode(ctx context.Context, nodeName string, scopes []string, taints []string, remote *SSHClient, logger *zap.SugaredLogger) error {
 	if e.engine != "k3s-docker" {
 		return fmt.Errorf("node management is only supported for the k3s-docker engine, got %q", e.engine)
 	}
@@ -98,11 +107,11 @@ func (e *Environment) CreateNode(ctx context.Context, nodeName string, scopes []
 	agentContainerName := e.nodeContainerName(nodeName)
 
 	if remote != nil {
-		if err := e.createRemoteNode(ctx, dockerClient, serverContainer.ID, remote, agentContainerName, k3sNodeName, nodeName, token, scopes, logger); err != nil {
+		if err := e.createRemoteNode(ctx, dockerClient, serverContainer.ID, remote, agentContainerName, k3sNodeName, nodeName, token, scopes, taints, logger); err != nil {
 			return err
 		}
 	} else {
-		if err := e.createLocalNode(ctx, dockerClient, serverContainer.ID, agentContainerName, k3sNodeName, nodeName, token, scopes, logger); err != nil {
+		if err := e.createLocalNode(ctx, dockerClient, serverContainer.ID, agentContainerName, k3sNodeName, nodeName, token, scopes, taints, logger); err != nil {
 			return err
 		}
 	}
@@ -175,7 +184,7 @@ func (e *Environment) replaceScopedNodes(ctx context.Context, kubeClient *kubern
 // Each agent uses default bridge networking so it gets its own network
 // namespace with no port conflicts. The server's --egress-selector-mode=pod
 // allows it to reach agent pods through the agent tunnel.
-func (e *Environment) createLocalNode(ctx context.Context, dockerClient *docker.Client, _, agentContainerName, k3sNodeName, nodeName, token string, scopes []string, logger *zap.SugaredLogger) error {
+func (e *Environment) createLocalNode(ctx context.Context, dockerClient *docker.Client, _, agentContainerName, k3sNodeName, nodeName, token string, scopes []string, taints []string, logger *zap.SugaredLogger) error {
 	// Remove existing container so a fresh node is always created.
 	existing, err := e.findK3sDockerContainer(ctx, dockerClient, agentContainerName)
 	if err != nil {
@@ -211,6 +220,9 @@ func (e *Environment) createLocalNode(ctx context.Context, dockerClient *docker.
 		if scope == scopeEngine {
 			agentCmd = append(agentCmd, "--node-taint", fmt.Sprintf("%s=%s:%s", scopeLabel, scope, scopeEffect))
 		}
+	}
+	for _, taint := range taints {
+		agentCmd = append(agentCmd, "--node-taint", formatTaint(taint))
 	}
 
 	containerConfig := &container.Config{
@@ -283,7 +295,7 @@ func (e *Environment) createLocalNode(ctx context.Context, dockerClient *docker.
 }
 
 // createRemoteNode creates a K3s agent container on a remote host via SSH.
-func (e *Environment) createRemoteNode(_ context.Context, _ *docker.Client, _ string, remote *SSHClient, agentContainerName, k3sNodeName, nodeName, token string, scopes []string, logger *zap.SugaredLogger) error {
+func (e *Environment) createRemoteNode(_ context.Context, _ *docker.Client, _ string, remote *SSHClient, agentContainerName, k3sNodeName, nodeName, token string, scopes []string, taints []string, logger *zap.SugaredLogger) error {
 	// Determine the local IP reachable from the remote host.
 	localIP, err := remote.LocalIPFor()
 	if err != nil {
@@ -325,6 +337,9 @@ func (e *Environment) createRemoteNode(_ context.Context, _ *docker.Client, _ st
 		if scope == scopeEngine {
 			scopeFlags += fmt.Sprintf(" --node-taint %s=%s:%s", scopeLabel, scope, scopeEffect)
 		}
+	}
+	for _, taint := range taints {
+		scopeFlags += fmt.Sprintf(" --node-taint %s", formatTaint(taint))
 	}
 
 	cpuFlag := ""
