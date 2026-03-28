@@ -24,6 +24,7 @@ type nodeCreateCmd struct {
 	Port        int      `optional:"" help:"SSH port for the remote host." default:"22"`
 	Key         string   `optional:"" help:"Path to SSH private key." default:"~/.ssh/id_rsa"`
 	Cpu         string   `optional:"" help:"CPU limit for the node container (e.g., 2, 0.5, 50%)." default:""`
+	Taints      []string `optional:"" help:"Comma-separated list of node taints in key:value format (e.g., dedicated:gpu,team:ml)."`
 }
 
 func (c *nodeCreateCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
@@ -40,7 +41,7 @@ func (c *nodeCreateCmd) Run(ctx context.Context, logger *zap.SugaredLogger) erro
 	if err := environment.
 		New(c.Engine, c.Environment).
 		WithCpu(c.Cpu).
-		CreateNode(ctx, c.Name, c.Scopes, remote, logger); err != nil {
+		CreateNode(ctx, c.Name, c.Scopes, c.Taints, remote, logger); err != nil {
 		return fmt.Errorf("failed to create node %q: %w", c.Name, err)
 	}
 	return nil

@@ -173,7 +173,7 @@ func (e *Environment) Setup(ctx context.Context, logger *zap.SugaredLogger) erro
 			{"workloads", scopeWorkloads},
 			{"engine", scopeEngine},
 		} {
-			if err := e.CreateNode(ctx, scope.node, []string{scope.value}, nil, logger); err != nil {
+			if err := e.CreateNode(ctx, scope.node, []string{scope.value}, nil, nil, logger); err != nil {
 				return fmt.Errorf("failed to create %s node: %w", scope.node, err)
 			}
 		}
