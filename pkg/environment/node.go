@@ -44,6 +44,15 @@ func formatTaint(taint string) string {
 	return fmt.Sprintf("%s:%s", taint, scopeEffect)
 }
 
+// formatLabel converts a user-provided "key:value" taint to a K8s label "key=value".
+func formatLabel(taint string) string {
+	parts := strings.SplitN(taint, ":", 2)
+	if len(parts) == 2 {
+		return fmt.Sprintf("%s=%s", parts[0], parts[1])
+	}
+	return taint
+}
+
 // nodeContainerName returns the Docker container name for an agent node.
 // Pattern: <k3s-docker-prefix><environment>-<nodeName>
 func (e *Environment) nodeContainerName(nodeName string) string {
@@ -223,6 +232,7 @@ func (e *Environment) createLocalNode(ctx context.Context, dockerClient *docker.
 	}
 	for _, taint := range taints {
 		agentCmd = append(agentCmd, "--node-taint", formatTaint(taint))
+		agentCmd = append(agentCmd, "--node-label", formatLabel(taint))
 	}
 
 	containerConfig := &container.Config{
@@ -340,6 +350,7 @@ func (e *Environment) createRemoteNode(_ context.Context, _ *docker.Client, _ st
 	}
 	for _, taint := range taints {
 		scopeFlags += fmt.Sprintf(" --node-taint %s", formatTaint(taint))
+		scopeFlags += fmt.Sprintf(" --node-label %s", formatLabel(taint))
 	}
 
 	cpuFlag := ""
