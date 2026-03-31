@@ -103,10 +103,11 @@ func (e *Environment) CreateNode(ctx context.Context, nodeName string, scopes []
 		return fmt.Errorf("failed to create Kubernetes client: %w", err)
 	}
 
-	// Prevent name conflicts: reject if a node with this name already exists.
+	// If a node with this name already exists, skip creation gracefully.
 	existingNode, _ := findNodeByLabel(ctx, kubeClient, nodeName)
 	if existingNode != "" {
-		return fmt.Errorf("node %q already exists; use a different name", nodeName)
+		logger.Infof("Node %q already exists. Skipping creation.", nodeName)
+		return nil
 	}
 
 	// The Kubernetes node name prefix follows the pattern <environment>-<nodeName>.
