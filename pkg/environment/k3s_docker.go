@@ -54,6 +54,7 @@ func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (_ s
 				return "", fmt.Errorf("failed to start existing container: %w", err)
 			}
 		}
+		e.skipNodeSetup = true
 		return e.K3sDockerContextName(), nil
 	}
 

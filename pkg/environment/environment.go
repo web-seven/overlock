@@ -44,6 +44,7 @@ type Environment struct {
 	providers                 []string
 	createAdminServiceAccount bool
 	adminServiceAccountName   string
+	skipNodeSetup             bool
 }
 
 // New Environment entity
@@ -168,7 +169,8 @@ func (e *Environment) Setup(ctx context.Context, logger *zap.SugaredLogger) erro
 
 	// For k3s-docker: create scoped agent nodes before installing charts,
 	// and install charts with engine scope selectors from the start.
-	if e.engine == "k3s-docker" {
+	// Skip if the environment already existed to preserve the existing node topology.
+	if e.engine == "k3s-docker" && !e.skipNodeSetup {
 		for _, scope := range []struct{ node, value string }{
 			{"workloads", scopeWorkloads},
 			{"engine", scopeEngine},
