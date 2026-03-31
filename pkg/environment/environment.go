@@ -172,7 +172,6 @@ func (e *Environment) Setup(ctx context.Context, logger *zap.SugaredLogger) erro
 	// Skip if the environment already existed to preserve the existing node topology.
 	if e.engine == "k3s-docker" && !e.skipNodeSetup {
 		for _, scope := range []struct{ node, value string }{
-			{"workloads", scopeWorkloads},
 			{"engine", scopeEngine},
 		} {
 			if err := e.CreateNode(ctx, scope.node, []string{scope.value}, nil, nil, logger); err != nil {
@@ -183,9 +182,8 @@ func (e *Environment) Setup(ctx context.Context, logger *zap.SugaredLogger) erro
 
 	// Build engine scope params for chart installation (nil for non-k3s-docker).
 	var nodeSelector map[string]interface{}
-	var tolerations []interface{}
 	if e.engine == "k3s-docker" {
-		nodeSelector, tolerations = chart.EngineScopeSelector()
+		nodeSelector, _ = chart.EngineScopeSelector()
 	}
 
 	charts := []chart.Chart{
@@ -200,7 +198,7 @@ func (e *Environment) Setup(ctx context.Context, logger *zap.SugaredLogger) erro
 	for _, ch := range charts {
 		var scopeParams map[string]any
 		if nodeSelector != nil {
-			scopeParams = ch.ScopeParams(nodeSelector, tolerations)
+			scopeParams = ch.ScopeParams(nodeSelector, []interface{}{})
 		}
 		if err := ch.Install(ctx, configClient, scopeParams, logger); err != nil {
 			return fmt.Errorf("failed to install chart: %w", err)
@@ -209,7 +207,7 @@ func (e *Environment) Setup(ctx context.Context, logger *zap.SugaredLogger) erro
 
 	// Patch DeploymentRuntimeConfig for provider/function scheduling.
 	if e.engine == "k3s-docker" {
-		if err := chart.PatchDefaultRuntimeConfig(configClient, nodeSelector, tolerations, logger); err != nil {
+		if err := chart.PatchDefaultRuntimeConfig(configClient, nodeSelector, []interface{}{}, logger); err != nil {
 			logger.Warnf("Failed to patch DeploymentRuntimeConfig: %v", err)
 		}
 	}

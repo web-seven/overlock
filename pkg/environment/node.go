@@ -117,6 +117,12 @@ func (e *Environment) CreateNode(ctx context.Context, nodeName string, scopes []
 	agentContainerName := e.nodeContainerName(nodeName)
 
 	if remote != nil {
+		// Limit one remote node per host IP to avoid K3s tunnel routing
+		// conflicts when multiple nodes share the same ExternalIP.
+		if existing := findRemoteNodeByHost(ctx, kubeClient, remote.Host); existing != "" {
+			logger.Infof("Remote host %s already has node %q. Only one remote node per host is supported.", remote.Host, existing)
+			return nil
+		}
 		if err := e.createRemoteNode(ctx, dockerClient, serverContainer.ID, remote, agentContainerName, k3sNodeName, nodeName, token, scopes, taints, logger); err != nil {
 			return err
 		}
@@ -131,6 +137,12 @@ func (e *Environment) CreateNode(ctx context.Context, nodeName string, scopes []
 	actualNodeName, err := e.waitForNodeReadyByLabel(ctx, kubeClient, nodeName, logger)
 	if err != nil {
 		return err
+	}
+
+	// Apply role labels matching scopes (cannot be set via --node-labels
+	// because node-role.kubernetes.io is a protected namespace on the kubelet).
+	if err := labelNodeRoles(ctx, kubeClient, actualNodeName, scopes); err != nil {
+		logger.Warnf("Failed to label node %q with roles: %v", actualNodeName, err)
 	}
 
 	// Store SSH connection info as annotations for remote node cleanup on env delete.
@@ -225,11 +237,6 @@ func (e *Environment) createLocalNode(ctx context.Context, dockerClient *docker.
 		"--node-label", fmt.Sprintf("%s=%s", nodeLabel, nodeName)}
 	for _, scope := range scopes {
 		agentCmd = append(agentCmd, "--node-label", fmt.Sprintf("%s=%s", scopeLabel, scope))
-		// Only taint the engine node; workloads node stays open so
-		// kube-system pods (CoreDNS, metrics-server, etc.) can schedule there.
-		if scope == scopeEngine {
-			agentCmd = append(agentCmd, "--node-taint", fmt.Sprintf("%s=%s:%s", scopeLabel, scope, scopeEffect))
-		}
 	}
 	for _, taint := range taints {
 		agentCmd = append(agentCmd, "--node-taint", formatTaint(taint))
@@ -345,9 +352,6 @@ func (e *Environment) createRemoteNode(_ context.Context, _ *docker.Client, _ st
 	scopeFlags := ""
 	for _, scope := range scopes {
 		scopeFlags += fmt.Sprintf(" --node-label %s=%s", scopeLabel, scope)
-		if scope == scopeEngine {
-			scopeFlags += fmt.Sprintf(" --node-taint %s=%s:%s", scopeLabel, scope, scopeEffect)
-		}
 	}
 	for _, taint := range taints {
 		scopeFlags += fmt.Sprintf(" --node-taint %s", formatTaint(taint))
@@ -680,6 +684,43 @@ func findNodeByLabel(ctx context.Context, kubeClient *kubernetes.Clientset, node
 		return "", fmt.Errorf("no node found with label %s=%s", nodeLabel, nodeName)
 	}
 	return nodes.Items[0].Name, nil
+}
+
+// findRemoteNodeByHost returns the short node name of an existing remote node
+// on the given host, or empty string if none exists.
+func findRemoteNodeByHost(ctx context.Context, kubeClient *kubernetes.Clientset, host string) string {
+	nodes, err := kubeClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return ""
+	}
+	for _, node := range nodes.Items {
+		if node.Annotations[annSSHHost] == host {
+			if name := node.Labels[nodeLabel]; name != "" {
+				return name
+			}
+			return node.Name
+		}
+	}
+	return ""
+}
+
+// labelNodeRoles adds node-role.kubernetes.io/<scope> labels to a node.
+func labelNodeRoles(ctx context.Context, kubeClient *kubernetes.Clientset, nodeName string, scopes []string) error {
+	if len(scopes) == 0 {
+		return nil
+	}
+	node, err := kubeClient.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get node %q: %w", nodeName, err)
+	}
+	if node.Labels == nil {
+		node.Labels = make(map[string]string)
+	}
+	for _, scope := range scopes {
+		node.Labels[fmt.Sprintf("node-role.kubernetes.io/%s", scope)] = ""
+	}
+	_, err = kubeClient.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
+	return err
 }
 
 // deleteNodeByName drains and deletes a Kubernetes node by its actual name.
