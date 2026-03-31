@@ -327,6 +327,10 @@ func (e *Environment) Start(ctx context.Context, switcher bool, logger *zap.Suga
 		}
 	}
 
+	if e.engine == "k3s-docker" {
+		e.startStopRemoteNodes(ctx, "start", logger)
+	}
+
 	if switcher {
 		err := SwitchContext(e.GetContextName())
 		if err != nil {
@@ -340,6 +344,10 @@ func (e *Environment) Start(ctx context.Context, switcher bool, logger *zap.Suga
 
 // Stop Environment
 func (e *Environment) Stop(ctx context.Context, logger *zap.SugaredLogger) error {
+	if e.engine == "k3s-docker" {
+		e.startStopRemoteNodes(ctx, "stop", logger)
+	}
+
 	dockerClient, err := docker.NewClientWithOpts(docker.FromEnv)
 	if err != nil {
 		return err
