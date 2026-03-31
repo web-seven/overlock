@@ -246,6 +246,46 @@ func (e *Environment) deleteRemoteNodes(ctx context.Context, logger *zap.Sugared
 	}
 }
 
+// startStopRemoteNodes connects to the K8s cluster and starts or stops the
+// Docker container for each remote node (nodes with SSH annotations).
+// action must be "start" or "stop".
+func (e *Environment) startStopRemoteNodes(ctx context.Context, action string, logger *zap.SugaredLogger) {
+	contextName := e.K3sDockerContextName()
+	restConfig, err := config.GetConfigWithContext(contextName)
+	if err != nil {
+		logger.Debugf("Could not get kubeconfig for remote node %s: %v", action, err)
+		return
+	}
+	kubeClient, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		logger.Debugf("Could not create kube client for remote node %s: %v", action, err)
+		return
+	}
+
+	nodes, err := kubeClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		logger.Debugf("Could not list nodes for remote node %s: %v", action, err)
+		return
+	}
+
+	for _, node := range nodes.Items {
+		remote := remoteFromNodeAnnotations(ctx, kubeClient, node.Name, logger)
+		if remote == nil {
+			continue
+		}
+		shortName := node.Labels[nodeLabel]
+		if shortName == "" {
+			shortName = strings.TrimPrefix(node.Name, e.name+"-")
+		}
+		containerName := e.nodeContainerName(shortName)
+		logger.Infof("Remote node %q: running docker %s %s on %s", node.Name, action, containerName, remote.Host)
+		if _, err := remote.Run(fmt.Sprintf("docker %s %s", action, containerName)); err != nil {
+			logger.Warnf("Failed to %s remote container %q on %s: %v", action, containerName, remote.Host, err)
+		}
+		remote.Close()
+	}
+}
+
 // K3sDockerContextName returns the kubeconfig context name for this engine.
 func (e *Environment) K3sDockerContextName() string {
 	return k3sDockerContainerPrefix + e.name
