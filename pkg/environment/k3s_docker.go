@@ -68,7 +68,7 @@ func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (_ s
 
 	containerConfig := &container.Config{
 		Image: k3sDockerImage,
-		Cmd:   []string{"server", "--disable-agent", "--disable=traefik", "--disable-network-policy", "--flannel-backend=wireguard-native", "--flannel-external-ip", "--egress-selector-mode", "pod", "--bind-address", "0.0.0.0", "--node-ip", hostIP, "--node-external-ip", hostIP, "--advertise-address", hostIP, "--tls-san", hostIP},
+		Cmd:   []string{"server", "--disable-agent", "--disable=traefik", "--disable-network-policy", "--flannel-backend=wireguard-native", "--flannel-external-ip", "--egress-selector-mode", "cluster", "--bind-address", "0.0.0.0", "--node-ip", hostIP, "--node-external-ip", hostIP, "--advertise-address", hostIP, "--tls-san", hostIP},
 		Env: []string{
 			"K3S_KUBECONFIG_MODE=644",
 		},
