@@ -234,7 +234,8 @@ func (e *Environment) createLocalNode(ctx context.Context, dockerClient *docker.
 	}
 
 	agentCmd := []string{"agent", "--with-node-id", "--node-name", k3sNodeName,
-		"--node-label", fmt.Sprintf("%s=%s", nodeLabel, nodeName)}
+		"--node-label", fmt.Sprintf("%s=%s", nodeLabel, nodeName),
+		"--node-external-ip", hostIP}
 	for _, scope := range scopes {
 		agentCmd = append(agentCmd, "--node-label", fmt.Sprintf("%s=%s", scopeLabel, scope))
 	}
