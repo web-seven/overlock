@@ -45,6 +45,7 @@ type Environment struct {
 	createAdminServiceAccount bool
 	adminServiceAccountName   string
 	skipNodeSetup             bool
+	maxReconcileRate          int
 }
 
 // New Environment entity
@@ -186,11 +187,17 @@ func (e *Environment) Setup(ctx context.Context, logger *zap.SugaredLogger) erro
 		nodeSelector, _ = chart.EngineScopeSelector()
 	}
 
+	var crossplaneArgs []string
+	if e.maxReconcileRate > 0 {
+		crossplaneArgs = append(crossplaneArgs, fmt.Sprintf("--max-reconcile-rate=%d", e.maxReconcileRate))
+	}
+
 	charts := []chart.Chart{
 		chart.CrossplaneChart{
 			Configurations: e.configurations,
 			Providers:      e.providers,
 			Functions:      e.functions,
+			Args:           crossplaneArgs,
 		},
 		chart.KyvernoChart{},
 		chart.CertManagerChart{},
@@ -425,6 +432,11 @@ func (e *Environment) WithDisabledPorts(disablePorts bool) *Environment {
 func (e *Environment) WithAdminServiceAccount(create bool, name string) *Environment {
 	e.createAdminServiceAccount = create
 	e.adminServiceAccountName = name
+	return e
+}
+
+func (e *Environment) WithMaxReconcileRate(rate int) *Environment {
+	e.maxReconcileRate = rate
 	return e
 }
 
