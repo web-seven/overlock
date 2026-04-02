@@ -33,7 +33,7 @@ type createOptions struct {
 	CreateAdminServiceAccount bool     `optional:"" help:"Create admin service account with cluster-admin privileges."`
 	AdminServiceAccountName   string   `optional:"" help:"Name for the admin service account. Only relevant when create-admin-service-account is enabled. Defaults to 'overlock-admin' if not specified."`
 	Cpu                       string   `optional:"" help:"CPU limit for k3s-docker containers (e.g., 2, 0.5, 50%)." default:""`
-	MaxReconcileRate          int      `optional:"" help:"Maximum number of reconciliations per second for Crossplane (e.g., 1). Defaults to Crossplane's built-in default if not set." default:"0"`
+	MaxReconcileRate          int      `optional:"" help:"Maximum number of reconciliations per second for Crossplane (e.g., 1)." default:"1"`
 }
 
 func (c *createCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
