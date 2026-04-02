@@ -21,6 +21,7 @@ type CrossplaneChart struct {
 	Configurations []string
 	Providers      []string
 	Functions      []string
+	Args           []string
 }
 
 func (CrossplaneChart) def() chartDef {
@@ -53,6 +54,19 @@ func (c CrossplaneChart) Install(ctx context.Context, restConfig *rest.Config, e
 			params = make(map[string]any)
 		}
 		params[k] = v
+	}
+
+	if len(c.Args) > 0 {
+		if params == nil {
+			params = make(map[string]any)
+		}
+		existing := []string{}
+		if raw, ok := params["args"]; ok {
+			for _, a := range raw.([]interface{}) {
+				existing = append(existing, a.(string))
+			}
+		}
+		params["args"] = append(existing, c.Args...)
 	}
 
 	logger.Debug("Installing engine")
