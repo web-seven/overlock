@@ -245,6 +245,29 @@ func (e *Environment) deleteRemoteNodes(ctx context.Context, logger *zap.Sugared
 	}
 }
 
+// waitForAPIServer polls the Kubernetes API server until it responds successfully
+// or the context deadline / k3sReadinessTimeout is reached.
+func (e *Environment) waitForAPIServer(ctx context.Context, kubeClient *kubernetes.Clientset, logger *zap.SugaredLogger) error {
+	timeout := time.NewTimer(k3sReadinessTimeout)
+	defer timeout.Stop()
+	ticker := time.NewTicker(k3sReadinessPollInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timeout.C:
+			return fmt.Errorf("timeout waiting for API server to be ready after %s", k3sReadinessTimeout)
+		case <-ticker.C:
+			if _, err := kubeClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{}); err == nil {
+				return nil
+			}
+			logger.Debug("Waiting for API server to be ready...")
+		}
+	}
+}
+
 // startStopRemoteNodes connects to the K8s cluster and starts or stops the
 // Docker container for each remote node (nodes with SSH annotations).
 // action must be "start" or "stop".
@@ -259,6 +282,14 @@ func (e *Environment) startStopRemoteNodes(ctx context.Context, action string, l
 	if err != nil {
 		logger.Debugf("Could not create kube client for remote node %s: %v", action, err)
 		return
+	}
+
+	if action == "start" {
+		logger.Debug("Waiting for API server to be ready before starting remote nodes...")
+		if err := e.waitForAPIServer(ctx, kubeClient, logger); err != nil {
+			logger.Warnf("API server not ready, skipping remote node start: %v", err)
+			return
+		}
 	}
 
 	nodes, err := kubeClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
