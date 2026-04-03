@@ -192,6 +192,16 @@ func (r *Registry) Update(ctx context.Context, client *kubernetes.Clientset, use
 	}
 
 	existing.Secret.Data[".dockerconfigjson"] = regConf
+
+	if len(r.Labels) > 0 {
+		if existing.Secret.Labels == nil {
+			existing.Secret.Labels = make(map[string]string)
+		}
+		for k, v := range r.Labels {
+			existing.Secret.Labels[k] = v
+		}
+	}
+
 	_, err = secretClient(client).Update(ctx, &existing.Secret, metav1.UpdateOptions{})
 	return err
 }
