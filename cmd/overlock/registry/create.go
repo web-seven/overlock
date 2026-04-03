@@ -26,6 +26,7 @@ type createCmd struct {
 	Local          bool     `help:"Create local registry."`
 	Context        string   `short:"c" help:"Kubernetes context where registry will be created."`
 	Label          []string `short:"l" help:"Label to attach to the registry secret in key:value format. Can be specified multiple times."`
+	Update         bool     `help:"Update credentials of an existing registry with the same server instead of skipping."`
 }
 
 func (c *createCmd) Run(ctx context.Context, client *kubernetes.Clientset, config *rest.Config, logger *zap.SugaredLogger) error {
@@ -50,6 +51,13 @@ func (c *createCmd) Run(ctx context.Context, client *kubernetes.Clientset, confi
 	}
 
 	if reg.Exists(ctx, client) {
+		if c.Update {
+			if err := reg.Update(ctx, client, c.Username, c.Password, c.Email); err != nil {
+				return err
+			}
+			logger.Infof("Registry '%s' credentials updated successfully.", reg.Server)
+			return nil
+		}
 		logger.Infof("Registry '%s' already exists. Using existing registry.", reg.Name)
 		return nil
 	}
