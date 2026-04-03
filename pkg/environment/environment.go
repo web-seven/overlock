@@ -33,8 +33,7 @@ type Environment struct {
 	engineConfig              string
 	httpPort                  int
 	httpsPort                 int
-	mountPath                 string
-	containerPath             string
+	mounts                    []string
 	cpu                       string
 	context                   string
 	options                   EnvironmentOptions
@@ -391,13 +390,8 @@ func (e *Environment) WithContext(context string) *Environment {
 	return e
 }
 
-func (e *Environment) WithMountPath(path string) *Environment {
-	e.mountPath = path
-	return e
-}
-
-func (e *Environment) WithContainerPath(path string) *Environment {
-	e.containerPath = path
+func (e *Environment) WithMounts(mounts []string) *Environment {
+	e.mounts = mounts
 	return e
 }
 

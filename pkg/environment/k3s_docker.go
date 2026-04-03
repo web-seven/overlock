@@ -77,9 +77,7 @@ func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (_ s
 	binds := []string{
 		"/lib/modules:/lib/modules:ro",
 	}
-	if e.mountPath != "" {
-		binds = append(binds, e.mountPath+":"+e.containerPath)
-	}
+	binds = append(binds, e.mounts...)
 
 	nanoCPUs, err := parseCPU(e.cpu)
 	if err != nil {

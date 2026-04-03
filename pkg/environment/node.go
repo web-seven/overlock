@@ -281,9 +281,7 @@ func (e *Environment) createLocalNode(ctx context.Context, dockerClient *docker.
 		},
 	}
 
-	if e.mountPath != "" {
-		hostConfig.Binds = append(hostConfig.Binds, e.mountPath+":"+e.containerPath)
-	}
+	hostConfig.Binds = append(hostConfig.Binds, e.mounts...)
 
 	// Pull the image (likely already cached from environment creation).
 	logger.Debugf("Pulling image %s...", k3sDockerImage)
