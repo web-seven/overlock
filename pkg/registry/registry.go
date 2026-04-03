@@ -53,6 +53,7 @@ type Registry struct {
 	Context string
 	Server  string
 	Name    string
+	Labels  map[string]string
 	corev1.Secret
 }
 
@@ -396,6 +397,11 @@ func (r *Registry) WithContext(c string) {
 	r.Context = c
 }
 
+// Attach custom labels to the registry secret
+func (r *Registry) WithLabels(labels map[string]string) {
+	r.Labels = labels
+}
+
 // Domain of primary registry
 func (r *Registry) Domain() (string, error) {
 	if r.Local {
@@ -416,12 +422,16 @@ func (r *Registry) LocalDomain() string {
 // Creates specs of Secret base on Registry data
 func (r *Registry) SecretSpec() corev1.Secret {
 	regConf, _ := json.Marshal(r.Config)
+	baseLabels := map[string]string{
+		"overlock-registry-auth-config": "true",
+	}
+	for k, v := range r.Labels {
+		baseLabels[k] = v
+	}
 	secretSpec := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: r.Name,
-			Labels: engine.ManagedLabels(map[string]string{
-				"overlock-registry-auth-config": "true",
-			}),
+			Name:        r.Name,
+			Labels:      engine.ManagedLabels(baseLabels),
 			Annotations: r.Secret.Annotations,
 		},
 		Data: map[string][]byte{".dockerconfigjson": regConf},
