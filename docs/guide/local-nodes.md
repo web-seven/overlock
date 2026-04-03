@@ -1,74 +1,104 @@
 # Local Nodes
 
-## What is it
+By default, an Overlock environment is a single-node Kubernetes cluster — one container running both the control plane and any workloads. That's perfect for most development work. But sometimes you want a more realistic topology: separating Crossplane engine components from user workloads, simulating how your cluster will look in production, or testing that your scheduling constraints work correctly.
 
-A node is a worker machine in your Kubernetes cluster. By default, an environment comes with the nodes it needs to run. But with the `k3s-docker` engine, you can add extra nodes — either local (running as Docker containers on your machine) or remote (running on another machine over SSH).
+A local node is an extra Docker container on the same machine that joins your cluster as an additional worker. You can add as many as you need, and you control what each one is responsible for using node scopes.
 
-A **local node** is a Docker container on the same machine as your environment, added as an extra worker in the cluster.
-
----
-
-## When would I use it
-
-You want to simulate a multi-node cluster on your laptop — for example, to test that your workloads schedule correctly when separated from the Crossplane engine components. Local nodes let you create that separation without needing any extra hardware.
-
-Another common use: isolating resource-heavy Crossplane providers onto a dedicated node with a CPU cap, so they don't slow down the rest of your machine.
+> [!NOTE]
+> Local nodes require the `k3s-docker` engine. If you created your environment with the default `kind` engine, you'll need to create a new environment with `--engine k3s-docker` to use this feature. You can't change the engine of an existing environment.
 
 ---
 
-## How to use it
+## Why Add Local Nodes?
 
-First, make sure your environment was created with the `k3s-docker` engine:
+The most common reasons to add extra nodes during development:
+
+**Topology isolation** — Run Crossplane's engine components (providers, functions, cert-manager) on a dedicated node, and keep user workloads on a separate node. This mirrors how a production cluster might be structured and lets you verify that your Kubernetes scheduling rules (node selectors, tolerations, affinity) work as intended.
+
+**Resource isolation** — A CPU-hungry provider running alongside everything else can slow down your development machine noticeably. Put it on a dedicated node with a CPU cap and it can't starve the rest of your environment.
+
+**Multi-node testing** — Some Crossplane features behave differently in multi-node clusters. If you're building something that needs to validate cross-node behavior, local nodes let you do that without extra hardware.
+
+---
+
+## Creating an Environment Ready for Extra Nodes
+
+If you're starting fresh, create your environment with the `k3s-docker` engine:
 
 ```bash
 overlock env create my-env --engine k3s-docker
 ```
 
-Then add a local node:
+> [!TIP]
+> You can also pre-install packages at creation time to get a fully ready environment in one command: `overlock env create my-env --engine k3s-docker --configurations xpkg.upbound.io/...`
+
+---
+
+## Adding a Local Node
+
+Once the environment is running, add a node:
 
 ```bash
 overlock env node create my-extra-node --environment my-env
 ```
 
-By default this node is scoped to handle workloads. You can specify what the node is used for with `--scopes`.
+Overlock creates a new Docker container, configures it as a k3s agent, and joins it to the cluster. The node will appear in `kubectl get nodes` within a few seconds.
 
-### Pinning workloads to a node scope
+### Assigning a scope to the node
 
-Node scopes are labels and taints applied to the node that tell Kubernetes what can run there. The two built-in scopes are:
+Node scopes are labels and taints applied to the node that tell Kubernetes what can be scheduled there. Overlock supports two built-in scopes:
 
-- `workloads` — for user workloads
-- `engine` — for Crossplane, providers, functions, and system components
+- `workloads` — for user workloads and application pods
+- `engine` — for Crossplane itself, providers, functions, cert-manager, and other infrastructure components
 
 ```bash
-# Add a node for engine components only
+# A node dedicated to Crossplane engine components
 overlock env node create engine-node --environment my-env --scopes engine
 
-# Add a node for workloads only
+# A node dedicated to user workloads
 overlock env node create workload-node --environment my-env --scopes workloads
 ```
 
+> [!TIP]
+> If you don't specify a scope, the node is a general-purpose worker with no special labels or taints. Adding `--scopes engine` is the most useful configuration for development: it lets you move Crossplane's components off the control plane node and test that your providers behave correctly when scheduled with appropriate tolerations.
+
 ### Limiting CPU usage
 
-If you're running a heavy provider and want to prevent it from using all your CPU:
+To prevent a node from consuming all available CPU on your machine:
 
 ```bash
-overlock env node create engine-node --environment my-env --scopes engine --cpu 2
+overlock env node create engine-node \
+  --environment my-env \
+  --scopes engine \
+  --cpu 2
 ```
 
-### Mounting a local directory
+The `--cpu` value can be a number of cores (`2`), a decimal fraction (`0.5`), or a percentage (`50%`).
 
-To make files from your host machine available inside the node:
+### Mounting a host directory
+
+If your workloads need access to files on your machine — for example, a local package directory or test fixtures — bind-mount it into the node:
 
 ```bash
-overlock env node create my-node --environment my-env \
+overlock env node create my-node \
+  --environment my-env \
   --mount /path/on/host:/path/in/container
 ```
 
-### Remove a local node
+---
+
+## Removing a Node
+
+When you no longer need the extra node:
 
 ```bash
 overlock env node delete my-extra-node --environment my-env
 ```
+
+The Docker container is stopped and removed, and the node is gracefully removed from the cluster.
+
+> [!NOTE]
+> Any pods that were running on the deleted node will be rescheduled to remaining nodes by Kubernetes, subject to normal scheduling rules. If a pod was tainted to only run on the deleted node's scope, it may go `Pending` until you add another node with the same scope.
 
 ---
 
@@ -76,7 +106,7 @@ overlock env node delete my-extra-node --environment my-env
 
 ### `overlock env node create <name>`
 
-Adds a new node to an existing environment.
+Adds a new local node to an existing environment.
 
 | Flag | Default | Description |
 |------|---------|-------------|
@@ -98,7 +128,8 @@ Removes a node from an environment.
 
 ---
 
-## Related guides
+## Related Guides
 
-- [Remote Nodes](remote-nodes.md) — add nodes from other machines via SSH
-- [Environments](environments.md) — manage the overall environment lifecycle
+- [Remote Nodes](remote-nodes.md) — add nodes from physical servers or VMs over SSH
+- [Environments](environments.md) — create and manage the overall environment lifecycle
+- [Getting Started](getting-started.md) — end-to-end walkthrough

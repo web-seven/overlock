@@ -1,35 +1,90 @@
 # Registries
 
-## What is it
-
-A registry is a storage location for Crossplane packages — providers, configurations, and functions. When you run `overlock prv install <url>` or `overlock cfg apply <url>`, Overlock pulls the package from a registry.
+A registry is a storage location for Crossplane packages — providers, configurations, and functions. Every time you run `overlock cfg apply <url>` or `overlock prv install <url>`, Overlock pulls that package from a registry.
 
 Overlock supports two kinds:
 
-- **Local registry** — runs as a container on your machine, great for development and testing
-- **Remote registry** — a hosted OCI-compatible registry (like Docker Hub, GitHub Container Registry, or your own)
+- **Local registry** — an OCI-compatible registry running as a Docker container on your machine, with no external accounts or internet access required. Essential for local package development.
+- **Remote registry** — a hosted OCI registry such as Docker Hub, GitHub Container Registry, or your own self-hosted instance. Used for pulling published packages or distributing packages to your team.
 
 ---
 
-## When would I use it
+## The Local Development Cycle
 
-**Local registry:** You're building a provider or configuration and want to test it locally before publishing anywhere. You push your package to the local registry and install it into your environment — no internet required, no external accounts needed.
+The most important thing registries enable is a fully self-contained development workflow. When you're building a configuration, provider, or function, the cycle looks like this:
 
-**Remote registry:** You're pulling packages from a private registry that requires credentials, or you want to push packages to a team-shared registry so others can pull them.
+1. Start a local registry
+2. Build your package into an OCI archive
+3. Load the archive into the local registry
+4. Install from the local registry into your environment
+
+Overlock's `serve` command (available for [configurations](configurations.md), [providers](providers.md), and [functions](functions.md)) automates steps 2–4 on every file change. But understanding the manual steps is useful when working with pre-built artifacts.
 
 ---
 
-## How to use it
+## Setting Up a Local Registry
 
-### Create a local registry
+Before you can develop packages locally, you need a local registry. Create one and set it as the default:
 
 ```bash
 overlock reg create --local --default
 ```
 
-This starts a local OCI registry as a Docker container and sets it as the default for package operations. After this, you can load packages into it and install from it.
+This starts a local OCI registry as a Docker container and registers it as the default destination for package load and serve operations.
 
-### Create a connection to a remote registry
+> [!NOTE]
+> You only need to do this once. The registry container persists across environment restarts — it's not tied to any specific environment, so it works with all your environments.
+
+Confirm it's running:
+
+```bash
+overlock reg list
+```
+
+---
+
+## Loading a Package into the Local Registry
+
+Once you've built a package using `crossplane xpkg build` or equivalent tooling, push the resulting archive to your local registry:
+
+```bash
+overlock reg load-image \
+  --registry my-local-registry \
+  --path ./my-provider.tar \
+  --name my-provider:v0.1.0
+```
+
+> [!TIP]
+> The `--name` flag sets the image name and tag that the package will be addressable by inside the registry. Use a consistent naming convention — for example `my-org/my-provider:v0.1.0` — so your install commands are predictable.
+
+If you're iterating and want to overwrite an existing version:
+
+```bash
+overlock reg load-image \
+  --registry my-local-registry \
+  --path ./my-provider.tar \
+  --name my-provider:v0.1.0 \
+  --upgrade
+```
+
+---
+
+## Installing from the Local Registry
+
+After loading a package, install it from the local registry the same way you'd install from any remote registry — just use the local registry's address as the package URL:
+
+```bash
+overlock prv install localhost:5000/my-provider:v0.1.0
+```
+
+> [!NOTE]
+> The exact hostname and port depend on how your local registry was created and how Overlock configured it. Run `overlock reg list` to see the registry address.
+
+---
+
+## Connecting to a Remote Registry
+
+If you need to pull from a private registry — a team registry, a cloud provider's container registry, or your own hosted instance — register it with credentials:
 
 ```bash
 overlock reg create \
@@ -39,38 +94,29 @@ overlock reg create \
   --email user@example.com
 ```
 
-This saves the credentials so Overlock can pull packages from the registry.
+Overlock saves these credentials and uses them automatically when pulling packages from that registry.
 
-### List configured registries
+> [!TIP]
+> For GitHub Container Registry (`ghcr.io`), use your GitHub username and a personal access token with `read:packages` scope as the password. For AWS ECR, generate temporary credentials with `aws ecr get-login-password` and use `AWS` as the username.
 
-```bash
-overlock reg list
-```
+> [!WARNING]
+> Be careful not to commit registry credentials to version control. Store them in environment variables or a secrets manager and pass them to `overlock reg create` dynamically in your scripts.
 
-### Delete a registry
+---
+
+## Removing a Registry
+
+To remove a registry configuration:
 
 ```bash
 overlock reg delete --name my-registry
 ```
 
-To delete the default registry:
+If it was set as the default registry, pass `--default` to unset it at the same time:
 
 ```bash
 overlock reg delete --name my-registry --default
 ```
-
-### Load an OCI image into a registry
-
-Once you've built a package, push it to your local registry:
-
-```bash
-overlock reg load-image \
-  --registry my-local-registry \
-  --path ./my-package.tar \
-  --name my-provider:v0.1.0
-```
-
-This makes the package available to install from the registry. You can then install it just like any remote package.
 
 ---
 
@@ -83,7 +129,7 @@ Connects to or starts a registry.
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--local` | `false` | Create a local registry running as a container |
-| `--default` | `false` | Set this as the default registry |
+| `--default` | `false` | Set this registry as the default for package operations |
 | `--registry-server` | — | Hostname of the remote registry |
 | `--username` | — | Registry username |
 | `--password` | — | Registry password |
@@ -101,7 +147,7 @@ Removes a registry configuration.
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--name` | *(required)* | Name of the registry to remove |
-| `--default` | `false` | Also unset this as the default registry |
+| `--default` | `false` | Also unset this registry as the default |
 
 ### `overlock reg load-image`
 
@@ -117,8 +163,9 @@ Loads an OCI image into a registry.
 
 ---
 
-## Related guides
+## Related Guides
 
-- [Providers](providers.md) — install providers from a registry
-- [Configurations](configurations.md) — install configurations from a registry
-- [Functions](functions.md) — install functions from a registry
+- [Configurations](configurations.md) — use the local registry with `overlock cfg serve` and `overlock cfg load`
+- [Providers](providers.md) — develop and test providers against a local registry
+- [Functions](functions.md) — develop and test functions against a local registry
+- [Getting Started](getting-started.md) — end-to-end walkthrough that includes local registry setup
