@@ -24,8 +24,8 @@ func (e *Environment) CreateK3dEnvironment(logger *zap.SugaredLogger) (string, e
 		"cluster", "create", e.name,
 	}
 
-	if e.mountPath != "" {
-		args = append(args, "-v", e.mountPath+":"+e.containerPath)
+	for _, m := range e.mounts {
+		args = append(args, "-v", m)
 	}
 
 	cmd := exec.Command("k3d", args...)

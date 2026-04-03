@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -25,8 +26,8 @@ func (e *Environment) CreateK3sEnvironment(logger *zap.SugaredLogger) (string, e
 		"--disable=traefik",
 	}
 
-	if e.mountPath != "" {
-		args = append(args, "--data-dir", e.mountPath)
+	if len(e.mounts) > 0 {
+		args = append(args, "--data-dir", strings.SplitN(e.mounts[0], ":", 2)[0])
 	}
 
 	cmd := exec.Command("sudo", args...)

@@ -26,7 +26,7 @@ type nodeCreateCmd struct {
 	Key         string   `optional:"" help:"Path to SSH private key." default:"~/.ssh/id_rsa"`
 	Cpu         string   `optional:"" help:"CPU limit for the node container (e.g., 2, 0.5, 50%)." default:""`
 	Taints      []string `optional:"" help:"Comma-separated list of node taints in key:value format (e.g., dedicated:gpu,team:ml)."`
-	Mount       string   `optional:"" help:"Bind mount in host:container format (e.g., /data:/storage). Local nodes only."`
+	Mount       []string `optional:"" help:"Bind mount in host:container format (e.g., /data:/storage). Can be specified multiple times. Local nodes only."`
 }
 
 func (c *nodeCreateCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
@@ -41,15 +41,17 @@ func (c *nodeCreateCmd) Run(ctx context.Context, logger *zap.SugaredLogger) erro
 	}
 
 	env := environment.New(c.Engine, c.Environment).WithCpu(c.Cpu)
-	if c.Mount != "" {
+	if len(c.Mount) > 0 {
 		if remote != nil {
 			logger.Warnf("--mount is only supported for local nodes, ignoring for remote host %s", c.Host)
 		} else {
-			parts := strings.SplitN(c.Mount, ":", 2)
-			if len(parts) != 2 {
-				return fmt.Errorf("invalid mount format %q, expected host:container", c.Mount)
+			for _, m := range c.Mount {
+				parts := strings.SplitN(m, ":", 2)
+				if len(parts) != 2 {
+					return fmt.Errorf("invalid mount format %q, expected host:container", m)
+				}
 			}
-			env = env.WithMountPath(parts[0]).WithContainerPath(parts[1])
+			env = env.WithMounts(c.Mount)
 		}
 	}
 	if err := env.CreateNode(ctx, c.Name, c.Scopes, c.Taints, remote, logger); err != nil {

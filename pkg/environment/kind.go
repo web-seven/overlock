@@ -159,11 +159,14 @@ nodeRegistration:
 		},
 	}
 
-	if e.mountPath != "" {
-		template.Nodes[0].ExtraMounts = append(template.Nodes[0].ExtraMounts, KindMount{
-			HostPath:      e.mountPath,
-			ContainerPath: e.containerPath,
-		})
+	for _, m := range e.mounts {
+		parts := strings.SplitN(m, ":", 2)
+		if len(parts) == 2 {
+			template.Nodes[0].ExtraMounts = append(template.Nodes[0].ExtraMounts, KindMount{
+				HostPath:      parts[0],
+				ContainerPath: parts[1],
+			})
+		}
 	}
 
 	yamlData, err := yaml.Marshal(&template)
