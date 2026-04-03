@@ -127,18 +127,73 @@ func (r *Registry) Validate(ctx context.Context, client *kubernetes.Clientset, l
 
 // Check if registry in provided context exists
 func (r *Registry) Exists(ctx context.Context, client *kubernetes.Clientset) bool {
+	return r.GetExisting(ctx, client) != nil
+}
+
+// GetExisting returns the existing registry matching the same server, or nil if not found
+func (r *Registry) GetExisting(ctx context.Context, client *kubernetes.Clientset) *Registry {
 	registries, _ := Registries(ctx, client)
 	for _, registry := range registries {
 		for authServer := range r.Config.Auths {
 			if existsUrl := registry.Secret.Annotations[RegistryServerLabel]; existsUrl != "" && strings.Contains(existsUrl, authServer) {
-				return true
+				return registry
 			}
 		}
 		if existsUrl := registry.Secret.Annotations[RegistryServerLabel]; existsUrl != "" && strings.Contains(existsUrl, r.Secret.Annotations[RegistryServerLabel]) {
-			return true
+			return registry
 		}
 	}
-	return false
+	return nil
+}
+
+// Update patches credentials of an existing registry secret with fields from r
+func (r *Registry) Update(ctx context.Context, client *kubernetes.Clientset, username, password, email string) error {
+	existing := r.GetExisting(ctx, client)
+	if existing == nil {
+		return fmt.Errorf("registry not found")
+	}
+
+	// Decode existing dockerconfigjson
+	rawConf := existing.Secret.Data[".dockerconfigjson"]
+	var conf RegistryConfig
+	if err := json.Unmarshal(rawConf, &conf); err != nil {
+		return errors.Wrap(err, "failed to decode existing registry config")
+	}
+
+	// Update only provided fields for each auth entry
+	server := existing.Secret.Annotations[RegistryServerLabel]
+	auth, ok := conf.Auths[server]
+	if !ok {
+		// Try to find any auth entry
+		for k, v := range conf.Auths {
+			server = k
+			auth = v
+			break
+		}
+	}
+
+	if username != "" {
+		auth.Username = username
+	}
+	if password != "" {
+		auth.Password = password
+	}
+	if email != "" {
+		auth.Email = email
+	}
+	if auth.Username != "" && auth.Password != "" {
+		auth.Auth = b64.StdEncoding.EncodeToString([]byte(auth.Username + ":" + auth.Password))
+	}
+	conf.Auths[server] = auth
+
+	regConf, err := json.Marshal(conf)
+	if err != nil {
+		return errors.Wrap(err, "failed to encode updated registry config")
+	}
+
+	existing.Secret.Data[".dockerconfigjson"] = regConf
+	_, err = secretClient(client).Update(ctx, &existing.Secret, metav1.UpdateOptions{})
+	return err
 }
 
 // Creates registry in requested context and assign it to engine
