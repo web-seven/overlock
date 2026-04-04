@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"strconv"
 	"strings"
 	"time"
@@ -37,6 +38,7 @@ const (
 
 // formatTaint converts a user-provided "key:value" taint to K8s format "key=value:NoSchedule".
 func formatTaint(taint string) string {
+	taint = strings.Trim(taint, `"'`)
 	parts := strings.SplitN(taint, ":", 2)
 	if len(parts) == 2 {
 		return fmt.Sprintf("%s=%s:%s", parts[0], parts[1], scopeEffect)
@@ -46,6 +48,7 @@ func formatTaint(taint string) string {
 
 // formatLabel converts a user-provided "key:value" taint to a K8s label "key=value".
 func formatLabel(taint string) string {
+	taint = strings.Trim(taint, `"'`)
 	parts := strings.SplitN(taint, ":", 2)
 	if len(parts) == 2 {
 		return fmt.Sprintf("%s=%s", parts[0], parts[1])
@@ -233,9 +236,33 @@ func (e *Environment) createLocalNode(ctx context.Context, dockerClient *docker.
 		return fmt.Errorf("failed to determine host IP: %w", err)
 	}
 
+	// Each agent on the same host (all using --network host) competes for the
+	// same loopback/wildcard ports. Allocate unique free ports for every
+	// component that binds a fixed default:
+	//   - lb-server-port      (default 6444)  k3s supervisor proxy
+	//   - containerd stream   (default 10010) written via config.toml.tmpl
+	//   - kubelet healthz     (default 10248) --kubelet-arg healthz-port
+	//   - kubelet API         (default 10250) --kubelet-arg port
+	//   - kube-proxy metrics  (default 10249) --kube-proxy-arg metrics-bind-address
+	//   - kube-proxy healthz  (default 10256) --kube-proxy-arg healthz-bind-address
+	ports, err := freePorts(6)
+	if err != nil {
+		return fmt.Errorf("failed to allocate free ports for agent: %w", err)
+	}
+	lbPort, streamPort := ports[0], ports[1]
+	kubeletPort, kubeletHealthzPort := ports[2], ports[3]
+	kubeProxyMetricsPort, kubeProxyHealthzPort := ports[4], ports[5]
+
 	agentCmd := []string{"agent", "--with-node-id", "--node-name", k3sNodeName,
 		"--node-label", fmt.Sprintf("%s=%s", nodeLabel, nodeName),
-		"--node-external-ip", hostIP}
+		"--node-external-ip", hostIP,
+		"--lb-server-port", strconv.Itoa(lbPort),
+		"--kubelet-arg", fmt.Sprintf("port=%d", kubeletPort),
+		"--kubelet-arg", "read-only-port=0",
+		"--kubelet-arg", fmt.Sprintf("healthz-port=%d", kubeletHealthzPort),
+		"--kube-proxy-arg", fmt.Sprintf("metrics-bind-address=127.0.0.1:%d", kubeProxyMetricsPort),
+		"--kube-proxy-arg", fmt.Sprintf("healthz-bind-address=0.0.0.0:%d", kubeProxyHealthzPort),
+	}
 	for _, scope := range scopes {
 		agentCmd = append(agentCmd, "--node-label", fmt.Sprintf("%s=%s", scopeLabel, scope))
 	}
@@ -294,6 +321,14 @@ func (e *Environment) createLocalNode(ctx context.Context, dockerClient *docker.
 	}
 	if err := pullReader.Close(); err != nil {
 		logger.Warnf("Failed to close pull reader: %v", err)
+	}
+
+	// Pre-populate the volume with a containerd config template that uses a
+	// unique streaming server port, preventing conflict with other agents on
+	// the same host (which also use --network host and would otherwise all
+	// try to bind 127.0.0.1:10010).
+	if err := initAgentVolume(ctx, dockerClient, volumeName, streamPort, logger); err != nil {
+		return fmt.Errorf("failed to initialise agent volume: %w", err)
 	}
 
 	resp, err := dockerClient.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, agentContainerName)
@@ -702,6 +737,133 @@ func findRemoteNodeByHost(ctx context.Context, kubeClient *kubernetes.Clientset,
 		}
 	}
 	return ""
+}
+
+// freePorts allocates n free TCP ports on the loopback interface and returns
+// them. All listeners are held open until the slice is fully built to avoid
+// the OS re-using a port before the caller has had a chance to use it.
+func freePorts(n int) ([]int, error) {
+	listeners := make([]net.Listener, 0, n)
+	ports := make([]int, 0, n)
+	for i := 0; i < n; i++ {
+		l, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			for _, ll := range listeners {
+				ll.Close()
+			}
+			return nil, err
+		}
+		listeners = append(listeners, l)
+		ports = append(ports, l.Addr().(*net.TCPAddr).Port)
+	}
+	for _, l := range listeners {
+		l.Close()
+	}
+	return ports, nil
+}
+
+// initAgentVolume pre-populates the named k3s data volume with a containerd
+// config.toml.tmpl that overrides the streaming server port. Without this,
+// all agents on the same host (--network host) would collide on 127.0.0.1:10010.
+func initAgentVolume(ctx context.Context, dockerClient *docker.Client, volumeName string, streamPort int, logger *zap.SugaredLogger) error {
+	configContent := buildContainerdConfig(streamPort)
+	script := "mkdir -p /var/lib/rancher/k3s/agent/etc/containerd && cat > /var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl"
+
+	resp, err := dockerClient.ContainerCreate(ctx, &container.Config{
+		Image:      k3sDockerImage,
+		Entrypoint: []string{"/bin/sh"},
+		Cmd:        []string{"-c", script},
+		OpenStdin:  true,
+		StdinOnce:  true,
+	}, &container.HostConfig{
+		Binds: []string{volumeName + ":/var/lib/rancher/k3s"},
+	}, nil, nil, "")
+	if err != nil {
+		return fmt.Errorf("failed to create init container: %w", err)
+	}
+	defer func() {
+		if rerr := dockerClient.ContainerRemove(ctx, resp.ID, types.ContainerRemoveOptions{Force: true}); rerr != nil {
+			logger.Warnf("Failed to remove init container: %v", rerr)
+		}
+	}()
+
+	hijack, err := dockerClient.ContainerAttach(ctx, resp.ID, types.ContainerAttachOptions{
+		Stdin:  true,
+		Stream: true,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to attach to init container: %w", err)
+	}
+
+	if err := dockerClient.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
+		hijack.Close()
+		return fmt.Errorf("failed to start init container: %w", err)
+	}
+
+	if _, err := io.WriteString(hijack.Conn, configContent); err != nil {
+		logger.Warnf("Failed to write containerd config template: %v", err)
+	}
+	hijack.Close()
+
+	statusCh, errCh := dockerClient.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
+	select {
+	case err := <-errCh:
+		return fmt.Errorf("init container error: %w", err)
+	case status := <-statusCh:
+		if status.StatusCode != 0 {
+			return fmt.Errorf("init container exited with status %d", status.StatusCode)
+		}
+	}
+	return nil
+}
+
+// buildContainerdConfig returns a containerd config.toml.tmpl with the given
+// streaming server port. The template is static (no Go template markers) so
+// k3s uses it verbatim, overriding the default port 10010.
+func buildContainerdConfig(streamPort int) string {
+	return fmt.Sprintf(`version = 3
+root = "/var/lib/rancher/k3s/agent/containerd"
+state = "/run/k3s/containerd"
+
+[grpc]
+  address = "/run/k3s/containerd/containerd.sock"
+
+[plugins.'io.containerd.internal.v1.opt']
+  path = "/var/lib/rancher/k3s/agent/containerd"
+
+[plugins.'io.containerd.grpc.v1.cri']
+  stream_server_address = "127.0.0.1"
+  stream_server_port = "%d"
+
+[plugins.'io.containerd.cri.v1.runtime']
+  enable_selinux = false
+  enable_unprivileged_ports = true
+  enable_unprivileged_icmp = true
+  device_ownership_from_security_context = false
+
+[plugins.'io.containerd.cri.v1.images']
+  snapshotter = "overlayfs"
+  disable_snapshot_annotations = true
+
+[plugins.'io.containerd.cri.v1.images'.pinned_images]
+  sandbox = "rancher/mirrored-pause:3.6"
+
+[plugins.'io.containerd.cri.v1.runtime'.cni]
+  bin_dir = "/bin"
+  conf_dir = "/var/lib/rancher/k3s/agent/etc/cni/net.d"
+
+[plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.runc]
+  runtime_type = "io.containerd.runc.v2"
+
+[plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.runc.options]
+  SystemdCgroup = false
+
+[plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.runhcs-wcow-process]
+  runtime_type = "io.containerd.runhcs.v1"
+
+[plugins.'io.containerd.cri.v1.images'.registry]
+  config_path = "/var/lib/rancher/k3s/agent/etc/containerd/certs.d"
+`, streamPort)
 }
 
 // labelNodeRoles adds node-role.kubernetes.io/<scope> labels to a node.
