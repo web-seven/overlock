@@ -93,6 +93,8 @@ iptables -I FORWARD -i br-\$BR -o $WG_IFACE -j ACCEPT 2>/dev/null || true
 iptables -I FORWARD -i $WG_IFACE -o br-\$BR -j ACCEPT 2>/dev/null || true
 # Bypass Docker's raw PREROUTING isolation rule for WireGuard traffic
 nft insert rule ip raw PREROUTING iifname $WG_IFACE ip daddr $REMOTE_DOCKER_SUBNET return 2>/dev/null || true
+# Masquerade internet-bound traffic (not WireGuard cross-site traffic which needs real IPs)
+iptables -t nat -A POSTROUTING -s $REMOTE_DOCKER_SUBNET ! -d $LOCAL_DOCKER_SUBNET ! -o $WG_IFACE -j MASQUERADE 2>/dev/null || true
 REMOTE
 
 REMOTE_PUBKEY=$(ssh_run "cat /tmp/wg-remote.pub")
@@ -131,6 +133,8 @@ ip route replace $REMOTE_DOCKER_SUBNET via $REMOTE_WG_ADDR
 BR=\$(docker network inspect $DOCKER_NET --format "{{.Id}}" | head -c 12)
 iptables -I FORWARD -i br-\$BR -o $WG_IFACE -j ACCEPT 2>/dev/null || true
 iptables -I FORWARD -i $WG_IFACE -o br-\$BR -j ACCEPT 2>/dev/null || true
+# Masquerade internet-bound traffic (not WireGuard cross-site traffic which needs real IPs)
+iptables -t nat -A POSTROUTING -s $LOCAL_DOCKER_SUBNET ! -d $REMOTE_DOCKER_SUBNET ! -o $WG_IFACE -j MASQUERADE 2>/dev/null || true
 # Exempt wg0 from firewalld's blanket masquerade (if firewalld is running)
 nft insert rule ip nat nat_POST_public_allow oifname $WG_IFACE return 2>/dev/null || true
 # Bypass Docker's raw PREROUTING isolation rule for WireGuard traffic
