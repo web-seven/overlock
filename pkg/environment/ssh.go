@@ -2,7 +2,6 @@ package environment
 
 import (
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -97,18 +96,20 @@ func (s *SSHClient) Close() {
 	}
 }
 
-// LocalIPFor returns the local machine's outgoing IP address toward the remote host.
-// This is used to construct the K3S_URL that the remote agent node connects back to.
-func (s *SSHClient) LocalIPFor() (string, error) {
-	conn, err := net.Dial("udp", fmt.Sprintf("%s:%d", s.Host, s.Port))
+// RunWithStdin executes a command on the remote host, writing stdin as input,
+// and returns the combined output. Used to send shell scripts to remote Docker
+// containers via: docker run --rm -i ... sh
+func (s *SSHClient) RunWithStdin(cmd, stdin string) (string, error) {
+	session, err := s.client.NewSession()
 	if err != nil {
-		return "", fmt.Errorf("failed to determine local IP toward %s: %w", s.Host, err)
+		return "", fmt.Errorf("failed to create SSH session: %w", err)
 	}
-	defer conn.Close()
+	defer session.Close()
 
-	localAddr, ok := conn.LocalAddr().(*net.UDPAddr)
-	if !ok {
-		return "", fmt.Errorf("unexpected address type: %T", conn.LocalAddr())
+	session.Stdin = strings.NewReader(stdin)
+	output, err := session.CombinedOutput(cmd)
+	if err != nil {
+		return string(output), fmt.Errorf("remote command failed: %w\noutput: %s", err, string(output))
 	}
-	return localAddr.IP.String(), nil
+	return strings.TrimSpace(string(output)), nil
 }

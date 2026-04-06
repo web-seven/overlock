@@ -5,13 +5,13 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/network"
 	docker "github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
 	"go.uber.org/zap"
@@ -126,6 +126,11 @@ func (e *Environment) CreateNode(ctx context.Context, nodeName string, scopes []
 			logger.Infof("Remote host %s already has node %q. Only one remote node per host is supported.", remote.Host, existing)
 			return nil
 		}
+		// Set up the WireGuard tunnel and remote Docker network before
+		// creating the container (the container needs the network to exist).
+		if err := e.setupWireGuardTunnel(ctx, dockerClient, remote, logger); err != nil {
+			return fmt.Errorf("failed to set up WireGuard tunnel: %w", err)
+		}
 		if err := e.createRemoteNode(ctx, dockerClient, serverContainer.ID, remote, agentContainerName, k3sNodeName, nodeName, token, scopes, taints, logger); err != nil {
 			return err
 		}
@@ -135,8 +140,7 @@ func (e *Environment) CreateNode(ctx context.Context, nodeName string, scopes []
 		}
 	}
 
-	// Discover the node by the overlock.io/node label since --with-node-id
-	// appends a random suffix to the actual Kubernetes node name.
+	// Discover the node by the overlock.io/node label.
 	actualNodeName, err := e.waitForNodeReadyByLabel(ctx, kubeClient, nodeName, logger)
 	if err != nil {
 		return err
@@ -205,10 +209,8 @@ func (e *Environment) replaceScopedNodes(ctx context.Context, kubeClient *kubern
 	}
 }
 
-// createLocalNode creates a K3s agent container on the local Docker daemon.
-// Each agent uses default bridge networking so it gets its own network
-// namespace with no port conflicts. The server's --egress-selector-mode=pod
-// allows it to reach agent pods through the agent tunnel.
+// createLocalNode creates a K3s agent container on the local Docker daemon
+// using the environment's Docker bridge network.
 func (e *Environment) createLocalNode(ctx context.Context, dockerClient *docker.Client, _, agentContainerName, k3sNodeName, nodeName, token string, scopes []string, taints []string, logger *zap.SugaredLogger) error {
 	// Remove existing container so a fresh node is always created.
 	existing, err := e.findK3sDockerContainer(ctx, dockerClient, agentContainerName)
@@ -230,38 +232,12 @@ func (e *Environment) createLocalNode(ctx context.Context, dockerClient *docker.
 		}
 	}
 
-	// The server uses host networking; local agents reach it via the host IP.
-	hostIP, err := localIP()
-	if err != nil {
-		return fmt.Errorf("failed to determine host IP: %w", err)
-	}
+	addrs := computeEnvNetAddrs(e.name)
 
-	// Each agent on the same host (all using --network host) competes for the
-	// same loopback/wildcard ports. Allocate unique free ports for every
-	// component that binds a fixed default:
-	//   - lb-server-port      (default 6444)  k3s supervisor proxy
-	//   - containerd stream   (default 10010) written via config.toml.tmpl
-	//   - kubelet healthz     (default 10248) --kubelet-arg healthz-port
-	//   - kubelet API         (default 10250) --kubelet-arg port
-	//   - kube-proxy metrics  (default 10249) --kube-proxy-arg metrics-bind-address
-	//   - kube-proxy healthz  (default 10256) --kube-proxy-arg healthz-bind-address
-	ports, err := freePorts(6)
-	if err != nil {
-		return fmt.Errorf("failed to allocate free ports for agent: %w", err)
-	}
-	lbPort, streamPort := ports[0], ports[1]
-	kubeletPort, kubeletHealthzPort := ports[2], ports[3]
-	kubeProxyMetricsPort, kubeProxyHealthzPort := ports[4], ports[5]
-
-	agentCmd := []string{"agent", "--with-node-id", "--node-name", k3sNodeName,
+	agentCmd := []string{"agent",
+		"--node-name", k3sNodeName,
 		"--node-label", fmt.Sprintf("%s=%s", nodeLabel, nodeName),
-		"--node-external-ip", hostIP,
-		"--lb-server-port", strconv.Itoa(lbPort),
-		"--kubelet-arg", fmt.Sprintf("port=%d", kubeletPort),
-		"--kubelet-arg", "read-only-port=0",
-		"--kubelet-arg", fmt.Sprintf("healthz-port=%d", kubeletHealthzPort),
-		"--kube-proxy-arg", fmt.Sprintf("metrics-bind-address=127.0.0.1:%d", kubeProxyMetricsPort),
-		"--kube-proxy-arg", fmt.Sprintf("healthz-bind-address=0.0.0.0:%d", kubeProxyHealthzPort),
+		"--flannel-iface", "eth0",
 	}
 	for _, scope := range scopes {
 		agentCmd = append(agentCmd, "--node-label", fmt.Sprintf("%s=%s", scopeLabel, scope))
@@ -271,11 +247,16 @@ func (e *Environment) createLocalNode(ctx context.Context, dockerClient *docker.
 		agentCmd = append(agentCmd, "--node-label", formatLabel(taint))
 	}
 
+	// Use a named volume for the K3s data directory to avoid the
+	// overlayfs-on-overlayfs problem that crashes containerd.
+	volumeName := agentContainerName + "-data"
+
 	containerConfig := &container.Config{
-		Image: k3sDockerImage,
-		Cmd:   agentCmd,
+		Image:    k3sDockerImage,
+		Hostname: k3sNodeName,
+		Cmd:      agentCmd,
 		Env: []string{
-			fmt.Sprintf("K3S_URL=https://%s:6443", hostIP),
+			fmt.Sprintf("K3S_URL=https://%s:6443", addrs.serverIP),
 			fmt.Sprintf("K3S_TOKEN=%s", token),
 		},
 		Labels: map[string]string{
@@ -283,18 +264,13 @@ func (e *Environment) createLocalNode(ctx context.Context, dockerClient *docker.
 		},
 	}
 
-	// Use a named volume for the K3s data directory to avoid the
-	// overlayfs-on-overlayfs problem that crashes containerd.
-	volumeName := agentContainerName + "-data"
-
 	nanoCPUs, err := parseCPU(e.cpu)
 	if err != nil {
 		return fmt.Errorf("invalid --cpu value: %w", err)
 	}
 
 	hostConfig := &container.HostConfig{
-		Privileged:  true,
-		NetworkMode: "host",
+		Privileged: true,
 		Binds: []string{
 			"/lib/modules:/lib/modules:ro",
 			volumeName + ":/var/lib/rancher/k3s",
@@ -307,8 +283,13 @@ func (e *Environment) createLocalNode(ctx context.Context, dockerClient *docker.
 			NanoCPUs: nanoCPUs,
 		},
 	}
-
 	hostConfig.Binds = append(hostConfig.Binds, e.mounts...)
+
+	netCfg := &network.NetworkingConfig{
+		EndpointsConfig: map[string]*network.EndpointSettings{
+			e.envNetworkName(): {},
+		},
+	}
 
 	// Pull the image (likely already cached from environment creation).
 	logger.Debugf("Pulling image %s...", k3sDockerImage)
@@ -323,15 +304,7 @@ func (e *Environment) createLocalNode(ctx context.Context, dockerClient *docker.
 		logger.Warnf("Failed to close pull reader: %v", err)
 	}
 
-	// Pre-populate the volume with a containerd config template that uses a
-	// unique streaming server port, preventing conflict with other agents on
-	// the same host (which also use --network host and would otherwise all
-	// try to bind 127.0.0.1:10010).
-	if err := initAgentVolume(ctx, dockerClient, volumeName, streamPort, logger); err != nil {
-		return fmt.Errorf("failed to initialise agent volume: %w", err)
-	}
-
-	resp, err := dockerClient.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, agentContainerName)
+	resp, err := dockerClient.ContainerCreate(ctx, containerConfig, hostConfig, netCfg, nil, agentContainerName)
 	if err != nil {
 		return fmt.Errorf("failed to create node container: %w", err)
 	}
@@ -347,17 +320,11 @@ func (e *Environment) createLocalNode(ctx context.Context, dockerClient *docker.
 	return nil
 }
 
-// createRemoteNode creates a K3s agent container on a remote host via SSH.
+// createRemoteNode creates a K3s agent container on a remote host via SSH,
+// using the environment's Docker bridge network (pre-created by setupWireGuardTunnel).
 func (e *Environment) createRemoteNode(_ context.Context, _ *docker.Client, _ string, remote *SSHClient, agentContainerName, k3sNodeName, nodeName, token string, scopes []string, taints []string, logger *zap.SugaredLogger) error {
-	// Determine the local IP reachable from the remote host.
-	localIP, err := remote.LocalIPFor()
-	if err != nil {
-		return fmt.Errorf("failed to determine local IP: %w", err)
-	}
-
-	// With host networking on the server, the API server listens on port 6443
-	// directly on the host IP.
-	k3sURL := fmt.Sprintf("https://%s:6443", localIP)
+	addrs := computeEnvNetAddrs(e.name)
+	k3sURL := fmt.Sprintf("https://%s:6443", addrs.serverIP)
 	logger.Debugf("Remote node will connect to K3s server at %s", k3sURL)
 
 	// Remove existing container so a fresh node is always created.
@@ -380,10 +347,6 @@ func (e *Environment) createRemoteNode(_ context.Context, _ *docker.Client, _ st
 		}
 	}
 
-	// Run the K3s agent container on the remote host using default bridge
-	// networking. Multiple agents can run on the same host without port
-	// conflicts. The server's --egress-selector-mode=pod routes traffic
-	// to pods through each agent's tunnel.
 	scopeFlags := ""
 	for _, scope := range scopes {
 		scopeFlags += fmt.Sprintf(" --node-label %s=%s", scopeLabel, scope)
@@ -406,8 +369,8 @@ func (e *Environment) createRemoteNode(_ context.Context, _ *docker.Client, _ st
 
 	volumeName := agentContainerName + "-data"
 	dockerRunCmd := fmt.Sprintf(
-		"docker run -d --privileged --network host --name %s -v /lib/modules:/lib/modules:ro -v %s:/var/lib/rancher/k3s --tmpfs /run --tmpfs /var/run -e K3S_URL=%s -e K3S_TOKEN=%s%s %s agent --with-node-id --node-name %s --node-label %s=%s --node-external-ip %s%s",
-		agentContainerName, volumeName, k3sURL, token, cpuFlag, k3sDockerImage, k3sNodeName, nodeLabel, nodeName, remote.Host, scopeFlags,
+		"docker run -d --privileged --name %s --hostname %s --network %s -v /lib/modules:/lib/modules:ro -v %s:/var/lib/rancher/k3s --tmpfs /run --tmpfs /var/run -e K3S_URL=%s -e K3S_TOKEN=%s%s %s agent --node-name %s --node-label %s=%s --flannel-iface eth0%s",
+		agentContainerName, k3sNodeName, e.envNetworkName(), volumeName, k3sURL, token, cpuFlag, k3sDockerImage, k3sNodeName, nodeLabel, nodeName, scopeFlags,
 	)
 
 	logger.Debugf("Creating node container %q on remote host %s...", agentContainerName, remote.Host)
@@ -466,6 +429,13 @@ func (e *Environment) DeleteNode(ctx context.Context, nodeName string, scopes []
 	agentContainerName := e.nodeContainerName(nodeName)
 
 	if remote != nil {
+		dockerClient, err := docker.NewClientWithOpts(docker.FromEnv, docker.WithAPIVersionNegotiation())
+		if err != nil {
+			logger.Warnf("Failed to create Docker client for WireGuard teardown: %v", err)
+		} else {
+			e.teardownWireGuardTunnel(ctx, dockerClient, remote, logger)
+			dockerClient.Close()
+		}
 		return e.deleteRemoteNode(remote, agentContainerName, logger)
 	}
 	return e.deleteLocalNode(ctx, agentContainerName, logger)
@@ -513,6 +483,12 @@ func (e *Environment) deleteLocalNode(ctx context.Context, agentContainerName st
 // deleteRemoteNode stops and removes a node container on a remote host via SSH.
 func (e *Environment) deleteRemoteNode(remote *SSHClient, agentContainerName string, logger *zap.SugaredLogger) error {
 	logger.Debugf("Stopping node container %q on remote host %s...", agentContainerName, remote.Host)
+
+	checkOut, _ := remote.Run(fmt.Sprintf("docker inspect %s >/dev/null 2>&1 && echo exists || echo missing", agentContainerName))
+	if strings.TrimSpace(checkOut) == "missing" {
+		logger.Debugf("Node container %q not found on remote host, nothing to delete.", agentContainerName)
+		return nil
+	}
 
 	if _, err := remote.Run(fmt.Sprintf("docker stop %s", agentContainerName)); err != nil {
 		logger.Warnf("Failed to stop remote node container: %v", err)
@@ -739,132 +715,6 @@ func findRemoteNodeByHost(ctx context.Context, kubeClient *kubernetes.Clientset,
 	return ""
 }
 
-// freePorts allocates n free TCP ports on the loopback interface and returns
-// them. All listeners are held open until the slice is fully built to avoid
-// the OS re-using a port before the caller has had a chance to use it.
-func freePorts(n int) ([]int, error) {
-	listeners := make([]net.Listener, 0, n)
-	ports := make([]int, 0, n)
-	for i := 0; i < n; i++ {
-		l, err := net.Listen("tcp", "127.0.0.1:0")
-		if err != nil {
-			for _, ll := range listeners {
-				ll.Close()
-			}
-			return nil, err
-		}
-		listeners = append(listeners, l)
-		ports = append(ports, l.Addr().(*net.TCPAddr).Port)
-	}
-	for _, l := range listeners {
-		l.Close()
-	}
-	return ports, nil
-}
-
-// initAgentVolume pre-populates the named k3s data volume with a containerd
-// config.toml.tmpl that overrides the streaming server port. Without this,
-// all agents on the same host (--network host) would collide on 127.0.0.1:10010.
-func initAgentVolume(ctx context.Context, dockerClient *docker.Client, volumeName string, streamPort int, logger *zap.SugaredLogger) error {
-	configContent := buildContainerdConfig(streamPort)
-	script := "mkdir -p /var/lib/rancher/k3s/agent/etc/containerd && cat > /var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl"
-
-	resp, err := dockerClient.ContainerCreate(ctx, &container.Config{
-		Image:      k3sDockerImage,
-		Entrypoint: []string{"/bin/sh"},
-		Cmd:        []string{"-c", script},
-		OpenStdin:  true,
-		StdinOnce:  true,
-	}, &container.HostConfig{
-		Binds: []string{volumeName + ":/var/lib/rancher/k3s"},
-	}, nil, nil, "")
-	if err != nil {
-		return fmt.Errorf("failed to create init container: %w", err)
-	}
-	defer func() {
-		if rerr := dockerClient.ContainerRemove(ctx, resp.ID, types.ContainerRemoveOptions{Force: true}); rerr != nil {
-			logger.Warnf("Failed to remove init container: %v", rerr)
-		}
-	}()
-
-	hijack, err := dockerClient.ContainerAttach(ctx, resp.ID, types.ContainerAttachOptions{
-		Stdin:  true,
-		Stream: true,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to attach to init container: %w", err)
-	}
-
-	if err := dockerClient.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
-		hijack.Close()
-		return fmt.Errorf("failed to start init container: %w", err)
-	}
-
-	if _, err := io.WriteString(hijack.Conn, configContent); err != nil {
-		logger.Warnf("Failed to write containerd config template: %v", err)
-	}
-	hijack.Close()
-
-	statusCh, errCh := dockerClient.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
-	select {
-	case err := <-errCh:
-		return fmt.Errorf("init container error: %w", err)
-	case status := <-statusCh:
-		if status.StatusCode != 0 {
-			return fmt.Errorf("init container exited with status %d", status.StatusCode)
-		}
-	}
-	return nil
-}
-
-// buildContainerdConfig returns a containerd config.toml.tmpl with the given
-// streaming server port. The template is static (no Go template markers) so
-// k3s uses it verbatim, overriding the default port 10010.
-func buildContainerdConfig(streamPort int) string {
-	return fmt.Sprintf(`version = 3
-root = "/var/lib/rancher/k3s/agent/containerd"
-state = "/run/k3s/containerd"
-
-[grpc]
-  address = "/run/k3s/containerd/containerd.sock"
-
-[plugins.'io.containerd.internal.v1.opt']
-  path = "/var/lib/rancher/k3s/agent/containerd"
-
-[plugins.'io.containerd.grpc.v1.cri']
-  stream_server_address = "127.0.0.1"
-  stream_server_port = "%d"
-
-[plugins.'io.containerd.cri.v1.runtime']
-  enable_selinux = false
-  enable_unprivileged_ports = true
-  enable_unprivileged_icmp = true
-  device_ownership_from_security_context = false
-
-[plugins.'io.containerd.cri.v1.images']
-  snapshotter = "overlayfs"
-  disable_snapshot_annotations = true
-
-[plugins.'io.containerd.cri.v1.images'.pinned_images]
-  sandbox = "rancher/mirrored-pause:3.6"
-
-[plugins.'io.containerd.cri.v1.runtime'.cni]
-  bin_dir = "/bin"
-  conf_dir = "/var/lib/rancher/k3s/agent/etc/cni/net.d"
-
-[plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.runc]
-  runtime_type = "io.containerd.runc.v2"
-
-[plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.runc.options]
-  SystemdCgroup = false
-
-[plugins.'io.containerd.cri.v1.runtime'.containerd.runtimes.runhcs-wcow-process]
-  runtime_type = "io.containerd.runhcs.v1"
-
-[plugins.'io.containerd.cri.v1.images'.registry]
-  config_path = "/var/lib/rancher/k3s/agent/etc/containerd/certs.d"
-`, streamPort)
-}
 
 // labelNodeRoles adds node-role.kubernetes.io/<scope> labels to a node.
 func labelNodeRoles(ctx context.Context, kubeClient *kubernetes.Clientset, nodeName string, scopes []string) error {
