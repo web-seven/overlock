@@ -42,7 +42,10 @@ REMOTE_DOCKER_GW=10.202.0.1
 DOCKER_NET=wg-bridge
 LOCAL_KEY=/tmp/wg-local.key
 REMOTE_KEY=/tmp/wg-remote.key
-REMOTE_HOST="${SSH_TARGET#*@}"
+# Resolve to the actual endpoint — Docker containers lack the host's /etc/hosts and SSH config
+_rhost="${SSH_TARGET#*@}"
+REMOTE_HOST=$(ssh -G "$_rhost" 2>/dev/null | awk '/^hostname /{print $2; exit}' || true)
+REMOTE_HOST="${REMOTE_HOST:-$_rhost}"
 
 # docker:cli = alpine + docker binary; we add wireguard/net tools via apk
 NETIMG="docker:cli"
