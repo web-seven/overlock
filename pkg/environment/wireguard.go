@@ -151,30 +151,36 @@ func (e *Environment) getLocalWGPubkey(ctx context.Context, dockerClient *docker
 func (e *Environment) ensureLocalWG0(ctx context.Context, dockerClient *docker.Client) error {
 	addrs := computeEnvNetAddrs(e.name)
 	keyFile := fmt.Sprintf("/tmp/wg-%s.key", e.name)
-	script := fmt.Sprintf(`
+	script := fmt.Sprintf(`set -e
 apk add -q wireguard-tools iproute2 iptables >/dev/null 2>&1
+[ -f %s ] || (umask 077; wg genkey > %s)
 if ip link show wg0 >/dev/null 2>&1; then
     ip addr show wg0 | grep -q '%s/24' || {
         ip addr flush dev wg0
         ip addr add %s/24 dev wg0
     }
-    exit 0
+else
+    ip link add wg0 type wireguard
+    ip addr add %s/24 dev wg0
+    ip link set wg0 up
+    echo 1 > /proc/sys/net/ipv4/ip_forward
 fi
-[ -f %s ] || (umask 077; wg genkey > %s)
-ip link add wg0 type wireguard
-ip addr add %s/24 dev wg0
+# Always re-set private key and listen port (key file may have been regenerated after partial cleanup)
 wg set wg0 private-key %s listen-port %d
-ip link set wg0 up
-echo 1 > /proc/sys/net/ipv4/ip_forward
-iptables -I INPUT -p udp --dport %d -j ACCEPT 2>/dev/null || true`,
-		addrs.localWGAddr, addrs.localWGAddr,
+iptables -I INPUT -p udp --dport %d -j ACCEPT 2>/dev/null || true
+# Verify wg0 is up
+ip link show wg0 >/dev/null 2>&1 || { echo "ERROR: wg0 not created"; exit 1; }`,
 		keyFile, keyFile,
+		addrs.localWGAddr, addrs.localWGAddr,
 		addrs.localWGAddr,
 		keyFile, wgPort,
 		wgPort,
 	)
-	_, err := runPrivilegedScript(ctx, dockerClient, script)
-	return err
+	out, err := runPrivilegedScript(ctx, dockerClient, script)
+	if err != nil {
+		return fmt.Errorf("ensureLocalWG0 failed: %w (output: %s)", err, out)
+	}
+	return nil
 }
 
 // addRemotePeer sets up WireGuard on the remote host and adds it as a new peer
@@ -348,7 +354,8 @@ func extractWGPubkey(output string) string {
 // its wg0 with local as a peer and create the remote Docker bridge network.
 func buildRemoteAddPeerScript(addrs remoteNetAddrs, localPubkey, envName, keyFile, pubFile string) string {
 	netName := "overlock-" + envName
-	return fmt.Sprintf(`apk add -q wireguard-tools iproute2 iptables nftables >/dev/null 2>&1
+	return fmt.Sprintf(`set -e
+apk add -q wireguard-tools iproute2 iptables nftables >/dev/null 2>&1
 
 # Generate/reuse remote key for peer %d
 [ -f %s ] || (umask 077; wg genkey > %s)
@@ -359,12 +366,14 @@ chmod 644 %s
 ip link show wg0 >/dev/null 2>&1 || {
     ip link add wg0 type wireguard
     ip addr add %s/24 dev wg0
-    wg set wg0 private-key %s listen-port %d
     ip link set wg0 up
     echo 1 > /proc/sys/net/ipv4/ip_forward
 }
+# Always re-set private key and listen port (key file may have been regenerated after partial cleanup)
+wg set wg0 private-key %s listen-port %d
 
-# Add/update local peer
+# Remove stale peer entry (clears stale endpoint), then re-add
+wg set wg0 peer %s remove 2>/dev/null || true
 wg set wg0 peer %s allowed-ips %s/32,%s
 
 # Create Docker network if not present
@@ -391,7 +400,7 @@ cat %s`,
 		keyFile, keyFile, keyFile, pubFile, pubFile,
 		addrs.wgRemoteAddr,
 		keyFile, wgPort,
-		localPubkey, addrs.wgLocalAddr, addrs.localDockerSubnet,
+		localPubkey, localPubkey, addrs.wgLocalAddr, addrs.localDockerSubnet,
 		netName,
 		addrs.remoteDockerSubnet, addrs.remoteDockerGW,
 		envNetMTU,
@@ -408,7 +417,8 @@ cat %s`,
 // peer to the existing wg0.
 func buildLocalAddPeerScript(addrs remoteNetAddrs, remotePubkey, remoteHost, envName string) string {
 	netName := "overlock-" + envName
-	return fmt.Sprintf(`apk add -q wireguard-tools iproute2 iptables nftables >/dev/null 2>&1
+	return fmt.Sprintf(`set -e
+apk add -q wireguard-tools iproute2 iptables nftables >/dev/null 2>&1
 
 # Add/update remote peer on wg0
 wg set wg0 peer %s \
@@ -454,15 +464,14 @@ PEERS=$(ip link show wg0 >/dev/null 2>&1 && wg show wg0 peers 2>/dev/null | wc -
 func buildRemoteRemovePeerScript(addrs remoteNetAddrs, envName string, peerIdx int, netName string) string {
 	remoteKeyFile := fmt.Sprintf("/tmp/wg-%s-%d.key", envName, peerIdx)
 	remotePubFile := fmt.Sprintf("/tmp/wg-%s-%d-remote.pub", envName, peerIdx)
-	return fmt.Sprintf(`apk add -q iproute2 iptables nftables >/dev/null 2>&1
+	return fmt.Sprintf(`apk add -q wireguard-tools iproute2 >/dev/null 2>&1
 ip route del %s 2>/dev/null || true
-docker ps -q --filter network=%s | xargs -r docker rm -f 2>/dev/null || true
-docker network rm %s 2>/dev/null || true
 rm -f %s %s
+[ -z "$(docker ps -a -q --filter network=%s 2>/dev/null)" ] && docker network rm %s 2>/dev/null || true
 PEERS=$(ip link show wg0 >/dev/null 2>&1 && wg show wg0 peers 2>/dev/null | wc -l || echo 0)
 [ "$PEERS" -eq 0 ] && ip link del wg0 2>/dev/null || true`,
 		addrs.localDockerSubnet,
-		netName, netName,
 		remoteKeyFile, remotePubFile,
+		netName, netName,
 	)
 }
