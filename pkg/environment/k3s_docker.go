@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"time"
 
@@ -341,8 +342,17 @@ func (e *Environment) startStopRemoteNodes(ctx context.Context, action string, l
 		containerName := e.nodeContainerName(shortName)
 
 		if action == "start" && dockerClient != nil {
-			if err := e.ensureWireGuardTunnel(ctx, dockerClient, remote, logger); err != nil {
-				logger.Warnf("Failed to ensure WireGuard tunnel for %s: %v", remote.Host, err)
+			peerIdx := -1
+			if s := node.Annotations[annWGPeerIdx]; s != "" {
+				if idx, err := strconv.Atoi(s); err == nil {
+					peerIdx = idx
+				}
+			}
+			if peerIdx >= 0 {
+				remotePubkey := node.Annotations[annWGRemotePubkey]
+				if err := e.ensureRemotePeer(ctx, dockerClient, remote, peerIdx, remotePubkey, logger); err != nil {
+					logger.Warnf("Failed to ensure WireGuard peer for %s: %v", remote.Host, err)
+				}
 			}
 		}
 

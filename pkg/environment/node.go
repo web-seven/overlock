@@ -30,10 +30,12 @@ const (
 	scopeWorkloads = "workloads"
 	scopeEffect    = "NoSchedule"
 
-	annSSHHost = "overlock.io/ssh-host"
-	annSSHUser = "overlock.io/ssh-user"
-	annSSHPort = "overlock.io/ssh-port"
-	annSSHKey  = "overlock.io/ssh-key"
+	annSSHHost       = "overlock.io/ssh-host"
+	annSSHUser       = "overlock.io/ssh-user"
+	annSSHPort       = "overlock.io/ssh-port"
+	annSSHKey        = "overlock.io/ssh-key"
+	annWGPeerIdx     = "overlock.io/wg-peer-idx"
+	annWGRemotePubkey = "overlock.io/wg-remote-pubkey"
 )
 
 // formatTaint converts a user-provided "key:value" taint to K8s format "key=value:NoSchedule".
@@ -119,17 +121,16 @@ func (e *Environment) CreateNode(ctx context.Context, nodeName string, scopes []
 	k3sNodeName := e.name + "-" + nodeName
 	agentContainerName := e.nodeContainerName(nodeName)
 
+	var (
+		peerIdx      int
+		remotePubkey string
+	)
 	if remote != nil {
-		// Limit one remote node per host IP to avoid K3s tunnel routing
-		// conflicts when multiple nodes share the same ExternalIP.
-		if existing := findRemoteNodeByHost(ctx, kubeClient, remote.Host); existing != "" {
-			logger.Infof("Remote host %s already has node %q. Only one remote node per host is supported.", remote.Host, existing)
-			return nil
-		}
-		// Set up the WireGuard tunnel and remote Docker network before
-		// creating the container (the container needs the network to exist).
-		if err := e.setupWireGuardTunnel(ctx, dockerClient, remote, logger); err != nil {
-			return fmt.Errorf("failed to set up WireGuard tunnel: %w", err)
+		peerIdx = nextRemotePeerIdx(ctx, kubeClient)
+		var wgErr error
+		remotePubkey, wgErr = e.addRemotePeer(ctx, dockerClient, remote, peerIdx, logger)
+		if wgErr != nil {
+			return fmt.Errorf("failed to set up WireGuard peer: %w", wgErr)
 		}
 		if err := e.createRemoteNode(ctx, dockerClient, serverContainer.ID, remote, agentContainerName, k3sNodeName, nodeName, token, scopes, taints, logger); err != nil {
 			return err
@@ -143,6 +144,10 @@ func (e *Environment) CreateNode(ctx context.Context, nodeName string, scopes []
 	// Discover the node by the overlock.io/node label.
 	actualNodeName, err := e.waitForNodeReadyByLabel(ctx, kubeClient, nodeName, logger)
 	if err != nil {
+		if remote != nil {
+			logger.Warnf("Node %q did not join the cluster; orphan container %q may remain on %s — remove it with: docker rm -f %s", nodeName, agentContainerName, remote.Host, agentContainerName)
+			e.removeRemotePeer(ctx, dockerClient, remote, peerIdx, remotePubkey, logger)
+		}
 		return err
 	}
 
@@ -152,9 +157,9 @@ func (e *Environment) CreateNode(ctx context.Context, nodeName string, scopes []
 		logger.Warnf("Failed to label node %q with roles: %v", actualNodeName, err)
 	}
 
-	// Store SSH connection info as annotations for remote node cleanup on env delete.
+	// Store SSH connection info and WireGuard peer info as annotations for cleanup.
 	if remote != nil {
-		if err := annotateRemoteNode(ctx, kubeClient, actualNodeName, remote); err != nil {
+		if err := annotateRemoteNode(ctx, kubeClient, actualNodeName, remote, peerIdx, remotePubkey); err != nil {
 			logger.Warnf("Failed to annotate remote node %q: %v", actualNodeName, err)
 		}
 	}
@@ -197,8 +202,25 @@ func (e *Environment) replaceScopedNodes(ctx context.Context, kubeClient *kubern
 			}
 			agentContainer := e.nodeContainerName(oldShortName)
 			if oldRemote != nil {
-				if err := e.deleteRemoteNode(oldRemote, agentContainer, logger); err != nil {
-					logger.Warnf("Failed to delete remote container %q: %v", agentContainer, err)
+				done := make(chan struct{})
+				go func() {
+					defer close(done)
+					if s := oldNode.Annotations[annWGPeerIdx]; s != "" {
+						if idx, idxErr := strconv.Atoi(s); idxErr == nil {
+							if dc, dcErr := docker.NewClientWithOpts(docker.FromEnv, docker.WithAPIVersionNegotiation()); dcErr == nil {
+								e.removeRemotePeer(ctx, dc, oldRemote, idx, oldNode.Annotations[annWGRemotePubkey], logger)
+								dc.Close()
+							}
+						}
+					}
+					if err := e.deleteRemoteNode(oldRemote, agentContainer, logger); err != nil {
+						logger.Warnf("Failed to delete remote container %q: %v", agentContainer, err)
+					}
+				}()
+				select {
+				case <-done:
+				case <-time.After(30 * time.Second):
+					logger.Warnf("Timed out cleaning up old node on %s; orphan container %q may remain — remove with: docker rm -f %s", oldRemote.Host, agentContainer, agentContainer)
 				}
 			} else {
 				if err := e.deleteLocalNode(ctx, agentContainer, logger); err != nil {
@@ -391,6 +413,11 @@ func (e *Environment) DeleteNode(ctx context.Context, nodeName string, scopes []
 		return fmt.Errorf("node management is only supported for the k3s-docker engine, got %q", e.engine)
 	}
 
+	var (
+		wgPeerIdx      = -1
+		wgRemotePubkey string
+	)
+
 	// Drain and delete the Kubernetes node before removing the container.
 	// Find the actual node name by label since --with-node-id appends a random suffix.
 	contextName := e.K3sDockerContextName()
@@ -414,6 +441,18 @@ func (e *Environment) DeleteNode(ctx context.Context, nodeName string, scopes []
 					}
 				}
 
+				// Read WireGuard peer info before deleting the node from k8s.
+				if remote != nil {
+					if nodeObj, getErr := kubeClient.CoreV1().Nodes().Get(ctx, actualName, metav1.GetOptions{}); getErr == nil {
+						if s := nodeObj.Annotations[annWGPeerIdx]; s != "" {
+							if idx, convErr := strconv.Atoi(s); convErr == nil {
+								wgPeerIdx = idx
+							}
+						}
+						wgRemotePubkey = nodeObj.Annotations[annWGRemotePubkey]
+					}
+				}
+
 				if err := e.drainNode(ctx, kubeClient, actualName, logger); err != nil {
 					logger.Warnf("Failed to drain node %q: %v", actualName, err)
 				}
@@ -433,7 +472,9 @@ func (e *Environment) DeleteNode(ctx context.Context, nodeName string, scopes []
 		if err != nil {
 			logger.Warnf("Failed to create Docker client for WireGuard teardown: %v", err)
 		} else {
-			e.teardownWireGuardTunnel(ctx, dockerClient, remote, logger)
+			if wgPeerIdx >= 0 {
+				e.removeRemotePeer(ctx, dockerClient, remote, wgPeerIdx, wgRemotePubkey, logger)
+			}
 			dockerClient.Close()
 		}
 		return e.deleteRemoteNode(remote, agentContainerName, logger)
@@ -599,7 +640,7 @@ func remoteFromNodeAnnotations(ctx context.Context, kubeClient *kubernetes.Clien
 
 // annotateRemoteNode stores SSH connection info as annotations on the node
 // so that env delete can discover and clean up remote containers.
-func annotateRemoteNode(ctx context.Context, kubeClient *kubernetes.Clientset, nodeName string, remote *SSHClient) error {
+func annotateRemoteNode(ctx context.Context, kubeClient *kubernetes.Clientset, nodeName string, remote *SSHClient, peerIdx int, remotePubkey string) error {
 	node, err := kubeClient.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to get node %q: %w", nodeName, err)
@@ -611,10 +652,33 @@ func annotateRemoteNode(ctx context.Context, kubeClient *kubernetes.Clientset, n
 	node.Annotations[annSSHUser] = remote.User
 	node.Annotations[annSSHPort] = fmt.Sprintf("%d", remote.Port)
 	node.Annotations[annSSHKey] = remote.Key
+	node.Annotations[annWGPeerIdx] = strconv.Itoa(peerIdx)
+	node.Annotations[annWGRemotePubkey] = remotePubkey
 	if _, err = kubeClient.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{}); err != nil {
 		return fmt.Errorf("failed to update node %q annotations: %w", nodeName, err)
 	}
 	return nil
+}
+
+// nextRemotePeerIdx returns the next available WireGuard peer index by scanning
+// all node annotations for existing peer assignments.
+func nextRemotePeerIdx(ctx context.Context, kubeClient *kubernetes.Clientset) int {
+	nodes, err := kubeClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return 0
+	}
+	maxIdx := -1
+	for _, node := range nodes.Items {
+		s := node.Annotations[annWGPeerIdx]
+		if s == "" {
+			continue
+		}
+		idx, err := strconv.Atoi(s)
+		if err == nil && idx > maxIdx {
+			maxIdx = idx
+		}
+	}
+	return maxIdx + 1
 }
 
 // getK3sToken reads the K3s node join token from inside the server container.
@@ -697,23 +761,6 @@ func findNodeByLabel(ctx context.Context, kubeClient *kubernetes.Clientset, node
 	return nodes.Items[0].Name, nil
 }
 
-// findRemoteNodeByHost returns the short node name of an existing remote node
-// on the given host, or empty string if none exists.
-func findRemoteNodeByHost(ctx context.Context, kubeClient *kubernetes.Clientset, host string) string {
-	nodes, err := kubeClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return ""
-	}
-	for _, node := range nodes.Items {
-		if node.Annotations[annSSHHost] == host {
-			if name := node.Labels[nodeLabel]; name != "" {
-				return name
-			}
-			return node.Name
-		}
-	}
-	return ""
-}
 
 
 // labelNodeRoles adds node-role.kubernetes.io/<scope> labels to a node.
