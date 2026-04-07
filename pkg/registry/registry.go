@@ -192,6 +192,9 @@ func (r *Registry) Update(ctx context.Context, client *kubernetes.Clientset, use
 	}
 
 	existing.Secret.Data[".dockerconfigjson"] = regConf
+	existing.Secret.Data["server"] = []byte(server)
+	existing.Secret.Data["username"] = []byte(auth.Username)
+	existing.Secret.Data["password"] = []byte(auth.Password)
 
 	if len(r.Labels) > 0 {
 		if existing.Secret.Labels == nil {
@@ -493,13 +496,20 @@ func (r *Registry) SecretSpec() corev1.Secret {
 	for k, v := range r.Labels {
 		baseLabels[k] = v
 	}
+	data := map[string][]byte{".dockerconfigjson": regConf}
+	for _, auth := range r.Config.Auths {
+		data["server"] = []byte(auth.Server)
+		data["username"] = []byte(auth.Username)
+		data["password"] = []byte(auth.Password)
+		break
+	}
 	secretSpec := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        r.Name,
 			Labels:      engine.ManagedLabels(baseLabels),
 			Annotations: r.Secret.Annotations,
 		},
-		Data: map[string][]byte{".dockerconfigjson": regConf},
+		Data: data,
 		Type: "kubernetes.io/dockerconfigjson",
 	}
 
