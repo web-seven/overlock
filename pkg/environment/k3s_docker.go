@@ -6,13 +6,14 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/api/types/network"
 	docker "github.com/docker/docker/client"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,17 +59,27 @@ func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (_ s
 		return e.K3sDockerContextName(), nil
 	}
 
-	// Determine the host's outbound IP so the K3s server advertises a
-	// routable address instead of 127.0.0.1. Without this, remote agents
-	// receive 127.0.0.1:6444 as the supervisor URL and fail to connect.
-	hostIP, err := localIP()
-	if err != nil {
-		return "", fmt.Errorf("failed to determine host IP: %w", err)
+	addrs := computeEnvNetAddrs(e.name)
+
+	// Create the Docker bridge network for this environment.
+	if err := e.createEnvironmentNetwork(ctx, dockerClient); err != nil {
+		return "", fmt.Errorf("failed to create environment network: %w", err)
 	}
 
 	containerConfig := &container.Config{
-		Image: k3sDockerImage,
-		Cmd:   []string{"server", "--disable-agent", "--disable=traefik", "--disable-network-policy", "--flannel-backend=wireguard-native", "--flannel-external-ip", "--egress-selector-mode", "cluster", "--bind-address", "0.0.0.0", "--node-ip", hostIP, "--node-external-ip", hostIP, "--advertise-address", hostIP, "--tls-san", hostIP},
+		Image:    k3sDockerImage,
+		Hostname: e.name + "-server",
+		Cmd: []string{
+			"server",
+			"--disable-agent",
+			"--disable=traefik",
+			"--disable-network-policy",
+			"--flannel-backend=vxlan",
+			"--flannel-iface", "eth0",
+			"--egress-selector-mode", "cluster",
+			"--node-ip", addrs.serverIP,
+			"--tls-san", addrs.serverIP,
+		},
 		Env: []string{
 			"K3S_KUBECONFIG_MODE=644",
 		},
@@ -85,15 +96,24 @@ func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (_ s
 	}
 
 	hostConfig := &container.HostConfig{
-		Privileged:  true,
-		NetworkMode: "host",
-		Binds:       binds,
+		Privileged: true,
+		Binds:      binds,
 		Tmpfs: map[string]string{
 			"/run":     "",
 			"/var/run": "",
 		},
 		Resources: container.Resources{
 			NanoCPUs: nanoCPUs,
+		},
+	}
+
+	netCfg := &network.NetworkingConfig{
+		EndpointsConfig: map[string]*network.EndpointSettings{
+			e.envNetworkName(): {
+				IPAMConfig: &network.EndpointIPAMConfig{
+					IPv4Address: addrs.serverIP,
+				},
+			},
 		},
 	}
 
@@ -107,7 +127,7 @@ func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (_ s
 	_, _ = io.Copy(io.Discard, pullReader)
 	pullReader.Close()
 
-	resp, err := dockerClient.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, containerName)
+	resp, err := dockerClient.ContainerCreate(ctx, containerConfig, hostConfig, netCfg, nil, containerName)
 	if err != nil {
 		return "", fmt.Errorf("failed to create k3s-docker container: %w", err)
 	}
@@ -138,10 +158,10 @@ func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (_ s
 		return "", err
 	}
 
-	// Merge kubeconfig into host kubeconfig. With host networking the API
-	// server listens directly on port 6443.
+	// Merge kubeconfig into host kubeconfig. The API server is reachable
+	// via the Docker bridge network at the server's fixed IP.
 	contextName := e.K3sDockerContextName()
-	serverURL := "https://localhost:6443"
+	serverURL := fmt.Sprintf("https://%s:6443", computeEnvNetAddrs(e.name).serverIP)
 	if err := mergeK3sDockerKubeconfig(kubeconfigData, contextName, serverURL); err != nil {
 		return "", fmt.Errorf("failed to merge kubeconfig: %w", err)
 	}
@@ -203,6 +223,8 @@ func (e *Environment) DeleteK3sDockerEnvironment(logger *zap.SugaredLogger) erro
 	if err := dockerClient.ContainerRemove(ctx, c.ID, types.ContainerRemoveOptions{Force: true}); err != nil {
 		return fmt.Errorf("failed to remove container %s: %w", c.ID, err)
 	}
+
+	e.deleteEnvironmentNetwork(ctx, dockerClient, logger)
 
 	logger.Info("k3s-docker environment deleted successfully")
 	return nil
@@ -298,6 +320,16 @@ func (e *Environment) startStopRemoteNodes(ctx context.Context, action string, l
 		return
 	}
 
+	var dockerClient *docker.Client
+	if action == "start" {
+		dockerClient, err = docker.NewClientWithOpts(docker.FromEnv, docker.WithAPIVersionNegotiation())
+		if err != nil {
+			logger.Warnf("Failed to create Docker client for WireGuard tunnel: %v", err)
+		} else {
+			defer dockerClient.Close()
+		}
+	}
+
 	for _, node := range nodes.Items {
 		remote := remoteFromNodeAnnotations(ctx, kubeClient, node.Name, logger)
 		if remote == nil {
@@ -308,6 +340,21 @@ func (e *Environment) startStopRemoteNodes(ctx context.Context, action string, l
 			shortName = strings.TrimPrefix(node.Name, e.name+"-")
 		}
 		containerName := e.nodeContainerName(shortName)
+
+		if action == "start" && dockerClient != nil {
+			peerIdx := -1
+			if s := node.Annotations[annWGPeerIdx]; s != "" {
+				if idx, err := strconv.Atoi(s); err == nil {
+					peerIdx = idx
+				}
+			}
+			if peerIdx >= 0 {
+				if err := e.ensureRemotePeer(ctx, dockerClient, remote, peerIdx, logger); err != nil {
+					logger.Warnf("Failed to ensure WireGuard peer for %s: %v", remote.Host, err)
+				}
+			}
+		}
+
 		logger.Infof("Remote node %q: running docker %s %s on %s", node.Name, action, containerName, remote.Host)
 		if _, err := remote.Run(fmt.Sprintf("docker %s %s", action, containerName)); err != nil {
 			logger.Warnf("Failed to %s remote container %q on %s: %v", action, containerName, remote.Host, err)
@@ -478,20 +525,3 @@ func mergeK3sDockerKubeconfig(kubeconfigData []byte, contextName, serverURL stri
 	return clientcmd.ModifyConfig(po, *existingConfig, true)
 }
 
-// localIP returns the preferred outbound IP of this machine.
-func localIP() (string, error) {
-	conn, err := net.Dial("udp", "8.8.8.8:80")
-	if err != nil {
-		return "", fmt.Errorf("failed to dial for local IP: %w", err)
-	}
-	defer func() {
-		if cerr := conn.Close(); cerr != nil {
-			err = cerr
-		}
-	}()
-	udpAddr, ok := conn.LocalAddr().(*net.UDPAddr)
-	if !ok {
-		return "", fmt.Errorf("unexpected address type: %T", conn.LocalAddr())
-	}
-	return udpAddr.IP.String(), nil
-}
