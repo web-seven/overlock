@@ -386,7 +386,7 @@ docker network ls --format "{{.Name}}" | grep -q "^%s$" || \
         %s
 
 # Route to local Docker subnet
-ip route replace %s via %s
+ip route replace %s dev wg0
 
 # FORWARD + nft rules
 BR=$(docker network inspect %s --format "{{.Id}}" | head -c 12)
@@ -405,7 +405,7 @@ cat %s`,
 		addrs.remoteDockerSubnet, addrs.remoteDockerGW,
 		envNetMTU,
 		netName,
-		addrs.localDockerSubnet, addrs.wgLocalAddr,
+		addrs.localDockerSubnet,
 		netName,
 		addrs.remoteDockerSubnet,
 		addrs.remoteDockerSubnet, addrs.localDockerSubnet,
@@ -427,7 +427,7 @@ wg set wg0 peer %s \
     persistent-keepalive 25
 
 # Route to remote Docker subnet
-ip route replace %s via %s
+ip route replace %s dev wg0
 
 # FORWARD + nft rules (idempotent with || true)
 BR=$(docker network inspect %s --format "{{.Id}}" | head -c 12)
@@ -439,7 +439,7 @@ iptables -t nat -A POSTROUTING -s %s ! -d %s ! -o wg0 -j MASQUERADE 2>/dev/null 
 		remotePubkey,
 		remoteHost, wgPort,
 		addrs.wgRemoteAddr, addrs.remoteDockerSubnet,
-		addrs.remoteDockerSubnet, addrs.wgRemoteAddr,
+		addrs.remoteDockerSubnet,
 		netName,
 		addrs.localDockerSubnet,
 		addrs.localDockerSubnet, addrs.remoteDockerSubnet,
