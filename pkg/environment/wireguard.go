@@ -357,23 +357,28 @@ func buildRemoteAddPeerScript(addrs remoteNetAddrs, localPubkey, envName, keyFil
 	return fmt.Sprintf(`set -e
 apk add -q wireguard-tools iproute2 iptables nftables >/dev/null 2>&1
 
-# Generate/reuse remote key for peer %d
-[ -f %s ] || (umask 077; wg genkey > %s)
+# Clean up stale state from previous runs
+ip route del %s 2>/dev/null || true
+if ip link show wg0 >/dev/null 2>&1; then
+    wg show wg0 peers 2>/dev/null | while read -r pk; do wg set wg0 peer "$pk" remove 2>/dev/null || true; done
+    ip link del wg0 2>/dev/null || true
+fi
+[ -z "$(docker ps -a -q --filter network=%s 2>/dev/null)" ] && docker network rm %s 2>/dev/null || true
+rm -f %s %s
+
+# Generate fresh key
+umask 077; wg genkey > %s
 wg pubkey < %s > %s
 chmod 644 %s
 
-# Create wg0 if not present
-ip link show wg0 >/dev/null 2>&1 || {
-    ip link add wg0 type wireguard
-    ip addr add %s/24 dev wg0
-    ip link set wg0 up
-    echo 1 > /proc/sys/net/ipv4/ip_forward
-}
-# Always re-set private key and listen port (key file may have been regenerated after partial cleanup)
+# Create wg0
+ip link add wg0 type wireguard
+ip addr add %s/24 dev wg0
+ip link set wg0 up
+echo 1 > /proc/sys/net/ipv4/ip_forward
 wg set wg0 private-key %s listen-port %d
 
-# Remove stale peer entry (clears stale endpoint), then re-add
-wg set wg0 peer %s remove 2>/dev/null || true
+# Add local peer
 wg set wg0 peer %s allowed-ips %s/32,%s
 
 # Create Docker network if not present
@@ -396,19 +401,31 @@ nft insert rule ip raw PREROUTING iifname wg0 ip daddr %s return 2>/dev/null || 
 iptables -t nat -A POSTROUTING -s %s ! -d %s ! -o wg0 -j MASQUERADE 2>/dev/null || true
 
 cat %s`,
-		addrs.peerIdx,
-		keyFile, keyFile, keyFile, pubFile, pubFile,
+		// cleanup
+		addrs.localDockerSubnet,
+		netName, netName,
+		keyFile, pubFile,
+		// key generation
+		keyFile,
+		keyFile, pubFile,
+		pubFile,
+		// wg0 creation
 		addrs.wgRemoteAddr,
 		keyFile, wgPort,
-		localPubkey, localPubkey, addrs.wgLocalAddr, addrs.localDockerSubnet,
+		// add peer
+		localPubkey, addrs.wgLocalAddr, addrs.localDockerSubnet,
+		// docker network
 		netName,
 		addrs.remoteDockerSubnet, addrs.remoteDockerGW,
 		envNetMTU,
 		netName,
+		// route
 		addrs.localDockerSubnet,
+		// forward rules
 		netName,
 		addrs.remoteDockerSubnet,
 		addrs.remoteDockerSubnet, addrs.localDockerSubnet,
+		// output
 		pubFile,
 	)
 }
