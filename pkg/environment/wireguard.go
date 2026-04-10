@@ -259,7 +259,7 @@ func (e *Environment) addRemotePeer(ctx context.Context, dockerClient *docker.Cl
 func (e *Environment) ensureRemotePeer(ctx context.Context, dockerClient *docker.Client, remote *SSHClient, peerIdx int, logger *zap.SugaredLogger) error {
 	addrs := computeRemoteNetAddrs(e.name, peerIdx)
 	checkScript := fmt.Sprintf(
-		`apk add -q iproute2 >/dev/null 2>&1; ip route show %s >/dev/null 2>&1 && echo UP || echo DOWN`,
+		`apk add -q wireguard-tools iproute2 >/dev/null 2>&1; ip link show wg0 >/dev/null 2>&1 && ip route show %s dev wg0 >/dev/null 2>&1 && wg show wg0 peers | grep -q . && echo UP || echo DOWN`,
 		addrs.remoteDockerSubnet,
 	)
 	out, _ := runPrivilegedScript(ctx, dockerClient, checkScript)

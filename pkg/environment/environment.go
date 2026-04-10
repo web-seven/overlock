@@ -322,14 +322,36 @@ func (e *Environment) Start(ctx context.Context, switcher bool, logger *zap.Suga
 		return err
 	}
 
+	// For k3s-docker the server container must start before agent containers
+	// so its fixed IP is allocated first, preventing IPAM conflicts.
+	var serverContainer *types.Container
+	var agentContainers []types.Container
+	serverName := k3sDockerContainerPrefix + e.name
+
 	for _, c := range containers {
-		if strings.Contains(c.Names[0], e.name) {
-			containerID := c.ID
-			err := dockerClient.ContainerStart(ctx, containerID, types.ContainerStartOptions{})
-			if err != nil {
-				logger.Errorf("Environment possible doesn't exists or failed to start %s: %v", c.ID, err)
-				return err
-			}
+		if !strings.Contains(c.Names[0], e.name) {
+			continue
+		}
+		name := strings.TrimPrefix(c.Names[0], "/")
+		if e.engine == "k3s-docker" && name == serverName {
+			cc := c
+			serverContainer = &cc
+		} else {
+			agentContainers = append(agentContainers, c)
+		}
+	}
+
+	if serverContainer != nil {
+		if err := dockerClient.ContainerStart(ctx, serverContainer.ID, types.ContainerStartOptions{}); err != nil {
+			logger.Errorf("Failed to start server container %s: %v", serverContainer.ID, err)
+			return err
+		}
+	}
+
+	for _, c := range agentContainers {
+		if err := dockerClient.ContainerStart(ctx, c.ID, types.ContainerStartOptions{}); err != nil {
+			logger.Errorf("Failed to start container %s: %v", c.ID, err)
+			return err
 		}
 	}
 

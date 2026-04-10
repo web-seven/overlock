@@ -331,7 +331,19 @@ func (e *Environment) startStopRemoteNodes(ctx context.Context, action string, l
 	}
 
 	for _, node := range nodes.Items {
-		remote := remoteFromNodeAnnotations(ctx, kubeClient, node.Name, logger)
+		var remote *SSHClient
+		if action == "start" {
+			for attempt := 1; attempt <= 5; attempt++ {
+				remote = remoteFromNodeAnnotations(ctx, kubeClient, node.Name, logger)
+				if remote != nil {
+					break
+				}
+				logger.Debugf("Retrying SSH connection to node %q (%d/5)...", node.Name, attempt)
+				time.Sleep(3 * time.Second)
+			}
+		} else {
+			remote = remoteFromNodeAnnotations(ctx, kubeClient, node.Name, logger)
+		}
 		if remote == nil {
 			continue
 		}
