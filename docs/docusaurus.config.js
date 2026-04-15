@@ -8,8 +8,8 @@ const config = {
   tagline: 'Manage Crossplane environments with ease',
   favicon: 'overlock_galaxy_icon.png',
 
-  url: 'https://web-seven.github.io',
-  baseUrl: '/overlock/',
+  url: 'https://docs.overlock.app',
+  baseUrl: '/',
 
   organizationName: 'web-seven',
   projectName: 'overlock',
