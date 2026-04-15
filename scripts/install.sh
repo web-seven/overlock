@@ -48,7 +48,7 @@ unsupported_arch() {
 
 # If no version specified, get the latest stable release (excluding beta, alpha, rc versions)
 if [ -z "$VERSION" ]; then
-  VERSION=$(curl --silent "https://api.github.com/repos/overlock-network/overlock/releases" | \
+  VERSION=$(curl -sL "https://api.github.com/repos/web-seven/overlock/releases" | \
     grep '"tag_name":' | \
     sed -E 's/.*"tag_name": "([^"]+)".*/\1/' | \
     grep -v -E '(alpha|beta|rc)' | \
@@ -96,7 +96,7 @@ case $OS in
     ;;
 esac
 
-url=https://github.com/overlock-network/overlock/releases/download/${VERSION}/overlock-${VERSION}-${OS_ARCH}.tar.gz
+url=https://github.com/web-seven/overlock/releases/download/${VERSION}/overlock-${VERSION}-${OS_ARCH}.tar.gz
 if ! curl -sfLo overlock.tar.gz "${url}"; then
   echo "Failed to download Overlock CLI. Please make sure version ${VERSION} exists on OS ${OS} and ${OS_ARCH} architecture."
   exit 1
@@ -112,5 +112,5 @@ echo
 echo sudo mv overlock /usr/local/bin
 echo overlock --version
 echo
-echo "Visit https://github.com/overlock-network/overlock to get started. 🚀"
+echo "Visit https://github.com/web-seven/overlock to get started. 🚀"
 echo "Have a nice day! 👋\n"
