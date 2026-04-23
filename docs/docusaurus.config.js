@@ -19,8 +19,13 @@ function stripBadProgressPlugin() {
   };
 }
 
-/** @type {import('@docusaurus/types').Config} */
-const config = {
+module.exports = async function createConfig() {
+  const {default: remarkAdmonitions} = await import(
+    'remark-github-admonitions-to-directives'
+  );
+
+  /** @type {import('@docusaurus/types').Config} */
+  const config = {
   title: 'Overlock',
   tagline: 'Manage Crossplane environments with ease',
   favicon: 'overlock_galaxy_icon.png',
@@ -63,6 +68,7 @@ const config = {
             '**/static/**',
           ],
           editUrl: 'https://github.com/web-seven/overlock/edit/main/docs/',
+          beforeDefaultRemarkPlugins: [remarkAdmonitions],
         },
         blog: false,
         theme: {
@@ -155,6 +161,7 @@ const config = {
         additionalLanguages: ['bash', 'yaml', 'go'],
       },
     }),
-};
+  };
 
-module.exports = config;
+  return config;
+};
