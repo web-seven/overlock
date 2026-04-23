@@ -286,7 +286,14 @@ func (e *Environment) removeRemotePeer(ctx context.Context, dockerClient *docker
 		return
 	}
 
-	remoteScript := buildRemoteRemovePeerScript(addrs, e.name, peerIdx, netName)
+	// The remote needs the local pubkey to remove the matching peer entry from
+	// its wg0; otherwise the device is never torn down on cleanup.
+	localPubkey, err := e.getLocalWGPubkey(ctx, dockerClient)
+	if err != nil {
+		logger.Warnf("Failed to read local WireGuard pubkey for remote cleanup: %v", err)
+	}
+
+	remoteScript := buildRemoteRemovePeerScript(addrs, e.name, peerIdx, netName, localPubkey)
 	remoteDockerCmd := fmt.Sprintf(
 		"docker run --rm -i --privileged --network host -v /tmp:/tmp -v /var/run/docker.sock:/var/run/docker.sock %s sh",
 		wgSetupImage,
@@ -362,13 +369,18 @@ apk add -q wireguard-tools iproute2 iptables nftables >/dev/null 2>&1
 wg pubkey < %s > %s
 chmod 644 %s
 
-# Create wg0 if not present
-ip link show wg0 >/dev/null 2>&1 || {
+# Create wg0 if not present, or re-address it if stale (env may have changed)
+if ip link show wg0 >/dev/null 2>&1; then
+    ip addr show wg0 | grep -q '%s/24' || {
+        ip addr flush dev wg0
+        ip addr add %s/24 dev wg0
+    }
+else
     ip link add wg0 type wireguard
     ip addr add %s/24 dev wg0
     ip link set wg0 up
     echo 1 > /proc/sys/net/ipv4/ip_forward
-}
+fi
 # Always re-set private key and listen port (key file may have been regenerated after partial cleanup)
 wg set wg0 private-key %s listen-port %d
 
@@ -398,7 +410,7 @@ iptables -t nat -A POSTROUTING -s %s ! -d %s ! -o wg0 -j MASQUERADE 2>/dev/null 
 cat %s`,
 		addrs.peerIdx,
 		keyFile, keyFile, keyFile, pubFile, pubFile,
-		addrs.wgRemoteAddr,
+		addrs.wgRemoteAddr, addrs.wgRemoteAddr, addrs.wgRemoteAddr,
 		keyFile, wgPort,
 		localPubkey, localPubkey, addrs.wgLocalAddr, addrs.localDockerSubnet,
 		netName,
@@ -460,16 +472,20 @@ PEERS=$(ip link show wg0 >/dev/null 2>&1 && wg show wg0 peers 2>/dev/null | wc -
 }
 
 // buildRemoteRemovePeerScript tears down the remote Docker network and wg0 peer
-// for the given peer index.
-func buildRemoteRemovePeerScript(addrs remoteNetAddrs, envName string, peerIdx int, netName string) string {
+// for the given peer index. localPubkey is the local end's WireGuard public key,
+// used to remove the peer entry from the remote's wg0 so the device can be torn
+// down when no peers remain.
+func buildRemoteRemovePeerScript(addrs remoteNetAddrs, envName string, peerIdx int, netName, localPubkey string) string {
 	remoteKeyFile := fmt.Sprintf("/tmp/wg-%s-%d.key", envName, peerIdx)
 	remotePubFile := fmt.Sprintf("/tmp/wg-%s-%d-remote.pub", envName, peerIdx)
 	return fmt.Sprintf(`apk add -q wireguard-tools iproute2 >/dev/null 2>&1
+ip link show wg0 >/dev/null 2>&1 && wg set wg0 peer %s remove 2>/dev/null || true
 ip route del %s 2>/dev/null || true
 rm -f %s %s
 [ -z "$(docker ps -a -q --filter network=%s 2>/dev/null)" ] && docker network rm %s 2>/dev/null || true
 PEERS=$(ip link show wg0 >/dev/null 2>&1 && wg show wg0 peers 2>/dev/null | wc -l || echo 0)
 [ "$PEERS" -eq 0 ] && ip link del wg0 2>/dev/null || true`,
+		localPubkey,
 		addrs.localDockerSubnet,
 		remoteKeyFile, remotePubFile,
 		netName, netName,
