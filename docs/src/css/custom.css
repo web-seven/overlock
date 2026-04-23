@@ -1,0 +1,27 @@
+/**
+ * Custom CSS for Overlock documentation.
+ * Infima CSS variables reference: https://infima.dev/docs/layout/grid
+ */
+
+:root {
+  --ifm-color-primary: #4a6fa5;
+  --ifm-color-primary-dark: #3d5f92;
+  --ifm-color-primary-darker: #395989;
+  --ifm-color-primary-darkest: #2f4a71;
+  --ifm-color-primary-light: #577fb8;
+  --ifm-color-primary-lighter: #5b83bc;
+  --ifm-color-primary-lightest: #6f93c5;
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme='dark'] {
+  --ifm-color-primary: #7aafdd;
+  --ifm-color-primary-dark: #5aa0d5;
+  --ifm-color-primary-darker: #4b98d1;
+  --ifm-color-primary-darkest: #2983c3;
+  --ifm-color-primary-light: #9abee5;
+  --ifm-color-primary-lighter: #a9c6e9;
+  --ifm-color-primary-lightest: #c8d9f1;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+}
