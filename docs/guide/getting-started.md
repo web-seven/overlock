@@ -17,7 +17,16 @@ You need two things installed and running:
 - **`overlock` CLI** — confirm it's available by running `overlock --version`.
 
 > [!TIP]
-> On macOS, Docker Desktop is the easiest way to get Docker running. On Linux, make sure your user is in the `docker` group so you don't need `sudo` for Docker commands, otherwise the cluster creation will fail silently.
+> On macOS and Windows, Docker Desktop is the easiest way to get Docker running. On Linux, you can either install the Docker Engine package and add your user to the `docker` group (so you don't need `sudo`), or use Docker Desktop — see the note below for the extra step required.
+
+> [!IMPORTANT]
+> **Docker Desktop on Linux.** Overlock talks to Docker through the Docker Go SDK, which does not read Docker CLI contexts. If you use Docker Desktop on Linux, the `desktop-linux` context is active for the `docker` CLI but Overlock won't see the daemon. Export `DOCKER_HOST` so it points at the Docker Desktop socket before running Overlock:
+>
+> ```bash
+> export DOCKER_HOST=unix://$HOME/.docker/desktop/docker.raw.sock
+> ```
+>
+> Add the line to your shell profile (`~/.bashrc`, `~/.zshrc`) to make it permanent. The same variable works on macOS Docker Desktop, but is only required when the daemon socket isn't at the default `/var/run/docker.sock`.
 
 ---
 
