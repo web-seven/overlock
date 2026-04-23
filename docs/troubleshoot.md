@@ -5,6 +5,7 @@ This document provides solutions to common issues you may encounter when using O
 ## Table of Contents
 
 - [Common Issues](#common-issues)
+  - [Docker Desktop on Linux: daemon not found](#docker-desktop-on-linux-daemon-not-found)
   - [Environment Creation Fails](#environment-creation-fails)
   - [Package Installation Fails](#package-installation-fails)
   - [Provider Not Working](#provider-not-working)
@@ -14,6 +15,25 @@ This document provides solutions to common issues you may encounter when using O
 - [Debug Mode](#debug-mode)
 
 ## Common Issues
+
+### Docker Desktop on Linux: daemon not found
+
+**Symptoms:**
+- `overlock env create` fails immediately with a Docker connection error
+- `docker ps` works fine in the same shell
+- The active Docker context is `desktop-linux`
+
+**Cause:**
+Overlock uses the Docker Go SDK, which does not read Docker CLI contexts. When Docker Desktop is installed on Linux, the daemon socket lives under `~/.docker/desktop/` rather than `/var/run/docker.sock`, so the SDK cannot find it without help.
+
+**Solution:**
+Export `DOCKER_HOST` to point at the Docker Desktop socket:
+
+```bash
+export DOCKER_HOST=unix://$HOME/.docker/desktop/docker.raw.sock
+```
+
+Add the line to your shell profile (`~/.bashrc`, `~/.zshrc`) to make it permanent.
 
 ### Environment Creation Fails
 
