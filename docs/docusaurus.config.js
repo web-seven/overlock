@@ -42,7 +42,7 @@ const config = {
   // Serve existing PNG assets from the docs root alongside the standard static/ dir
   staticDirectories: ['.', 'static'],
 
-  plugins: [stripBadProgressPlugin()],
+  plugins: [stripBadProgressPlugin],
 
   presets: [
     [
