@@ -2,6 +2,23 @@
 
 const {themes: prismThemes} = require('prism-react-renderer');
 
+function stripBadProgressPlugin() {
+  return {
+    name: 'strip-bad-progress-plugin',
+    configureWebpack(config) {
+      const plugins = (config.plugins || []).filter((p) => {
+        const opts = p && p.options;
+        if (!opts || typeof opts !== 'object') return true;
+        return !('name' in opts || 'color' in opts || 'reporters' in opts || 'reporter' in opts);
+      });
+      return {
+        plugins,
+        mergeStrategy: { plugins: 'replace' },
+      };
+    },
+  };
+}
+
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: 'Overlock',
@@ -24,6 +41,8 @@ const config = {
 
   // Serve existing PNG assets from the docs root alongside the standard static/ dir
   staticDirectories: ['.', 'static'],
+
+  plugins: [stripBadProgressPlugin()],
 
   presets: [
     [
