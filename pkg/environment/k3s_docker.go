@@ -15,6 +15,7 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/network"
 	docker "github.com/docker/docker/client"
+	"github.com/docker/go-connections/nat"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -23,7 +24,7 @@ import (
 )
 
 const (
-	k3sDockerImage           = "rancher/k3s:v1.32.2-k3s1"
+	k3sDockerImage           = "rancher/k3s:v1.32.13-k3s1"
 	k3sDockerContainerPrefix = "k3s-docker-"
 	k3sKubeconfigPath        = "/etc/rancher/k3s/k3s.yaml"
 	k3sReadinessTimeout      = 120 * time.Second
@@ -79,9 +80,14 @@ func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (_ s
 			"--egress-selector-mode", "cluster",
 			"--node-ip", addrs.serverIP,
 			"--tls-san", addrs.serverIP,
+			"--tls-san", "127.0.0.1",
+			"--tls-san", "localhost",
 		},
 		Env: []string{
 			"K3S_KUBECONFIG_MODE=644",
+		},
+		ExposedPorts: nat.PortSet{
+			"6443/tcp": struct{}{},
 		},
 	}
 
@@ -104,6 +110,9 @@ func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (_ s
 		},
 		Resources: container.Resources{
 			NanoCPUs: nanoCPUs,
+		},
+		PortBindings: nat.PortMap{
+			"6443/tcp": []nat.PortBinding{{HostIP: "127.0.0.1", HostPort: "0"}},
 		},
 	}
 
@@ -158,10 +167,17 @@ func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (_ s
 		return "", err
 	}
 
-	// Merge kubeconfig into host kubeconfig. The API server is reachable
-	// via the Docker bridge network at the server's fixed IP.
+	// The host publishes 6443 on a dynamic loopback port. This works on both
+	// native Docker (localhost:port → container) and Docker Desktop (loopback
+	// forwarded into the VM), whereas the bridge IP is not routable from the
+	// host on Docker Desktop.
+	hostPort, err := k3sAPIServerHostPort(ctx, dockerClient, resp.ID)
+	if err != nil {
+		return "", err
+	}
+
 	contextName := e.K3sDockerContextName()
-	serverURL := fmt.Sprintf("https://%s:6443", computeEnvNetAddrs(e.name).serverIP)
+	serverURL := fmt.Sprintf("https://127.0.0.1:%s", hostPort)
 	if err := mergeK3sDockerKubeconfig(kubeconfigData, contextName, serverURL); err != nil {
 		return "", fmt.Errorf("failed to merge kubeconfig: %w", err)
 	}
@@ -373,6 +389,25 @@ func (e *Environment) startStopRemoteNodes(ctx context.Context, action string, l
 		}
 		remote.Close()
 	}
+}
+
+// k3sAPIServerHostPort returns the dynamic host port that Docker assigned to
+// the container's 6443/tcp binding.
+func k3sAPIServerHostPort(ctx context.Context, dockerClient *docker.Client, containerID string) (string, error) {
+	inspect, err := dockerClient.ContainerInspect(ctx, containerID)
+	if err != nil {
+		return "", fmt.Errorf("failed to inspect k3s server container: %w", err)
+	}
+	if inspect.NetworkSettings == nil {
+		return "", fmt.Errorf("k3s server container has no network settings")
+	}
+	bindings := inspect.NetworkSettings.Ports["6443/tcp"]
+	for _, b := range bindings {
+		if b.HostPort != "" {
+			return b.HostPort, nil
+		}
+	}
+	return "", fmt.Errorf("k3s server container has no published host port for 6443/tcp")
 }
 
 // K3sDockerContextName returns the kubeconfig context name for this engine.
