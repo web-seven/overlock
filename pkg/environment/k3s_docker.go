@@ -29,7 +29,28 @@ const (
 	k3sKubeconfigPath        = "/etc/rancher/k3s/k3s.yaml"
 	k3sReadinessTimeout      = 120 * time.Second
 	k3sReadinessPollInterval = 2 * time.Second
+
+	// flannelConfPath is where the in-container flannel net-conf JSON is written.
+	flannelConfPath = "/etc/k3s/flannel.json"
+
+	// podMTU is the inner MTU advertised to pods. The chain is
+	// 1500 (host) − 60 (WireGuard) − 50 (VXLAN) ≈ 1390; 1370 leaves headroom
+	// for PPPoE (1492) on the host path so encapsulated packets still fit.
+	podMTU = 1370
 )
+
+// flannelNetConf is the JSON shape k3s expects from --flannel-conf.
+var flannelNetConf = fmt.Sprintf(`{
+  "Network": "10.42.0.0/16",
+  "EnableIPv4": true,
+  "Backend": {
+    "Type": "vxlan",
+    "VNI": 1,
+    "Port": 8472,
+    "MTU": %d
+  }
+}
+`, podMTU)
 
 // CreateK3sDockerEnvironment creates a k3s cluster running inside a Docker
 // container using the Docker Go client directly (no external CLI required).
@@ -76,6 +97,7 @@ func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (_ s
 			"--disable=traefik",
 			"--disable-network-policy",
 			"--flannel-backend=vxlan",
+			"--flannel-conf=" + flannelConfPath,
 			"--flannel-iface", "eth0",
 			"--egress-selector-mode", "cluster",
 			"--node-ip", addrs.serverIP,
@@ -151,6 +173,10 @@ func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (_ s
 		}
 	}()
 
+	if err := writeFlannelConf(ctx, dockerClient, resp.ID); err != nil {
+		return "", fmt.Errorf("failed to write flannel config: %w", err)
+	}
+
 	if err := dockerClient.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
 		return "", fmt.Errorf("failed to start k3s-docker container: %w", err)
 	}
@@ -159,6 +185,13 @@ func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (_ s
 
 	if err := e.waitForK3sDockerReady(ctx, dockerClient, resp.ID, logger); err != nil {
 		return "", err
+	}
+
+	// Clamp TCP MSS on FORWARD so encapsulated packets always fit the path
+	// MTU (covers users behind PPPoE / VPNs whose ISPs drop the ICMP needed
+	// for PMTU discovery). Harmless when path MTU is a clean 1500.
+	if err := applyMSSClamping(ctx, dockerClient, resp.ID); err != nil {
+		logger.Warnf("Failed to apply MSS clamping: %v", err)
 	}
 
 	// Copy kubeconfig from the container.
@@ -389,6 +422,103 @@ func (e *Environment) startStopRemoteNodes(ctx context.Context, action string, l
 		}
 		remote.Close()
 	}
+}
+
+// writeFlannelConf packages the flannel net-conf JSON into a tar stream and
+// copies it into the container at flannelConfPath. Must be called between
+// ContainerCreate and ContainerStart.
+func writeFlannelConf(ctx context.Context, dockerClient *docker.Client, containerID string) error {
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+	body := []byte(flannelNetConf)
+	hdr := &tar.Header{
+		Name: "flannel.json",
+		Mode: 0o644,
+		Size: int64(len(body)),
+	}
+	if err := tw.WriteHeader(hdr); err != nil {
+		return fmt.Errorf("write tar header: %w", err)
+	}
+	if _, err := tw.Write(body); err != nil {
+		return fmt.Errorf("write tar body: %w", err)
+	}
+	if err := tw.Close(); err != nil {
+		return fmt.Errorf("close tar writer: %w", err)
+	}
+
+	// CopyToContainer requires the destination directory to exist; create it
+	// via a one-shot exec is impossible before start, so we mkdir via the tar
+	// stream itself by ensuring the destination is a directory we can target.
+	// /etc exists in the rancher/k3s image; /etc/k3s does not, so create it.
+	if err := mkdirInContainer(ctx, dockerClient, containerID, "/etc/k3s"); err != nil {
+		return err
+	}
+
+	return dockerClient.CopyToContainer(ctx, containerID, "/etc/k3s", &buf, types.CopyToContainerOptions{})
+}
+
+// mkdirInContainer creates a directory inside the container by streaming an
+// empty tar entry of type Directory to the parent path. Works on a stopped
+// container, where exec is unavailable.
+func mkdirInContainer(ctx context.Context, dockerClient *docker.Client, containerID, dir string) error {
+	parent := "/"
+	name := strings.TrimPrefix(dir, "/")
+	if i := strings.LastIndex(name, "/"); i >= 0 {
+		parent = "/" + name[:i]
+		name = name[i+1:]
+	}
+
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+	hdr := &tar.Header{
+		Name:     name + "/",
+		Mode:     0o755,
+		Typeflag: tar.TypeDir,
+	}
+	if err := tw.WriteHeader(hdr); err != nil {
+		return fmt.Errorf("write mkdir tar header: %w", err)
+	}
+	if err := tw.Close(); err != nil {
+		return fmt.Errorf("close mkdir tar writer: %w", err)
+	}
+
+	return dockerClient.CopyToContainer(ctx, containerID, parent, &buf, types.CopyToContainerOptions{})
+}
+
+// applyMSSClamping installs an iptables MSS clamping rule on the container's
+// FORWARD chain so TCP segments shrink to fit whatever path MTU the host has,
+// without relying on ICMP "fragmentation needed" responses (which residential
+// ISPs frequently drop).
+func applyMSSClamping(ctx context.Context, dockerClient *docker.Client, containerID string) error {
+	// Idempotent: -C checks if the rule exists, -A appends only if it doesn't.
+	cmd := []string{
+		"sh", "-c",
+		"iptables -t mangle -C FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || " +
+			"iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu",
+	}
+	execID, err := dockerClient.ContainerExecCreate(ctx, containerID, types.ExecConfig{
+		Cmd:          cmd,
+		AttachStdout: true,
+		AttachStderr: true,
+	})
+	if err != nil {
+		return fmt.Errorf("create exec: %w", err)
+	}
+	attach, err := dockerClient.ContainerExecAttach(ctx, execID.ID, types.ExecStartCheck{})
+	if err != nil {
+		return fmt.Errorf("attach exec: %w", err)
+	}
+	_, _ = io.Copy(io.Discard, attach.Reader)
+	attach.Close()
+
+	inspect, err := dockerClient.ContainerExecInspect(ctx, execID.ID)
+	if err != nil {
+		return fmt.Errorf("inspect exec: %w", err)
+	}
+	if inspect.ExitCode != 0 {
+		return fmt.Errorf("iptables exited %d", inspect.ExitCode)
+	}
+	return nil
 }
 
 // k3sAPIServerHostPort returns the dynamic host port that Docker assigned to

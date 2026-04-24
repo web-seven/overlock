@@ -338,6 +338,10 @@ func (e *Environment) createLocalNode(ctx context.Context, dockerClient *docker.
 		return fmt.Errorf("failed to start node container: %w", err)
 	}
 
+	if err := applyMSSClamping(ctx, dockerClient, resp.ID); err != nil {
+		logger.Warnf("Failed to apply MSS clamping on node %q: %v", agentContainerName, err)
+	}
+
 	logger.Debugf("Node container %q started, waiting for node to join the cluster...", agentContainerName)
 	return nil
 }
@@ -398,6 +402,14 @@ func (e *Environment) createRemoteNode(_ context.Context, _ *docker.Client, _ st
 	logger.Debugf("Creating node container %q on remote host %s...", agentContainerName, remote.Host)
 	if _, err := remote.Run(dockerRunCmd); err != nil {
 		return fmt.Errorf("failed to create remote node container: %w", err)
+	}
+
+	mssCmd := fmt.Sprintf(
+		"docker exec %s sh -c 'iptables -t mangle -C FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu'",
+		agentContainerName,
+	)
+	if _, err := remote.Run(mssCmd); err != nil {
+		logger.Warnf("Failed to apply MSS clamping on remote node %q: %v", agentContainerName, err)
 	}
 
 	logger.Debugf("Node container %q started on remote host, waiting for node to join the cluster...", agentContainerName)
