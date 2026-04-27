@@ -70,7 +70,15 @@ module.exports = async function createConfig() {
           editUrl: 'https://github.com/web-seven/overlock/edit/main/docs/',
           beforeDefaultRemarkPlugins: [remarkAdmonitions],
         },
-        blog: false,
+        blog: {
+          path: '../blog',
+          routeBasePath: 'blog',
+          blogTitle: 'Blog',
+          blogDescription: 'Updates and articles from the Overlock team',
+          showReadingTime: true,
+          postsPerPage: 10,
+          editUrl: 'https://github.com/web-seven/overlock/edit/main/',
+        },
         theme: {
           customCss: './src/css/custom.css',
         },
@@ -95,6 +103,7 @@ module.exports = async function createConfig() {
             position: 'left',
             label: 'Documentation',
           },
+          {to: '/blog', label: 'Blog', position: 'left'},
           {
             href: 'https://github.com/web-seven/overlock',
             label: 'GitHub',
