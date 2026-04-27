@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Overlock // Mission Control for Crossplane</title>
+  <meta name="description" content="A CLI mission-control for Crossplane. Provision Kubernetes environments, install providers, attach remote nodes over WireGuard-encrypted SSH, and hot-reload local packages — from one command line." />
+  <meta name="theme-color" content="#02050e" />
+
+  <meta property="og:title" content="Overlock // Mission Control for Crossplane" />
+  <meta property="og:description" content="Provision Kubernetes environments, install providers, attach remote nodes over WireGuard, hot-reload packages — from one command line." />
+  <meta property="og:image" content="https://raw.githubusercontent.com/web-seven/overlock/refs/heads/main/docs/overlock_galaxy.png" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+
+  <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/web-seven/overlock/refs/heads/main/docs/overlock_galaxy_icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Saira:wdth,wght@75..125,400;75..125,500;75..125,600;75..125,700&family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- cosmic background layers -->
+  <div class="space" aria-hidden="true">
+    <div class="space__nebula"></div>
+    <div class="space__grid"></div>
+    <div class="space__stars" id="stars"></div>
+    <div class="space__scan"></div>
+  </div>
+
+
+  <!-- HEADER -->
+  <header class="hdr">
+    <div class="wrap hdr__row">
+      <a href="#top" class="hdr__brand" aria-label="Overlock">
+        <img class="hdr__logo" src="https://raw.githubusercontent.com/web-seven/overlock/refs/heads/main/docs/overlock_white_alpha.png" alt=""/>
+        <span class="hdr__name">Overlock</span>
+      </a>
+      <nav class="hdr__nav" aria-label="Primary">
+        <a href="#dash"><i>·</i>Features</a>
+        <a href="#env"><i>·</i>Environments</a>
+        <a href="#nodes"><i>·</i>Nodes</a>
+        <a href="#packages"><i>·</i>Packages</a>
+        <a href="https://docs.overlock.app" target="_blank" rel="noopener"><i>·</i>Docs</a>
+        <a href="#compare"><i>·</i>Compare</a>
+      </nav>
+      <div class="hdr__cta">
+        <a class="btn btn--ghost btn--sm" href="https://github.com/web-seven/overlock" target="_blank" rel="noopener">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.37-3.87-1.37-.52-1.34-1.27-1.7-1.27-1.7-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.02 1.76 2.69 1.25 3.34.96.1-.74.4-1.25.72-1.54-2.55-.29-5.24-1.27-5.24-5.66 0-1.25.45-2.27 1.18-3.07-.12-.29-.51-1.46.11-3.04 0 0 .96-.31 3.16 1.17a10.95 10.95 0 0 1 5.74 0c2.2-1.48 3.16-1.17 3.16-1.17.62 1.58.23 2.75.11 3.04.74.8 1.18 1.82 1.18 3.07 0 4.4-2.7 5.36-5.27 5.65.41.36.78 1.06.78 2.14v3.17c0 .31.21.68.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+          <span>github</span>
+        </a>
+        <a class="btn btn--solid btn--sm" href="#install">
+          <span>install ↓</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+
+  <main id="top">
+
+    <!-- =================== HERO =================== -->
+    <section class="hero">
+      <div class="wrap hero__wrap">
+
+        <div class="hero__brackets" aria-hidden="true">
+          <span class="bk bk--tl"></span>
+          <span class="bk bk--tr"></span>
+          <span class="bk bk--bl"></span>
+          <span class="bk bk--br"></span>
+        </div>
+
+        <h1 class="hero__title">
+          Mission control<br/>
+          for <span class="acc">Crossplane.</span>
+        </h1>
+
+        <p class="hero__lede">
+          A single Go binary that provisions a Crossplane environments, attaches remote nodes over WireGuard-encrypted SSH, and hot-reloads local packages while you build.<br/>Multi-engine. Multi-node. <span class="mk">Open source &amp; MIT licensed.</span>
+        </p>
+
+
+        <!-- LAUNCH SEQUENCE / install -->
+        <div class="launch" id="install">
+          <header class="launch__head">
+            <span class="launch__chip">
+              <i class="dot dot--ok"></i>
+              <b>LAUNCH_SEQUENCE</b>
+              <em>· one line · macOS / linux / windows</em>
+            </span>
+            <span class="launch__meta"><b>v</b>1.0.2&nbsp;·&nbsp;<b>released</b>&nbsp;2026-04-25</span>
+          </header>
+          <div class="launch__body">
+            <span class="launch__prompt">$</span>
+            <code id="installCmd">curl -sL "https://raw.githubusercontent.com/web-seven/overlock/refs/heads/main/scripts/install.sh" | sh</code>
+            <button class="copy" data-copy="#installCmd" aria-label="Copy install command">
+              <span class="copy__lbl"></span>
+              <span class="copy__icn copy__icn--c">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="1" ry="1"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </span>
+              <span class="copy__icn copy__icn--ok">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <div class="hero__actions">
+          <a class="btn btn--solid btn--lg" href="https://docs.overlock.app" target="_blank" rel="noopener">
+            <span>read the docs</span><span class="btn__a">↗</span>
+          </a>
+          <a class="btn btn--ghost btn--lg" href="https://github.com/web-seven/overlock" target="_blank" rel="noopener">
+            <span>star on github</span><span class="btn__a">↗</span>
+          </a>
+          <a class="btn btn--ghost btn--lg" href="https://discord.gg/W7AsrUb5GC" target="_blank" rel="noopener">
+            <span>discord</span><span class="btn__a">↗</span>
+          </a>
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- =================== DASHBOARD GRID =================== -->
+    <section class="dash" id="dash">
+      <div class="wrap">
+        <div class="seclbl">
+          <span class="seclbl__id">[ DASH_00 ]</span>
+          <span class="seclbl__t">capability_overview</span>
+          <span class="seclbl__r"></span>
+          <span class="seclbl__c">07&nbsp;modules</span>
+        </div>
+
+        <div class="dash__grid">
+
+          <a class="tile tile--xl" href="#env">
+            <header>
+              <span class="tile__id">01</span>
+              <span class="tile__cat">// quick_env_setup</span>
+              <i class="dot dot--ok tile__dot"></i>
+            </header>
+            <h3>Quick Environment Setup</h3>
+            <p>Single-command provisioning of a fully configured Crossplane environment. Cluster, engine, package manager — bootstrapped automatically.</p>
+            <span class="tile__more">open module&nbsp;→</span>
+          </a>
+
+          <a class="tile" href="#env">
+            <header>
+              <span class="tile__id">02</span>
+              <span class="tile__cat">// multi_engine</span>
+              <i class="dot dot--ok tile__dot"></i>
+            </header>
+            <h3>Multi-Engine</h3>
+            <p>KinD, K3s, K3d, K3s-Docker — pick the distribution that fits your workflow.</p>
+          </a>
+
+          <a class="tile tile--accent" href="#nodes">
+            <header>
+              <span class="tile__id">03</span>
+              <span class="tile__cat">// remote_nodes</span>
+              <i class="dot dot--ok tile__dot"></i>
+            </header>
+            <h3>Multi-Node &amp; Remote Nodes</h3>
+            <p>Add Linux machines as worker nodes via SSH. Inter-node traffic encrypted by <em>WireGuard</em> out of the box.</p>
+          </a>
+
+          <a class="tile" href="#nodes">
+            <header>
+              <span class="tile__id">04</span>
+              <span class="tile__cat">// cpu_limits</span>
+              <i class="dot dot--ok tile__dot"></i>
+            </header>
+            <h3>CPU Limits</h3>
+            <p>Cap CPU per container node so reconciliation loops don't grind your laptop to a halt. Accepts <code>2</code>, <code>0.5</code>, <code>50%</code>.</p>
+          </a>
+
+          <a class="tile" href="#packages">
+            <header>
+              <span class="tile__id">05</span>
+              <span class="tile__cat">// packages</span>
+              <i class="dot dot--ok tile__dot"></i>
+            </header>
+            <h3>Package Management</h3>
+            <p>Install, list and remove Crossplane configurations, providers and functions from any OCI registry.</p>
+          </a>
+
+          <a class="tile" href="#packages">
+            <header>
+              <span class="tile__id">06</span>
+              <span class="tile__cat">// live_dev</span>
+              <i class="dot dot--ok tile__dot"></i>
+            </header>
+            <h3>Live Development</h3>
+            <p>Hot-reload local packages. Edit code; see changes reflected in the cluster within seconds.</p>
+          </a>
+
+          <a class="tile" href="#packages">
+            <header>
+              <span class="tile__id">07</span>
+              <span class="tile__cat">// registries</span>
+              <i class="dot dot--ok tile__dot"></i>
+            </header>
+            <h3>Registry Integration</h3>
+            <p>Local <em>and</em> remote OCI registries. Same UX. Air-gapped pipelines welcome.</p>
+          </a>
+
+          <a class="tile tile--wide" href="#plugins">
+            <header>
+              <span class="tile__id">08</span>
+              <span class="tile__cat">// plugins</span>
+              <i class="dot dot--ok tile__dot"></i>
+            </header>
+            <h3>Plugin System</h3>
+            <p>Drop a binary into <code>~/.config/overlock/plugins</code> and it becomes a first-class subcommand. Build your team's CLI without forking ours.</p>
+          </a>
+
+        </div>
+      </div>
+    </section>
+
+
+    <!-- =================== PANEL: ENVIRONMENT =================== -->
+    <section class="panel" id="env">
+      <div class="wrap">
+        <div class="seclbl">
+          <span class="seclbl__id">[ PNL_01 ]</span>
+          <span class="seclbl__t">quick_environment_setup</span>
+          <span class="seclbl__r"></span>
+          <span class="seclbl__c">priority_high</span>
+        </div>
+
+        <div class="panel__grid">
+          <div class="panel__copy">
+            <h2 class="panel__title">
+              Create fully configured Crossplane environments with <span class="acc">a single command.</span>
+            </h2>
+            <p>
+              Overlock handles cluster provisioning, Crossplane installation, and initial configuration automatically. No bootstrap scripts. No checklist. Pick a Kubernetes distribution and Overlock builds the rest.
+            </p>
+            <p>
+              Multi-engine support means the same vocabulary across <em>KinD</em>, <em>K3s</em>, <em>K3d</em> and <em>K3s-Docker</em> — choose the engine that fits your machine and your team.
+            </p>
+            <ul class="panel__bullets">
+              <li>Cluster &amp; Crossplane bootstrapped automatically</li>
+              <li>Pin a specific Crossplane version with <code>--engine-version</code></li>
+              <li>Start, stop, upgrade and delete environments at will</li>
+            </ul>
+          </div>
+
+          <div class="panel__terminal">
+            <header class="term__bar">
+              <div class="term__lights"><span></span><span></span><span></span></div>
+              <span class="term__title">~/lab — overlock environment</span>
+              <span class="term__rec"><i class="dot dot--ok"></i>READY</span>
+            </header>
+            <pre class="term__body"><code><span class="c"># Create a new environment with default settings</span>
+<span class="p">$</span> <span class="k">overlock</span> environment create <span class="s">my-dev-env</span>
+
+<span class="c"># Create with a specific Crossplane version</span>
+<span class="p">$</span> <span class="k">overlock</span> --engine-version <span class="s">1.18.0</span> environment create <span class="s">my-dev-env</span>
+
+<span class="c"># List environments / start / stop / upgrade / delete</span>
+<span class="p">$</span> <span class="k">overlock</span> environment list
+<span class="p">$</span> <span class="k">overlock</span> environment start   <span class="s">my-dev-env</span>
+<span class="p">$</span> <span class="k">overlock</span> environment stop    <span class="s">my-dev-env</span>
+<span class="p">$</span> <span class="k">overlock</span> environment upgrade <span class="s">my-dev-env</span>
+<span class="p">$</span> <span class="k">overlock</span> environment delete  <span class="s">my-dev-env</span></code></pre>
+          </div>
+        </div>
+
+        <!-- engines table -->
+        <div class="engines">
+          <header class="engines__h">
+            <span class="hud-lbl"><b>SUB_PANEL</b><em>// supported_engines</em></span>
+            <h3>Four engines. <span class="acc">Same vocabulary.</span></h3>
+          </header>
+          <div class="engines__tbl">
+            <article class="eng">
+              <header><span class="eng__id">01</span><b>KinD</b></header>
+              <p><em>Kubernetes in Docker.</em><br/>Quick local testing.</p>
+              <code>--engine kind</code>
+            </article>
+            <article class="eng">
+              <header><span class="eng__id">02</span><b>K3s</b></header>
+              <p><em>Lightweight Kubernetes.</em><br/>Low-resource environments.</p>
+              <code>--engine k3s</code>
+            </article>
+            <article class="eng">
+              <header><span class="eng__id">03</span><b>K3d</b></header>
+              <p><em>K3s in Docker.</em><br/>Fast multi-cluster setups.</p>
+              <code>--engine k3d</code>
+            </article>
+            <article class="eng eng--accent">
+              <header><span class="eng__id">04</span><b>K3s-Docker</b></header>
+              <p><em>K3s with Docker containers as nodes.</em><br/>Distributed and multi-node environments.</p>
+              <code>--engine k3s-docker</code>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- =================== PANEL: NODES & WIREGUARD =================== -->
+    <section class="panel panel--alt" id="nodes">
+      <div class="wrap">
+        <div class="seclbl">
+          <span class="seclbl__id">[ PNL_02 ]</span>
+          <span class="seclbl__t">multi_node · remote_nodes · wireguard</span>
+          <span class="seclbl__r"></span>
+          <span class="seclbl__c">k3s-docker</span>
+        </div>
+
+        <div class="panel__grid">
+          <div class="panel__copy">
+            <h2 class="panel__title">
+              Distributed control planes <span class="acc">across any Linux host.</span>
+            </h2>
+            <p>
+              The <code>k3s-docker</code> engine creates an agentless K3s server with two default agent nodes — <em>workloads</em> for user pods and system services, and <em>engine</em> dedicated to Crossplane, providers, functions, Kyverno and CertManager.
+            </p>
+            <p>
+              Remote nodes join the cluster via SSH. Any Linux host with Docker installed can be added as a worker. Inter-node traffic is encrypted by <span class="mk">WireGuard out of the box.</span>
+            </p>
+            <ul class="panel__bullets">
+              <li>Agentless K3s server, two-tier node scoping</li>
+              <li>SSH-attached remote nodes (any Linux + Docker)</li>
+              <li>WireGuard-encrypted inter-node traffic</li>
+              <li>Containers cleaned up automatically on env delete</li>
+            </ul>
+          </div>
+
+          <div class="panel__terminal">
+            <header class="term__bar">
+              <div class="term__lights"><span></span><span></span><span></span></div>
+              <span class="term__title">~/lab — overlock env node</span>
+              <span class="term__rec"><i class="dot dot--ok"></i>WG_ON</span>
+            </header>
+            <pre class="term__body"><code><span class="c"># Create a k3s-docker environment</span>
+<span class="p">$</span> <span class="k">overlock</span> env create <span class="s">my-env</span> <span class="f">--engine</span> k3s-docker
+
+<span class="c"># Add a remote machine as an engine node</span>
+<span class="p">$</span> <span class="k">overlock</span> env node create <span class="s">my-remote-node</span> \
+    <span class="f">--env</span> my-env \
+    <span class="f">--host</span> 192.168.1.100 \
+    <span class="f">--scopes</span> engine
+
+<span class="c"># Limit each container to 2 CPU cores</span>
+<span class="p">$</span> <span class="k">overlock</span> env create <span class="s">my-env</span> <span class="f">--engine</span> k3s-docker <span class="f">--cpu</span> 2
+
+<span class="c"># Fractional and percentage values supported</span>
+<span class="p">$</span> <span class="k">overlock</span> env create <span class="s">my-env</span> <span class="f">--engine</span> k3s-docker <span class="f">--cpu</span> 0.5
+<span class="p">$</span> <span class="k">overlock</span> env create <span class="s">my-env</span> <span class="f">--engine</span> k3s-docker <span class="f">--cpu</span> 50%</code></pre>
+          </div>
+        </div>
+
+        <!-- wireguard diagram -->
+        <div class="wgmap">
+          <span class="hud-lbl"><b>FIG_02</b><em>// inter_node_topology</em></span>
+          <div class="wgmap__svg" aria-hidden="true">
+            <svg viewBox="0 0 800 280" preserveAspectRatio="xMidYMid meet">
+              <defs>
+                <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                  <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+                </marker>
+              </defs>
+              <g class="wg-line">
+                <line x1="200" y1="140" x2="380" y2="80"  marker-end="url(#arr)" />
+                <line x1="200" y1="140" x2="380" y2="200" marker-end="url(#arr)" />
+                <line x1="200" y1="140" x2="600" y2="60"  marker-end="url(#arr)" />
+                <line x1="200" y1="140" x2="600" y2="220" marker-end="url(#arr)" />
+              </g>
+              <!-- server -->
+              <g class="wg-node wg-node--core">
+                <rect x="80" y="100" width="180" height="80" rx="2"/>
+                <text x="170" y="132" text-anchor="middle">K3S SERVER</text>
+                <text x="170" y="156" text-anchor="middle" class="wg-sub">agentless · control</text>
+              </g>
+              <!-- local agents -->
+              <g class="wg-node">
+                <rect x="380" y="40" width="160" height="64" rx="2"/>
+                <text x="460" y="66" text-anchor="middle">workloads</text>
+                <text x="460" y="86" text-anchor="middle" class="wg-sub">local agent</text>
+              </g>
+              <g class="wg-node">
+                <rect x="380" y="160" width="160" height="64" rx="2"/>
+                <text x="460" y="186" text-anchor="middle">engine</text>
+                <text x="460" y="206" text-anchor="middle" class="wg-sub">local agent · crossplane</text>
+              </g>
+              <!-- remote -->
+              <g class="wg-node wg-node--rem">
+                <rect x="600" y="20" width="180" height="64" rx="2"/>
+                <text x="690" y="46" text-anchor="middle">remote::node-01</text>
+                <text x="690" y="66" text-anchor="middle" class="wg-sub">SSH + WireGuard</text>
+              </g>
+              <g class="wg-node wg-node--rem">
+                <rect x="600" y="180" width="180" height="64" rx="2"/>
+                <text x="690" y="206" text-anchor="middle">remote::node-02</text>
+                <text x="690" y="226" text-anchor="middle" class="wg-sub">192.168.1.100</text>
+              </g>
+              <!-- caption -->
+              <text x="400" y="270" text-anchor="middle" class="wg-caption">all inter-node traffic encrypted via WireGuard</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- =================== PANEL: PACKAGES & LIVE DEV =================== -->
+    <section class="panel" id="packages">
+      <div class="wrap">
+        <div class="seclbl">
+          <span class="seclbl__id">[ PNL_03 ]</span>
+          <span class="seclbl__t">packages · live_dev · registries</span>
+          <span class="seclbl__r"></span>
+          <span class="seclbl__c">crossplane.surface</span>
+        </div>
+
+        <div class="panel__grid panel__grid--rev">
+          <div class="panel__terminal">
+            <header class="term__bar">
+              <div class="term__lights"><span></span><span></span><span></span></div>
+              <span class="term__title">~/lab — overlock packages</span>
+              <span class="term__rec"><i class="dot dot--ok"></i>SYNC</span>
+            </header>
+            <pre class="term__body"><code><span class="c"># Install a provider</span>
+<span class="p">$</span> <span class="k">overlock</span> provider install <span class="s">xpkg.upbound.io/crossplane-contrib/provider-gcp:v0.22.0</span>
+
+<span class="c"># Apply a configuration</span>
+<span class="p">$</span> <span class="k">overlock</span> configuration apply <span class="s">xpkg.upbound.io/devops-toolkit/dot-application:v3.0.31</span>
+
+<span class="c"># Apply a function</span>
+<span class="p">$</span> <span class="k">overlock</span> function apply <span class="s">xpkg.upbound.io/crossplane-contrib/function-patch-and-transform:v0.7.0</span>
+
+<span class="c"># List installed packages</span>
+<span class="p">$</span> <span class="k">overlock</span> provider list
+<span class="p">$</span> <span class="k">overlock</span> configuration list
+<span class="p">$</span> <span class="k">overlock</span> function list
+
+<span class="c"># Live develop · hot reload from local filesystem</span>
+<span class="p">$</span> <span class="k">overlock</span> configuration serve <span class="s">./my-config-package</span>
+<span class="p">$</span> <span class="k">overlock</span> provider serve <span class="s">./my-provider ./cmd/provider</span>
+<span class="p">$</span> <span class="k">overlock</span> function serve <span class="s">./my-function</span></code></pre>
+          </div>
+
+          <div class="panel__copy">
+            <h2 class="panel__title">
+              The full Crossplane surface, <span class="acc">scripted.</span>
+            </h2>
+            <p>
+              Pull, install, version, and remove configurations, providers and functions from any OCI registry — Upbound, GitHub Container Registry, Harbor, or your own. The verbs you already think in: <code>install</code>, <code>apply</code>, <code>list</code>, <code>describe</code>, <code>delete</code>.
+            </p>
+            <p>
+              Run a registry on your machine for development and CI/CD pipelines, or point at any remote OCI host. Same UX either way. <em>Air-gapped teams welcome.</em>
+            </p>
+            <p>
+              For local development, <code>serve</code> commands watch your filesystem and rebuild &amp; reload the package within seconds — a fast feedback loop Crossplane has been missing.
+            </p>
+          </div>
+        </div>
+
+        <!-- registry mini-panel -->
+        <div class="reg" id="plugins">
+          <article class="reg__card">
+            <span class="hud-lbl"><b>SUB_PANEL_A</b><em>// registry</em></span>
+            <h3>Local <em>and</em> remote registries</h3>
+            <pre><code><span class="c"># Local registry for development</span>
+<span class="p">$</span> <span class="k">overlock</span> registry create <span class="f">--local --default</span>
+
+<span class="c"># Connect a remote registry</span>
+<span class="p">$</span> <span class="k">overlock</span> registry create \
+    <span class="f">--registry-server</span>=<span class="s">registry.example.com</span> \
+    <span class="f">--username</span>=<span class="s">myuser</span> <span class="f">--password</span>=<span class="s">***</span>
+
+<span class="c"># List configured registries</span>
+<span class="p">$</span> <span class="k">overlock</span> registry list</code></pre>
+          </article>
+
+          <article class="reg__card">
+            <span class="hud-lbl"><b>SUB_PANEL_B</b><em>// plugin_system</em></span>
+            <h3>Drop a binary, <em>ship a subcommand</em></h3>
+            <pre><code><span class="c"># Use a custom plugin path</span>
+<span class="p">$</span> <span class="k">overlock</span> <span class="f">--plugin-path</span> /path/to/plugins &lt;cmd&gt;
+
+<span class="c"># Default plugin path:</span>
+~/.config/overlock/plugins/
+├── overlock-deploy
+├── overlock-audit
+└── overlock-secrets</code></pre>
+          </article>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- =================== COMPARE =================== -->
+    <section class="compare" id="compare">
+      <div class="wrap">
+        <div class="seclbl">
+          <span class="seclbl__id">[ PNL_05 ]</span>
+          <span class="seclbl__t">comparable_instruments</span>
+          <span class="seclbl__r"></span>
+          <span class="seclbl__c">april_2026</span>
+        </div>
+
+        <h2 class="sec-title">
+          The <span class="acc">platform-builder's</span> control surface.
+        </h2>
+
+        <div class="cmp">
+          <table>
+            <thead>
+              <tr>
+                <th>capability</th>
+                <th class="is-us">overlock</th>
+                <th>kubectl + helm</th>
+                <th>crossplane CLI</th>
+                <th>up CLI</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>single-command env</td><td class="is-us">✓ <i>yes</i></td><td class="no">manual</td><td class="no">manual</td><td>✓ <i>yes</i></td></tr>
+              <tr><td>multi-engine</td><td class="is-us">✓ <i>kind/k3s/k3d/k3s-docker</i></td><td>any</td><td>any</td><td class="mid">limited</td></tr>
+              <tr><td>multi-node + remote SSH</td><td class="is-us">✓ <i>WireGuard</i></td><td class="no">no</td><td class="no">no</td><td class="no">no</td></tr>
+              <tr><td>CPU per-node limits</td><td class="is-us">✓ <i>--cpu 2 / 0.5 / 50%</i></td><td class="no">manual</td><td class="no">no</td><td class="no">no</td></tr>
+              <tr><td>package management</td><td class="is-us">✓ <i>built-in</i></td><td class="no">manual</td><td class="mid">limited</td><td>✓ <i>built-in</i></td></tr>
+              <tr><td>live-reload dev loop</td><td class="is-us">✓ <i>serve cmds</i></td><td class="no">no</td><td class="no">no</td><td class="mid">partial</td></tr>
+              <tr><td>local + remote registries</td><td class="is-us">✓ <i>both</i></td><td class="no">manual</td><td class="mid">remote only</td><td>✓ <i>both</i></td></tr>
+              <tr><td>plugin system</td><td class="is-us">✓ <i>~/.config/overlock/plugins</i></td><td class="no">—</td><td class="no">no</td><td class="no">no</td></tr>
+              <tr><td>vendor lock-in</td><td class="is-us">✓ <i>none · MIT</i></td><td>none</td><td>none</td><td class="no">SaaS</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- =================== TELEMETRY / METRICS =================== -->
+    <section class="tele">
+      <div class="wrap">
+        <div class="seclbl">
+          <span class="seclbl__id">[ TLM_06 ]</span>
+          <span class="seclbl__t">vital_signs</span>
+          <span class="seclbl__r"></span>
+          <span class="seclbl__c">live</span>
+        </div>
+
+        <div class="tele__grid">
+          <div class="tele__cell">
+            <span class="tele__lbl">install&nbsp;→&nbsp;running</span>
+            <span class="tele__num"><span data-count="60">00</span><sub>s</sub></span>
+            <span class="tele__bar"><i style="--w:96%"></i></span>
+          </div>
+          <div class="tele__cell tele__cell--accent">
+            <span class="tele__lbl">engines</span>
+            <span class="tele__num"><span data-count="4">0</span><sub>·&nbsp;kind/k3s/k3d/k3s-docker</sub></span>
+            <span class="tele__bar"><i style="--w:100%"></i></span>
+          </div>
+          <div class="tele__cell">
+            <span class="tele__lbl">binary</span>
+            <span class="tele__num"><span data-count="1">0</span><sub>·&nbsp;static · no daemon</sub></span>
+            <span class="tele__bar"><i style="--w:18%"></i></span>
+          </div>
+          <div class="tele__cell">
+            <span class="tele__lbl">plugins</span>
+            <span class="tele__num">∞<sub>·&nbsp;drop a binary</sub></span>
+            <span class="tele__bar"><i style="--w:100%"></i></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- =================== FINAL CTA =================== -->
+    <section class="final">
+      <div class="wrap final__wrap">
+        <div class="hero__brackets" aria-hidden="true">
+          <span class="bk bk--tl"></span><span class="bk bk--tr"></span>
+          <span class="bk bk--bl"></span><span class="bk bk--br"></span>
+        </div>
+
+        <span class="hud-lbl"><i class="dot dot--ok"></i><b>READY_TO_LAUNCH</b><em>// final_sequence</em></span>
+
+        <h2 class="final__title">
+          Sixty seconds from now,<br/>
+          <span class="acc">the platform is yours.</span>
+        </h2>
+
+        <div class="launch launch--final">
+          <header class="launch__head">
+            <span class="launch__chip"><i class="dot dot--ok"></i><b>EXEC_THIS</b><em>· macOS / linux / windows</em></span>
+            <span class="launch__meta"><b>v</b>1.0.2&nbsp;·&nbsp;<b>2026-04-25</b></span>
+          </header>
+          <div class="launch__body">
+            <span class="launch__prompt">$</span>
+            <code id="finalCmd">curl -sL https://raw.githubusercontent.com/web-seven/overlock/refs/heads/main/scripts/install.sh | sh</code>
+            <button class="copy" data-copy="#finalCmd" aria-label="Copy install command">
+              <span class="copy__lbl"></span>
+              <span class="copy__icn copy__icn--c">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="1" ry="1"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              </span>
+              <span class="copy__icn copy__icn--ok">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </span>
+            </button>
+          </div>
+          <footer class="launch__foot">
+            <span><i class="dot dot--ok"></i>MIT licensed</span><i>—</i>
+            <span><i class="dot dot--ok"></i>no telemetry</span><i>—</i>
+            <span><i class="dot dot--ok"></i>works offline</span>
+          </footer>
+        </div>
+
+        <div class="final__actions">
+          <a class="btn btn--solid btn--lg" href="https://github.com/web-seven/overlock/releases" target="_blank" rel="noopener">
+            <span>releases</span><span class="btn__a">↗</span>
+          </a>
+          <a class="btn btn--ghost btn--lg" href="https://discord.gg/W7AsrUb5GC" target="_blank" rel="noopener">
+            <span>discord</span><span class="btn__a">↗</span>
+          </a>
+          <a class="btn btn--ghost btn--lg" href="https://github.com/web-seven/overlock" target="_blank" rel="noopener">
+            <span>github</span><span class="btn__a">↗</span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+
+  <!-- =================== FOOTER =================== -->
+  <footer class="ftr">
+    <div class="wrap ftr__row">
+      <div class="ftr__brand">
+        <img class="ftr__logo" src="https://raw.githubusercontent.com/web-seven/overlock/refs/heads/main/docs/overlock_white_alpha.png" alt="Overlock"/>
+        <p>A CLI mission-control for Crossplane. Multi-engine, multi-node, hot-reload &amp; plugin-extensible. Open source under the MIT license.</p>
+      </div>
+      <div class="ftr__cols">
+        <section>
+          <h5>project</h5>
+          <a href="https://github.com/web-seven/overlock" target="_blank" rel="noopener">GitHub</a>
+          <a href="https://github.com/web-seven/overlock/releases" target="_blank" rel="noopener">Releases</a>
+          <a href="https://github.com/web-seven/overlock/blob/main/LICENSE" target="_blank" rel="noopener">License</a>
+        </section>
+        <section>
+          <h5>docs</h5>
+          <a href="https://github.com/web-seven/overlock/blob/main/docs/overview.md" target="_blank" rel="noopener">Overview</a>
+          <a href="https://github.com/web-seven/overlock/blob/main/docs/commands.md" target="_blank" rel="noopener">Commands</a>
+          <a href="https://github.com/web-seven/overlock/blob/main/docs/examples.md" target="_blank" rel="noopener">Examples</a>
+          <a href="https://github.com/web-seven/overlock/blob/main/docs/troubleshoot.md" target="_blank" rel="noopener">Troubleshoot</a>
+        </section>
+        <section>
+          <h5>community</h5>
+          <a href="https://discord.gg/W7AsrUb5GC" target="_blank" rel="noopener">Discord</a>
+          <a href="https://github.com/web-seven/overlock/issues" target="_blank" rel="noopener">Issues</a>
+          <a href="https://github.com/web-seven/overlock/discussions" target="_blank" rel="noopener">Discussions</a>
+        </section>
+      </div>
+    </div>
+    <div class="wrap ftr__base">
+      <span>© <span id="year"></span> overlock</span>
+      <span>// MISSION_CTRL · v1.0.2</span>
+      <span class="ftr__sig">END_TRANSMISSION</span>
+    </div>
+  </footer>
+
+
+  <!-- sticky install bar -->
+  <div class="stuck" id="stuck" aria-hidden="true">
+    <i class="dot dot--ok"></i>
+    <span class="stuck__lbl">launch</span>
+    <code id="stuckCmd">curl -sL .../install.sh | sh</code>
+    <button class="copy copy--mini" data-copy="#stuckCmd" aria-label="Copy">
+      <span class="copy__icn copy__icn--c">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="1" ry="1"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+      </span>
+      <span class="copy__icn copy__icn--ok">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </span>
+    </button>
+    <button class="stuck__x" id="stuckX" aria-label="Dismiss">×</button>
+  </div>
+
+  <script src="script.js" defer></script>
+</body>
+</html>
