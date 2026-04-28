@@ -6,6 +6,13 @@ on:
       - main
     paths:
       - 'docs/**'
+      - 'blog/**'
+    tags:
+      # Plain semver releases only (e.g. 1.0.0, 1.2.3, 2.10.4).
+      # Skip pre-release / build-metadata variants like 1.0.0-rc1 or 1.0.0+build.
+      - '[0-9]*.[0-9]*.[0-9]*'
+      - '!*-*'
+      - '!*+*'
   workflow_dispatch:
 
 permissions:
@@ -24,6 +31,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -37,6 +47,32 @@ jobs:
       - name: Build
         working-directory: docs
         run: npm run build
+
+      - name: Resolve release tag
+        id: release
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          else
+            # Latest STABLE semver tag only (no pre-release / build-metadata).
+            TAG=$(git describe --tags --abbrev=0 \
+                    --match='[0-9]*.[0-9]*.[0-9]*' \
+                    --exclude='*-*' \
+                    --exclude='*+*' 2>/dev/null || echo "dev")
+          fi
+          DATE=$(git log -1 --format=%cs "$TAG" 2>/dev/null || date -u +%Y-%m-%d)
+          echo "tag=$TAG"   >> "$GITHUB_OUTPUT"
+          echo "date=$DATE" >> "$GITHUB_OUTPUT"
+
+      - name: Stamp release placeholders
+        env:
+          RELEASE: ${{ steps.release.outputs.tag }}
+          DATE: ${{ steps.release.outputs.date }}
+        run: |
+          grep -rl --include='*.html' --include='*.js' '__RELEASE__\|__DATE__' docs/build \
+            | xargs -r sed -i \
+                -e "s/__RELEASE__/${RELEASE}/g" \
+                -e "s/__DATE__/${DATE}/g"
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

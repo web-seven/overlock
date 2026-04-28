@@ -1,3 +1,7 @@
+---
+sidebar_label: Get Started
+---
+
 # Getting Started with Overlock
 
 Overlock is a CLI tool that gives you a full Crossplane development environment on your laptop in minutes. Instead of manually standing up Kubernetes, installing Crossplane, wiring up registries, and managing packages, Overlock does all of that for you — so you can focus on building and testing your infrastructure abstractions.
