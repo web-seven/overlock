@@ -8,13 +8,10 @@ on:
       - 'docs/**'
       - 'blog/**'
     tags:
-      # Plain semver releases only (e.g. 1.0.0, 1.2.3, 2.10.4).
-      # Skip pre-release / build-metadata variants like 1.0.0-rc1 or 1.0.0+build.
-      # NB: `+` is a glob quantifier in GitHub filter patterns, so match a
-      # literal `+` via the `[+]` character class.
-      - '[0-9]*.[0-9]*.[0-9]*'
-      - '!*-*'
-      - '!*[+]*'
+      # Plain semver only (e.g. 1.0.0, 1.2.3, 2.10.4).
+      # `[0-9]+` matches one-or-more digits per segment, so pre-release
+      # ("-rc1") and build-metadata ("+build") tags don't match.
+      - '[0-9]+.[0-9]+.[0-9]+'
   workflow_dispatch:
 
 permissions:
