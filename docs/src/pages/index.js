@@ -221,7 +221,7 @@ export default function Home() {
                     <b>LAUNCH_SEQUENCE</b>
                     <em>· one line · macOS / linux / windows</em>
                   </span>
-                  <span className="launch__meta"><b>v</b>1.0.2&nbsp;·&nbsp;<b>released</b>&nbsp;2026-04-25</span>
+                  <span className="launch__meta"><b>v</b>__RELEASE__&nbsp;·&nbsp;<b>released</b>&nbsp;__DATE__</span>
                 </header>
                 <div className="launch__body">
                   <span className="launch__prompt">$</span>
@@ -708,7 +708,7 @@ export default function Home() {
               <div className="launch launch--final">
                 <header className="launch__head">
                   <span className="launch__chip"><i className="dot dot--ok"></i><b>EXEC_THIS</b><em>· macOS / linux / windows</em></span>
-                  <span className="launch__meta"><b>v</b>1.0.2&nbsp;·&nbsp;<b>2026-04-25</b></span>
+                  <span className="launch__meta"><b>v</b>__RELEASE__&nbsp;·&nbsp;<b>__DATE__</b></span>
                 </header>
                 <div className="launch__body">
                   <span className="launch__prompt">$</span>
