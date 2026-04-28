@@ -27,8 +27,9 @@ module.exports = async function createConfig() {
   /** @type {import('@docusaurus/types').Config} */
   const config = {
   title: 'Overlock',
+  titleDelimiter: '//',
   tagline: 'Manage Crossplane environments with ease',
-  favicon: 'overlock_galaxy_icon.png',
+  favicon: 'overlock_white_alpha.png',
 
   url: 'https://docs.overlock.app',
   baseUrl: '/',
@@ -44,8 +45,15 @@ module.exports = async function createConfig() {
     locales: ['en'],
   },
 
-  // Serve existing PNG assets from the docs root alongside the standard static/ dir
-  staticDirectories: ['.', 'static'],
+  staticDirectories: ['static'],
+
+  stylesheets: [
+    {
+      href: 'https://fonts.googleapis.com/css2?family=Saira:wdth,wght@75..125,400;75..125,500;75..125,600;75..125,700&family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap',
+      rel: 'stylesheet',
+      crossorigin: 'anonymous',
+    },
+  ],
 
   plugins: [stripBadProgressPlugin],
 
@@ -90,24 +98,43 @@ module.exports = async function createConfig() {
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
       image: 'overlock_galaxy.png',
+      colorMode: {
+        defaultMode: 'dark',
+        respectPrefersColorScheme: false,
+        disableSwitch: true,
+      },
       navbar: {
         title: 'Overlock',
+        hideOnScroll: false,
         logo: {
-          alt: 'Overlock Logo',
-          src: 'overlock_galaxy_icon.png',
+          alt: 'Overlock',
+          src: 'overlock_white_alpha.png',
         },
         items: [
+          {to: '/#dash', label: 'Features', position: 'right', activeBaseRegex: '^/__never__$'},
+          {to: '/#env', label: 'Environments', position: 'right', activeBaseRegex: '^/__never__$'},
+          {to: '/#nodes', label: 'Nodes', position: 'right', activeBaseRegex: '^/__never__$'},
+          {to: '/#packages', label: 'Packages', position: 'right', activeBaseRegex: '^/__never__$'},
           {
             type: 'docSidebar',
             sidebarId: 'docs',
-            position: 'left',
-            label: 'Documentation',
+            position: 'right',
+            label: 'Docs',
           },
-          {to: '/blog', label: 'Blog', position: 'left'},
+          {to: '/#compare', label: 'Compare', position: 'right', activeBaseRegex: '^/__never__$'},
+          {to: '/blog', label: 'Blog', position: 'right'},
           {
             href: 'https://github.com/web-seven/overlock',
-            label: 'GitHub',
+            label: 'github',
             position: 'right',
+            className: 'navbar-cta navbar-cta--ghost',
+          },
+          {
+            to: '/#install',
+            label: 'install ↓',
+            position: 'right',
+            className: 'navbar-cta navbar-cta--solid',
+            activeBaseRegex: '^/__never__$',
           },
         ],
       },
