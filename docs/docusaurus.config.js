@@ -85,6 +85,7 @@ module.exports = async function createConfig() {
           blogDescription: 'Updates and articles from the Overlock team',
           showReadingTime: true,
           postsPerPage: 10,
+          blogSidebarCount: 'ALL',
           editUrl: 'https://github.com/web-seven/overlock/edit/main/',
         },
         theme: {
