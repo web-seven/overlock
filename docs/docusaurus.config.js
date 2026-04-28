@@ -31,7 +31,7 @@ module.exports = async function createConfig() {
   tagline: 'Manage Crossplane environments with ease',
   favicon: 'overlock_white_alpha.png',
 
-  url: 'https://docs.overlock.app',
+  url: 'https://overlock.app',
   baseUrl: '/',
 
   organizationName: 'web-seven',
