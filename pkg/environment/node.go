@@ -17,6 +17,7 @@ import (
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes"
@@ -115,11 +116,17 @@ func (e *Environment) CreateNode(ctx context.Context, nodeName string, scopes []
 		return nil
 	}
 
-	// The Kubernetes node name prefix follows the pattern <environment>-<nodeName>.
-	// --with-node-id appends a random suffix so each container gets a unique
-	// name in K3s's password store, avoiding conflicts on retries.
 	k3sNodeName := e.name + "-" + nodeName
 	agentContainerName := e.nodeContainerName(nodeName)
+
+	// Clear any stale K3s node-password secret from a previous incarnation.
+	// Why: re-creating a node container wipes /etc/rancher/node/password (it lives
+	// on the container's writable layer, not the data volume), so the new agent
+	// generates a fresh password. The server still holds the old one in a Secret
+	// and rejects the registration ("Node password rejected, duplicate hostname").
+	if err := clearNodePasswordSecret(ctx, kubeClient, k3sNodeName, logger); err != nil {
+		logger.Warnf("Failed to clear stale node-password secret for %q: %v", k3sNodeName, err)
+	}
 
 	var (
 		peerIdx      int
@@ -194,6 +201,9 @@ func (e *Environment) replaceScopedNodes(ctx context.Context, kubeClient *kubern
 
 			if err := e.deleteNodeByName(ctx, kubeClient, oldNode.Name, logger); err != nil {
 				logger.Warnf("Failed to delete old node %q from cluster: %v", oldNode.Name, err)
+			}
+			if err := clearNodePasswordSecret(ctx, kubeClient, oldNode.Name, logger); err != nil {
+				logger.Warnf("Failed to clear node-password secret for %q: %v", oldNode.Name, err)
 			}
 
 			oldShortName := oldNode.Labels[nodeLabel]
@@ -472,6 +482,9 @@ func (e *Environment) DeleteNode(ctx context.Context, nodeName string, scopes []
 					logger.Warnf("Failed to delete node %q from cluster: %v", actualName, err)
 				} else {
 					logger.Debugf("Node %q removed from cluster.", actualName)
+				}
+				if err := clearNodePasswordSecret(ctx, kubeClient, actualName, logger); err != nil {
+					logger.Warnf("Failed to clear node-password secret for %q: %v", actualName, err)
 				}
 			}
 		}
@@ -756,6 +769,24 @@ func (e *Environment) waitForNodeReadyByLabel(ctx context.Context, kubeClient *k
 			logger.Debugf("Waiting for node %q to be ready...", node.Name)
 		}
 	}
+}
+
+// clearNodePasswordSecret deletes the K3s node-password Secret for the given
+// node name. K3s stores per-node join passwords as Secrets named
+// "<nodename>.node-password.k3s" in kube-system; if a stale entry remains
+// after a node container is recreated, the agent's new password is rejected.
+// Missing secrets are not an error.
+func clearNodePasswordSecret(ctx context.Context, kubeClient *kubernetes.Clientset, nodeName string, logger *zap.SugaredLogger) error {
+	secretName := nodeName + ".node-password.k3s"
+	err := kubeClient.CoreV1().Secrets("kube-system").Delete(ctx, secretName, metav1.DeleteOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	logger.Debugf("Cleared stale node-password secret %q.", secretName)
+	return nil
 }
 
 // findNodeByLabel returns the actual Kubernetes node name for a node with
