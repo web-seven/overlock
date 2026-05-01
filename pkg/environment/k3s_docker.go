@@ -279,6 +279,49 @@ func (e *Environment) DeleteK3sDockerEnvironment(logger *zap.SugaredLogger) erro
 	return nil
 }
 
+// RefreshK3sDockerKubeconfig waits for k3s to be ready inside the server
+// container, then rewrites the host kubeconfig entry for this environment with
+// the container's current 6443/tcp host port. Docker may assign a different
+// dynamic port across stop/start, so the kubeconfig written at create time can
+// become stale.
+func (e *Environment) RefreshK3sDockerKubeconfig(ctx context.Context, logger *zap.SugaredLogger) error {
+	dockerClient, err := docker.NewClientWithOpts(docker.FromEnv, docker.WithAPIVersionNegotiation())
+	if err != nil {
+		return fmt.Errorf("failed to create Docker client: %w", err)
+	}
+	defer dockerClient.Close()
+
+	c, err := e.findK3sDockerContainer(ctx, dockerClient, e.k3sDockerContainerName())
+	if err != nil {
+		return err
+	}
+	if c == nil {
+		return fmt.Errorf("k3s server container %q not found", e.k3sDockerContainerName())
+	}
+
+	if err := e.waitForK3sDockerReady(ctx, dockerClient, c.ID, logger); err != nil {
+		return err
+	}
+
+	kubeconfigData, err := e.copyKubeconfigFromContainer(ctx, dockerClient, c.ID)
+	if err != nil {
+		return err
+	}
+
+	hostPort, err := k3sAPIServerHostPort(ctx, dockerClient, c.ID)
+	if err != nil {
+		return err
+	}
+
+	contextName := e.K3sDockerContextName()
+	serverURL := fmt.Sprintf("https://127.0.0.1:%s", hostPort)
+	if err := mergeK3sDockerKubeconfig(kubeconfigData, contextName, serverURL); err != nil {
+		return fmt.Errorf("failed to merge kubeconfig: %w", err)
+	}
+	logger.Debugf("Refreshed kubeconfig for %s -> %s", contextName, serverURL)
+	return nil
+}
+
 // deleteRemoteNodes finds K8s nodes with SSH annotations and removes their
 // containers on the remote hosts before the cluster is torn down.
 func (e *Environment) deleteRemoteNodes(ctx context.Context, logger *zap.SugaredLogger) {
