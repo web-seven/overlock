@@ -356,6 +356,9 @@ func (e *Environment) Start(ctx context.Context, switcher bool, logger *zap.Suga
 	}
 
 	if e.engine == "k3s-docker" {
+		if err := e.RefreshK3sDockerKubeconfig(ctx, logger); err != nil {
+			logger.Warnf("Failed to refresh k3s-docker kubeconfig: %v", err)
+		}
 		e.startStopRemoteNodes(ctx, "start", logger)
 	}
 
