@@ -10,6 +10,7 @@ This document provides solutions to common issues you may encounter when using O
   - [Package Installation Fails](#package-installation-fails)
   - [Provider Not Working](#provider-not-working)
   - [Freezing During Environment Creation](#freezing-during-environment-creation)
+  - [Node Create Hangs on "Waiting for node to appear"](#node-create-hangs-on-waiting-for-node-to-appear)
 - [Firewall Configuration for Remote Nodes](#firewall-configuration-for-remote-nodes)
 - [Getting Help](#getting-help)
 - [Debug Mode](#debug-mode)
@@ -150,11 +151,6 @@ The process freezes for a few minutes during the "Joining worker nodes" step whe
 ERROR: failed to create cluster: failed to join node with kubeadm: command "docker exec --privileged dest-worker kubeadm join --config /kind/kubeadm.conf --skip-phases=preflight --v=6" failed with error: exit status 1
 ```
 
-#### Symptom
-The process freezes for a few minutes during the "Joining worker nodes" step when creating multiple environments with Overlock CLI. Eventually, it fails with the following error:
-`ERROR: failed to create cluster: failed to join node with kubeadm: command "docker exec --privileged dest-worker kubeadm join --config /kind/kubeadm.conf --skip-phases=preflight --v=6" failed with error: exit status 1`
-
-
 #### Cause
 
 When the Overlock CLI creates environments, it also installs resources, likely increasing the number of file system watches (inotify instances) that Kubernetes and its components need to manage. This increased usage, combined with existing watches from previous Overlock environments, could exceed the default system limits, leading to the kubelet.service on the newly created worker node failing to start due to the error: `Failed to allocate directory watch: Too many open files.`
@@ -180,6 +176,65 @@ The error indicates that the kubelet.service failed to start due to the system r
 **How did adjusting `fs.inotify.max_user_instances` solve the error?**
 
 Increasing the `fs.inotify.max_user_instances` setting allows more `inotify` instances to be allocated per user, resolving the resource limitation that caused the kubelet.service to fail.
+
+### Node Create Hangs on "Waiting for node to appear"
+
+#### Symptom
+
+`overlock env node create` (k3s-docker engine) prints the node container start log, then loops forever on:
+
+```
+DEBUG   Waiting for node with label overlock.io/node=<name> to appear...
+```
+
+`docker ps -a` shows the agent container as exited (`exit=1`), and `docker logs <agent-container>` includes errors such as:
+
+```
+inotify_init: too many open files
+error initializing watcher: too many open files
+Failed to start cAdvisor: inotify_init: too many open files
+```
+
+#### Cause
+
+The Linux kernel enforces `fs.inotify.max_user_instances` per UID. The K3s server container already consumes a large share of that budget; when the agent container starts, its kubelet, cAdvisor, and dynamic plugin watchers all call `inotify_init()` and the kernel returns `EMFILE`. The agent process exits, the Kubernetes node is never registered, and the wait loop never resolves.
+
+The default on many distributions is 128, which is too low for running a K3s server plus one or more agent containers on the same host.
+
+#### Steps to Resolve
+
+1. Raise the per-user inotify limits (also raise `max_user_watches` while you're there — it has the same root cause for kubelet's directory watches):
+
+   ```bash
+   sudo sysctl -w fs.inotify.max_user_instances=8192
+   sudo sysctl -w fs.inotify.max_user_watches=524288
+   ```
+
+2. Make the change persistent across reboots:
+
+   ```bash
+   sudo tee /etc/sysctl.d/99-overlock.conf <<'EOF'
+   fs.inotify.max_user_instances = 8192
+   fs.inotify.max_user_watches   = 524288
+   EOF
+   sudo sysctl --system
+   ```
+
+3. Remove the failed agent container so the next attempt starts clean, then retry:
+
+   ```bash
+   docker rm -f k3s-docker-<environment>-<node>
+   overlock env node create <node> --environment <environment> --engine k3s-docker
+   ```
+
+#### Verification
+
+Check the new limits are applied:
+
+```bash
+cat /proc/sys/fs/inotify/max_user_instances
+cat /proc/sys/fs/inotify/max_user_watches
+```
 
 ## Firewall Configuration for Remote Nodes
 
