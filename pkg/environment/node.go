@@ -595,6 +595,7 @@ func (e *Environment) drainNode(ctx context.Context, kubeClient *kubernetes.Clie
 	}
 
 	// Evict non-DaemonSet pods.
+	skipped := 0
 	for i := range podList.Items {
 		pod := &podList.Items[i]
 		if isDaemonSetPod(pod) {
@@ -607,8 +608,12 @@ func (e *Environment) drainNode(ctx context.Context, kubeClient *kubernetes.Clie
 			},
 		}
 		if err := kubeClient.CoreV1().Pods(pod.Namespace).EvictV1(ctx, eviction); err != nil {
-			logger.Warnf("Failed to evict pod %s/%s: %v", pod.Namespace, pod.Name, err)
+			logger.Debugf("Could not evict pod %s/%s (skipping): %v", pod.Namespace, pod.Name, err)
+			skipped++
 		}
+	}
+	if skipped > 0 {
+		logger.Infof("Node %q drain: %d pod(s) could not be evicted and were skipped.", nodeName, skipped)
 	}
 	logger.Debugf("Node %q drained.", nodeName)
 	return nil
