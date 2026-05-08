@@ -16,7 +16,10 @@ func InstallProvider(provider string, config *rest.Config, logger *zap.SugaredLo
 		return err
 	}
 
-	release, _ := installer.GetRelease()
+	release, err := installer.GetRelease()
+	if err != nil {
+		return fmt.Errorf("crossplane release not found in namespace, set OVERLOCK_ENGINE_NAMESPACE or run `overlock environment create`: %w", err)
+	}
 
 	if release.Config == nil {
 		release.Config = map[string]interface{}{
