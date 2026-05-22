@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"path/filepath"
 
 	"dario.cat/mergo"
 	"go.uber.org/zap"
@@ -36,30 +37,40 @@ type createOptions struct {
 }
 
 func (c *createCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
-	configPath := c.Config
-	userProvidedConfig := c.Config != ""
-
-	if !userProvidedConfig {
-		configPath = "./overlock.yaml"
-	}
-	cfg, err := loadConfig(configPath)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			if userProvidedConfig {
-				logger.Errorf("Configuration file not found at specified path: %s", configPath)
+	if c.Config != "" {
+		cfg, err := loadConfig(c.Config)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				logger.Errorf("Configuration file not found at specified path: %s", c.Config)
 				return err
 			}
-		} else {
-			logger.Infof("Failed to parse the configuration file at '%s'.", configPath)
+			logger.Infof("Failed to parse the configuration file at '%s'.", c.Config)
 			logger.Info("For guidance on the correct structure, refer to the documentation: https://docs.overlock.network/environment/cfg-file")
 			return nil
 		}
-	}
-
-	if cfg != nil {
 		if err := mergo.MergeWithOverwrite(&c.createOptions, cfg, mergo.WithOverride); err != nil {
 			logger.Errorf("Failed to merge configuration: %v", err)
 			return overlockerrors.NewInvalidConfigErrorWithCause("", "", "failed to merge configuration options", err)
+		}
+	} else {
+		paths, err := layeredConfigPaths()
+		if err != nil {
+			return err
+		}
+		for _, path := range paths {
+			cfg, err := loadConfig(path)
+			if err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					continue
+				}
+				logger.Infof("Failed to parse the configuration file at '%s'.", path)
+				logger.Info("For guidance on the correct structure, refer to the documentation: https://docs.overlock.network/environment/cfg-file")
+				return nil
+			}
+			if err := mergo.MergeWithOverwrite(&c.createOptions, cfg, mergo.WithOverride); err != nil {
+				logger.Errorf("Failed to merge configuration: %v", err)
+				return overlockerrors.NewInvalidConfigErrorWithCause("", "", "failed to merge configuration options", err)
+			}
 		}
 	}
 
@@ -77,6 +88,18 @@ func (c *createCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
 		WithCpu(c.Cpu).
 		WithMaxReconcileRate(c.MaxReconcileRate).
 		Create(ctx, logger)
+}
+
+// layeredConfigPaths returns the ordered list of config file paths to load and merge.
+// Load order: overlock.yaml, .overlock.yaml, .overlock.*.yaml (alphabetically sorted).
+func layeredConfigPaths() ([]string, error) {
+	paths := []string{"overlock.yaml", ".overlock.yaml"}
+	matches, err := filepath.Glob(".overlock.*.yaml")
+	if err != nil {
+		return nil, err
+	}
+	paths = append(paths, matches...)
+	return paths, nil
 }
 
 func loadConfig(path string) (*createOptions, error) {
