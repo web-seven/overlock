@@ -9,8 +9,10 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/go-logr/logr"
+	"github.com/go-logr/zapr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"k8s.io/klog/v2"
 
 	"github.com/web-seven/overlock/cmd/overlock/configuration"
 	"github.com/web-seven/overlock/cmd/overlock/environment"
@@ -159,6 +161,17 @@ func (c *cli) AfterApply(ctx *kong.Context) error { //nolint:unparam
 		return fmt.Errorf("failed to build logger: %w", err)
 	}
 	ctrl.SetLogger(logr.Logger{})
+
+	// client-go logs via klog directly to stderr (e.g. discovery cache errors
+	// while aggregated APIs such as metrics-server are not ready yet during
+	// cluster bootstrap). Route it through the zap logger in debug mode and
+	// discard it otherwise.
+	if c.Globals.Debug {
+		klog.SetLogger(zapr.NewLogger(logger.Named("klog")))
+	} else {
+		klog.SetLogger(logr.Discard())
+	}
+
 	ctx.Bind(logger.Sugar())
 	return nil
 }

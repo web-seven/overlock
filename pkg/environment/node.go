@@ -93,6 +93,17 @@ func (e *Environment) CreateNode(ctx context.Context, nodeName string, scopes []
 		return fmt.Errorf("server container %q not found; make sure the environment exists and is running", serverContainerName)
 	}
 
+	// Agent nodes must run the same k3s version as the server, so reuse the
+	// server container's image. Fall back to the configured image when Docker
+	// reports an image digest instead of a tag (e.g. the original tag was removed).
+	nodeImage := serverContainer.Image
+	if nodeImage == "" || strings.HasPrefix(nodeImage, "sha256:") {
+		nodeImage, err = e.k3sImage()
+		if err != nil {
+			return err
+		}
+	}
+
 	// Retrieve the K3s node join token from the server container.
 	token, err := e.getK3sToken(ctx, dockerClient, serverContainer.ID)
 	if err != nil {
@@ -139,11 +150,11 @@ func (e *Environment) CreateNode(ctx context.Context, nodeName string, scopes []
 		if wgErr != nil {
 			return fmt.Errorf("failed to set up WireGuard peer: %w", wgErr)
 		}
-		if err := e.createRemoteNode(ctx, dockerClient, serverContainer.ID, remote, agentContainerName, k3sNodeName, nodeName, token, scopes, taints, logger); err != nil {
+		if err := e.createRemoteNode(ctx, dockerClient, nodeImage, remote, agentContainerName, k3sNodeName, nodeName, token, scopes, taints, logger); err != nil {
 			return err
 		}
 	} else {
-		if err := e.createLocalNode(ctx, dockerClient, serverContainer.ID, agentContainerName, k3sNodeName, nodeName, token, scopes, taints, logger); err != nil {
+		if err := e.createLocalNode(ctx, dockerClient, nodeImage, agentContainerName, k3sNodeName, nodeName, token, scopes, taints, logger); err != nil {
 			return err
 		}
 	}
@@ -243,7 +254,7 @@ func (e *Environment) replaceScopedNodes(ctx context.Context, kubeClient *kubern
 
 // createLocalNode creates a K3s agent container on the local Docker daemon
 // using the environment's Docker bridge network.
-func (e *Environment) createLocalNode(ctx context.Context, dockerClient *docker.Client, _, agentContainerName, k3sNodeName, nodeName, token string, scopes []string, taints []string, logger *zap.SugaredLogger) error {
+func (e *Environment) createLocalNode(ctx context.Context, dockerClient *docker.Client, image, agentContainerName, k3sNodeName, nodeName, token string, scopes []string, taints []string, logger *zap.SugaredLogger) error {
 	// Remove existing container so a fresh node is always created.
 	existing, err := e.findK3sDockerContainer(ctx, dockerClient, agentContainerName)
 	if err != nil {
@@ -284,7 +295,7 @@ func (e *Environment) createLocalNode(ctx context.Context, dockerClient *docker.
 	volumeName := agentContainerName + "-data"
 
 	containerConfig := &container.Config{
-		Image:    k3sDockerImage,
+		Image:    image,
 		Hostname: k3sNodeName,
 		Cmd:      agentCmd,
 		Env: []string{
@@ -324,10 +335,10 @@ func (e *Environment) createLocalNode(ctx context.Context, dockerClient *docker.
 	}
 
 	// Pull the image (likely already cached from environment creation).
-	logger.Debugf("Pulling image %s...", k3sDockerImage)
-	pullReader, err := dockerClient.ImagePull(ctx, k3sDockerImage, types.ImagePullOptions{})
+	logger.Debugf("Pulling image %s...", image)
+	pullReader, err := dockerClient.ImagePull(ctx, image, types.ImagePullOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to pull image %s: %w", k3sDockerImage, err)
+		return fmt.Errorf("failed to pull image %s: %w", image, err)
 	}
 	if _, err := io.Copy(io.Discard, pullReader); err != nil {
 		logger.Warnf("Failed to drain pull reader: %v", err)
@@ -358,7 +369,7 @@ func (e *Environment) createLocalNode(ctx context.Context, dockerClient *docker.
 
 // createRemoteNode creates a K3s agent container on a remote host via SSH,
 // using the environment's Docker bridge network (pre-created by setupWireGuardTunnel).
-func (e *Environment) createRemoteNode(_ context.Context, _ *docker.Client, _ string, remote *SSHClient, agentContainerName, k3sNodeName, nodeName, token string, scopes []string, taints []string, logger *zap.SugaredLogger) error {
+func (e *Environment) createRemoteNode(_ context.Context, _ *docker.Client, image string, remote *SSHClient, agentContainerName, k3sNodeName, nodeName, token string, scopes []string, taints []string, logger *zap.SugaredLogger) error {
 	addrs := computeEnvNetAddrs(e.name)
 	k3sURL := fmt.Sprintf("https://%s:6443", addrs.serverIP)
 	logger.Debugf("Remote node will connect to K3s server at %s", k3sURL)
@@ -406,7 +417,7 @@ func (e *Environment) createRemoteNode(_ context.Context, _ *docker.Client, _ st
 	volumeName := agentContainerName + "-data"
 	dockerRunCmd := fmt.Sprintf(
 		"docker run -d --privileged --name %s --hostname %s --network %s -v /lib/modules:/lib/modules:ro -v %s:/var/lib/rancher/k3s --tmpfs /run --tmpfs /var/run -e K3S_URL=%s -e K3S_TOKEN=%s%s %s agent --node-name %s --node-label %s=%s --flannel-iface eth0%s",
-		agentContainerName, k3sNodeName, e.envNetworkName(), volumeName, k3sURL, token, cpuFlag, k3sDockerImage, k3sNodeName, nodeLabel, nodeName, scopeFlags,
+		agentContainerName, k3sNodeName, e.envNetworkName(), volumeName, k3sURL, token, cpuFlag, image, k3sNodeName, nodeLabel, nodeName, scopeFlags,
 	)
 
 	logger.Debugf("Creating node container %q on remote host %s...", agentContainerName, remote.Host)
