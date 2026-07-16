@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -24,7 +25,8 @@ import (
 )
 
 const (
-	k3sDockerImage           = "rancher/k3s:v1.32.13-k3s1"
+	k3sDockerImageRepo       = "rancher/k3s"
+	k3sDockerDefaultVersion  = "v1.36.2-k3s1"
 	k3sDockerContainerPrefix = "k3s-docker-"
 	k3sKubeconfigPath        = "/etc/rancher/k3s/k3s.yaml"
 	k3sReadinessTimeout      = 120 * time.Second
@@ -52,10 +54,35 @@ var flannelNetConf = fmt.Sprintf(`{
 }
 `, podMTU)
 
+// k3sImageVersionRe matches a full k3s release version, e.g. "v1.36.2+k3s1"
+// or its Docker tag form "v1.36.2-k3s1".
+var k3sImageVersionRe = regexp.MustCompile(`^v\d+\.\d+\.\d+[+-]k3s\d+$`)
+
+// k3sImage returns the rancher/k3s image reference for this environment.
+// The version must be a full k3s release version (e.g. "v1.36.2+k3s1");
+// the "+" of the upstream release name is replaced with "-" because Docker
+// tags cannot contain "+". Any other format is rejected. An empty version
+// falls back to the pinned default.
+func (e *Environment) k3sImage() (string, error) {
+	version := strings.TrimSpace(e.k3sVersion)
+	if version == "" {
+		version = k3sDockerDefaultVersion
+	}
+	if !k3sImageVersionRe.MatchString(version) {
+		return "", fmt.Errorf("invalid k3s version %q: expected format v<major>.<minor>.<patch>+k3s<revision>, e.g. v1.36.2+k3s1", version)
+	}
+	return k3sDockerImageRepo + ":" + strings.ReplaceAll(version, "+", "-"), nil
+}
+
 // CreateK3sDockerEnvironment creates a k3s cluster running inside a Docker
 // container using the Docker Go client directly (no external CLI required).
 func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (_ string, retErr error) {
 	ctx := context.Background()
+
+	image, err := e.k3sImage()
+	if err != nil {
+		return "", err
+	}
 
 	dockerClient, err := docker.NewClientWithOpts(docker.FromEnv, docker.WithAPIVersionNegotiation())
 	if err != nil {
@@ -89,7 +116,7 @@ func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (_ s
 	}
 
 	containerConfig := &container.Config{
-		Image:    k3sDockerImage,
+		Image:    image,
 		Hostname: e.name + "-server",
 		Cmd: []string{
 			"server",
@@ -150,10 +177,10 @@ func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (_ s
 
 	// Pull the image explicitly; the Docker daemon does not auto-pull when
 	// using ContainerCreate via the Go client.
-	logger.Debugf("Pulling image %s...", k3sDockerImage)
-	pullReader, err := dockerClient.ImagePull(ctx, k3sDockerImage, types.ImagePullOptions{})
+	logger.Debugf("Pulling image %s...", image)
+	pullReader, err := dockerClient.ImagePull(ctx, image, types.ImagePullOptions{})
 	if err != nil {
-		return "", fmt.Errorf("failed to pull image %s: %w", k3sDockerImage, err)
+		return "", fmt.Errorf("failed to pull image %s: %w", image, err)
 	}
 	_, _ = io.Copy(io.Discard, pullReader)
 	pullReader.Close()

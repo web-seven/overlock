@@ -31,6 +31,7 @@ type Environment struct {
 	name                      string
 	engine                    string
 	engineConfig              string
+	k3sVersion                string
 	httpPort                  int
 	httpsPort                 int
 	mounts                    []string
@@ -427,6 +428,11 @@ func (e *Environment) WithCpu(cpu string) *Environment {
 
 func (e *Environment) WithEngineConfig(engineConfig string) *Environment {
 	e.engineConfig = engineConfig
+	return e
+}
+
+func (e *Environment) WithEngineK3sVersion(version string) *Environment {
+	e.k3sVersion = version
 	return e
 }
 func (e *Environment) WithConfigurations(configurations []string) *Environment {

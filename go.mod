@@ -14,6 +14,7 @@ require (
 	github.com/docker/go-connections v0.4.0
 	github.com/gagliardetto/solana-go v1.12.0
 	github.com/go-logr/logr v1.4.2
+	github.com/go-logr/zapr v1.3.0
 	github.com/golang/protobuf v1.5.4
 	github.com/gorilla/websocket v1.5.3
 	github.com/iancoleman/strcase v0.3.0
@@ -28,6 +29,7 @@ require (
 	k8s.io/api v0.29.1
 	k8s.io/apiextensions-apiserver v0.29.0
 	k8s.io/apimachinery v0.29.1
+	k8s.io/klog/v2 v2.110.1
 	k8s.io/kubectl v0.29.1
 	sigs.k8s.io/controller-runtime v0.17.0
 	sigs.k8s.io/yaml v1.4.0
@@ -292,7 +294,6 @@ require (
 	k8s.io/apiserver v0.29.0 // indirect
 	k8s.io/cli-runtime v0.29.1 // indirect
 	k8s.io/component-base v0.29.1 // indirect
-	k8s.io/klog/v2 v2.110.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00 // indirect
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b // indirect
 	nhooyr.io/websocket v1.8.6 // indirect
