@@ -43,10 +43,6 @@ jobs:
         working-directory: docs
         run: npm install
 
-      - name: Build
-        working-directory: docs
-        run: npm run build
-
       - name: Resolve release tag
         id: release
         run: |
@@ -63,15 +59,24 @@ jobs:
           echo "tag=$TAG"   >> "$GITHUB_OUTPUT"
           echo "date=$DATE" >> "$GITHUB_OUTPUT"
 
+      # Stamp sources BEFORE the build so the release string is part of the
+      # content used for webpack chunk hashes. Stamping the build output
+      # instead produces identical chunk filenames with different content
+      # across releases, which browsers and CDNs then serve stale.
       - name: Stamp release placeholders
         env:
           RELEASE: ${{ steps.release.outputs.tag }}
           DATE: ${{ steps.release.outputs.date }}
         run: |
-          grep -rl --include='*.html' --include='*.js' '__RELEASE__\|__DATE__' docs/build \
+          grep -rl --include='*.js' --include='*.md' --include='*.html' \
+              --exclude-dir=node_modules '__RELEASE__\|__DATE__' docs \
             | xargs -r sed -i \
                 -e "s/__RELEASE__/${RELEASE}/g" \
                 -e "s/__DATE__/${DATE}/g"
+
+      - name: Build
+        working-directory: docs
+        run: npm run build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
