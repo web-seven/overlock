@@ -12,6 +12,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	"github.com/web-seven/overlock/internal/install/helm"
+	"github.com/web-seven/overlock/internal/namespace"
 )
 
 const (
@@ -105,7 +106,7 @@ func addKyvernoRegistryPolicies(ctx context.Context, config *rest.Config, regist
 			"apiVersion": "kyverno.io/v1",
 			"kind":       "ClusterPolicy",
 			"metadata": map[string]interface{}{
-				"name": "overlock." + registry.Name,
+				"name": namespace.Namespace + "." + registry.Name,
 				"annotations": map[string]interface{}{
 					"pod-policies.kyverno.io/autogen-controllers": "none",
 				},
@@ -114,7 +115,7 @@ func addKyvernoRegistryPolicies(ctx context.Context, config *rest.Config, regist
 				"generateExisting": true,
 				"rules": []interface{}{
 					map[string]interface{}{
-						"name": "overlock." + registry.Name,
+						"name": namespace.Namespace + "." + registry.Name,
 						"match": map[string]interface{}{
 							"any": []interface{}{
 								map[string]interface{}{
@@ -182,7 +183,7 @@ func deleteKyvernoRegistryPolicies(ctx context.Context, config *rest.Config, reg
 		Version:  "v1",
 		Resource: "clusterpolicies",
 	}
-	scplcName := "overlock." + registry.Name
+	scplcName := namespace.Namespace + "." + registry.Name
 	err = dynamicClient.Resource(gvr).Delete(ctx, scplcName, metav1.DeleteOptions{})
 	if err != nil {
 		return err
