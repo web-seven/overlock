@@ -21,9 +21,10 @@ type createCmd struct {
 }
 
 type createOptions struct {
-	// Name is only settable via a configuration file (see loadConfig), not as a CLI flag.
-	// The positional Name argument on createCmd takes precedence when set.
-	Name                      string   `kong:"-" yaml:"name,omitempty"`
+	// ConfigName is the fallback environment name loaded from the configuration
+	// file (see loadConfig). The CLI's positional Name argument on createCmd is
+	// still the primary way to set the name and always takes precedence when set.
+	ConfigName                string   `kong:"-" yaml:"name,omitempty"`
 	HttpPort                  int      `optional:"" short:"p" help:"Http host port for mapping" default:"80"`
 	HttpsPort                 int      `optional:"" short:"s" help:"Https host port for mapping" default:"443"`
 	Context                   string   `optional:"" short:"c" help:"Kubernetes context where Environment will be created."`
@@ -96,7 +97,7 @@ func (c *createCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
 	}
 
 	if c.Name == "" {
-		c.Name = c.createOptions.Name
+		c.Name = c.createOptions.ConfigName
 	}
 	if c.Name == "" {
 		return overlockerrors.NewInvalidConfigError("name", "", "environment name must be provided either as a positional argument or via 'name' in the configuration file")

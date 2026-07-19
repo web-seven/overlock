@@ -76,8 +76,8 @@ engine: k3s-docker
 		t.Fatalf("loadConfig() unexpected error: %v", err)
 	}
 
-	if cfg.Name != "my-env" {
-		t.Fatalf("Name = %q, want %q", cfg.Name, "my-env")
+	if cfg.ConfigName != "my-env" {
+		t.Fatalf("ConfigName = %q, want %q", cfg.ConfigName, "my-env")
 	}
 }
 
