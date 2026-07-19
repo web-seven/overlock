@@ -48,6 +48,7 @@ create_admin_service_account: false
 admin_service_account_name: ""
 cpu: ""
 max_reconcile_rate: 1
+nodes: []
 ```
 
 ### Field Reference
@@ -67,6 +68,21 @@ max_reconcile_rate: 1
 | `admin_service_account_name` | string | `overlock-admin` | Name for the admin service account |
 | `cpu` | string | — | CPU limit for `k3s-docker` container nodes (e.g. `2`, `0.5`, `50%`) |
 | `max_reconcile_rate` | int | `1` | Max concurrent reconciliations for Crossplane |
+| `nodes` | list of node objects | — | Nodes to create after the environment is up. Only supported for the `k3s-docker` engine. |
+
+Each entry in `nodes` accepts the same parameters as `overlock env node create`:
+
+| Node Field | Type | Default | Description |
+|------------|------|---------|-------------|
+| `name` | string | — | Name of the node (required) |
+| `host` | string | — | Remote host to create the node on via SSH. Omit for a local node. |
+| `user` | string | `root` | SSH user for the remote host |
+| `port` | int | `22` | SSH port for the remote host |
+| `key` | string | `~/.ssh/id_rsa` | Path to the SSH private key |
+| `scopes` | list of strings | — | Node scopes, e.g. `engine`, `workloads` |
+| `taints` | list of strings | — | Node taints in `key:value` format, e.g. `dedicated:gpu` |
+| `cpu` | string | — | CPU limit for the node container (e.g. `2`, `0.5`, `50%`) |
+| `mount` | list of strings | — | Bind mounts in `host:container` format. Local nodes only. |
 
 ---
 
@@ -88,6 +104,25 @@ configurations:
 providers:
   - xpkg.upbound.io/crossplane-contrib/provider-helm:v0.19.0
 ```
+
+### Declaring nodes
+
+Bring up the control plane and its nodes in one `overlock env create` call:
+
+```yaml
+engine: k3s-docker
+nodes:
+  - name: worker-1
+    host: 10.0.0.5
+    user: root
+    key: ~/.ssh/id_rsa
+    scopes: [engine, workloads]
+    taints: [dedicated:gpu]
+  - name: local-1
+    scopes: [workloads]
+```
+
+Nodes are created in list order, after the environment itself is up — equivalent to running `overlock env node create` once per entry. Node creation is only supported for the `k3s-docker` engine.
 
 ### Layered config workflow
 
