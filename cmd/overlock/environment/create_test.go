@@ -60,6 +60,27 @@ nodes:
 	}
 }
 
+func TestLoadConfigName(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "overlock.yaml")
+	data := []byte(`
+name: my-env
+engine: k3s-docker
+`)
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatalf("failed to write config file: %v", err)
+	}
+
+	cfg, err := loadConfig(path)
+	if err != nil {
+		t.Fatalf("loadConfig() unexpected error: %v", err)
+	}
+
+	if cfg.Name != "my-env" {
+		t.Fatalf("Name = %q, want %q", cfg.Name, "my-env")
+	}
+}
+
 func TestCreateNodeRequiresName(t *testing.T) {
 	err := createNode(nil, nil, "", nil, nil, "", "", 0, "", nil, nil)
 	if err == nil {

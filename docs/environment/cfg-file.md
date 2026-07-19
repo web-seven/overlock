@@ -35,6 +35,7 @@ If the file is not found at the given path, Overlock exits with an error. If the
 The config file is a YAML document. All fields are optional — only set the ones you want to override.
 
 ```yaml
+name: my-env
 engine: kind
 http_port: 80
 https_port: 443
@@ -55,6 +56,7 @@ nodes: []
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
+| `name` | string | — | Environment name. Used when `overlock env create` is run without the `<name>` positional argument. If both are given, the CLI argument wins. |
 | `engine` | string | `kind` | Kubernetes engine to use: `kind`, `k3s`, `k3d`, `k3s-docker` |
 | `http_port` | int | `80` | Host port to map for HTTP traffic |
 | `https_port` | int | `443` | Host port to map for HTTPS traffic |
@@ -93,6 +95,19 @@ Each entry in `nodes` accepts the same parameters as `overlock env node create`:
 ```yaml
 engine: k3s-docker
 max_reconcile_rate: 5
+```
+
+### Naming the environment in the config file
+
+```yaml
+name: my-env
+engine: k3s-docker
+```
+
+With `name` set, `overlock env create` can be run without the positional argument:
+
+```bash
+overlock env create
 ```
 
 ### Pre-installing packages

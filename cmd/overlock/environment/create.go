@@ -15,12 +15,15 @@ import (
 )
 
 type createCmd struct {
-	Name   string `arg:"" required:"" help:"Name of environment."`
+	Name   string `arg:"" optional:"" help:"Name of environment. If omitted, falls back to 'name' in the Overlock configuration file."`
 	Config string `optional:"" help:"Path to the Overlock configuration file. Defaults to ./overlock.yaml if present."`
 	createOptions
 }
 
 type createOptions struct {
+	// Name is only settable via a configuration file (see loadConfig), not as a CLI flag.
+	// The positional Name argument on createCmd takes precedence when set.
+	Name                      string   `kong:"-" yaml:"name,omitempty"`
 	HttpPort                  int      `optional:"" short:"p" help:"Http host port for mapping" default:"80"`
 	HttpsPort                 int      `optional:"" short:"s" help:"Https host port for mapping" default:"443"`
 	Context                   string   `optional:"" short:"c" help:"Kubernetes context where Environment will be created."`
@@ -90,6 +93,13 @@ func (c *createCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
 				return overlockerrors.NewInvalidConfigErrorWithCause("", "", "failed to merge configuration options", err)
 			}
 		}
+	}
+
+	if c.Name == "" {
+		c.Name = c.createOptions.Name
+	}
+	if c.Name == "" {
+		return overlockerrors.NewInvalidConfigError("name", "", "environment name must be provided either as a positional argument or via 'name' in the configuration file")
 	}
 
 	env := environment.
