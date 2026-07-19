@@ -35,6 +35,23 @@ type createOptions struct {
 	AdminServiceAccountName   string   `optional:"" help:"Name for the admin service account. Only relevant when create-admin-service-account is enabled. Defaults to 'overlock-admin' if not specified."`
 	Cpu                       string   `optional:"" help:"CPU limit for k3s-docker containers (e.g., 2, 0.5, 50%)." default:""`
 	MaxReconcileRate          int      `optional:"" help:"Maximum number of reconciliations per second for Crossplane (e.g., 1)." default:"1"`
+	// Nodes is only settable via a configuration file (see loadConfig), not as a CLI flag.
+	Nodes []NodeConfig `kong:"-" yaml:"nodes,omitempty"`
+}
+
+// NodeConfig declares a node to create after the environment is up, equivalent
+// to an "overlock env node create" invocation. Only meaningful for the
+// k3s-docker engine.
+type NodeConfig struct {
+	Name   string   `yaml:"name"`
+	Host   string   `yaml:"host,omitempty"`
+	User   string   `yaml:"user,omitempty"`
+	Port   int      `yaml:"port,omitempty"`
+	Key    string   `yaml:"key,omitempty"`
+	Scopes []string `yaml:"scopes,omitempty"`
+	Taints []string `yaml:"taints,omitempty"`
+	Cpu    string   `yaml:"cpu,omitempty"`
+	Mount  []string `yaml:"mount,omitempty"`
 }
 
 func (c *createCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
@@ -75,7 +92,7 @@ func (c *createCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
 		}
 	}
 
-	return environment.
+	env := environment.
 		New(c.Engine, c.Name).
 		WithHttpPort(c.HttpPort).
 		WithHttpsPort(c.HttpsPort).
@@ -88,8 +105,18 @@ func (c *createCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
 		WithFunctions(c.Functions).
 		WithAdminServiceAccount(c.CreateAdminServiceAccount, c.AdminServiceAccountName).
 		WithCpu(c.Cpu).
-		WithMaxReconcileRate(c.MaxReconcileRate).
-		Create(ctx, logger)
+		WithMaxReconcileRate(c.MaxReconcileRate)
+
+	if err := env.Create(ctx, logger); err != nil {
+		return err
+	}
+
+	for _, node := range c.Nodes {
+		if err := createNode(ctx, env.WithCpu(node.Cpu), node.Name, node.Scopes, node.Taints, node.Host, node.User, node.Port, node.Key, node.Mount, logger); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // layeredConfigPaths returns the ordered list of config file paths to load and merge.

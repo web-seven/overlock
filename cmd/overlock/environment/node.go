@@ -30,32 +30,46 @@ type nodeCreateCmd struct {
 }
 
 func (c *nodeCreateCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
+	env := environment.New(c.Engine, c.Environment).WithCpu(c.Cpu)
+	return createNode(ctx, env, c.Name, c.Scopes, c.Taints, c.Host, c.User, c.Port, c.Key, c.Mount, logger)
+}
+
+// createNode creates a single node on env, equivalent to running
+// "overlock env node create" for the given parameters.
+func createNode(ctx context.Context, env *environment.Environment, name string, scopes, taints []string, host, user string, port int, key string, mounts []string, logger *zap.SugaredLogger) error {
+	if name == "" {
+		return fmt.Errorf("node configuration requires a name")
+	}
+
 	var remote *environment.SSHClient
-	if c.Host != "" {
+	if host != "" {
+		if user == "" || port == 0 || key == "" {
+			return fmt.Errorf("node %q: user, port and key are required when host is set, refusing to fall back to insecure defaults", name)
+		}
 		var err error
-		remote, err = environment.NewSSHClient(c.Host, c.User, c.Port, c.Key)
+		remote, err = environment.NewSSHClient(host, user, port, key)
 		if err != nil {
-			return fmt.Errorf("failed to create SSH client: %w", err)
+			return fmt.Errorf("failed to create SSH client for node %q: %w", name, err)
 		}
 		defer remote.Close()
 	}
 
-	env := environment.New(c.Engine, c.Environment).WithCpu(c.Cpu)
-	if len(c.Mount) > 0 {
+	if len(mounts) > 0 {
 		if remote != nil {
-			logger.Warnf("--mount is only supported for local nodes, ignoring for remote host %s", c.Host)
+			logger.Warnf("mount is only supported for local nodes, ignoring for remote host %s", host)
 		} else {
-			for _, m := range c.Mount {
+			for _, m := range mounts {
 				parts := strings.SplitN(m, ":", 2)
 				if len(parts) != 2 {
-					return fmt.Errorf("invalid mount format %q, expected host:container", m)
+					return fmt.Errorf("invalid mount format %q for node %q, expected host:container", m, name)
 				}
 			}
-			env = env.WithMounts(c.Mount)
+			env = env.WithMounts(mounts)
 		}
 	}
-	if err := env.CreateNode(ctx, c.Name, c.Scopes, c.Taints, remote, logger); err != nil {
-		return fmt.Errorf("failed to create node %q: %w", c.Name, err)
+
+	if err := env.CreateNode(ctx, name, scopes, taints, remote, logger); err != nil {
+		return fmt.Errorf("failed to create node %q: %w", name, err)
 	}
 	return nil
 }
