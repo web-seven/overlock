@@ -3,10 +3,8 @@ package environment
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"dario.cat/mergo"
 	"go.uber.org/zap"
@@ -94,7 +92,7 @@ func (c *createCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
 		}
 	}
 
-	if err := environment.
+	env := environment.
 		New(c.Engine, c.Name).
 		WithHttpPort(c.HttpPort).
 		WithHttpsPort(c.HttpsPort).
@@ -107,65 +105,16 @@ func (c *createCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
 		WithFunctions(c.Functions).
 		WithAdminServiceAccount(c.CreateAdminServiceAccount, c.AdminServiceAccountName).
 		WithCpu(c.Cpu).
-		WithMaxReconcileRate(c.MaxReconcileRate).
-		Create(ctx, logger); err != nil {
+		WithMaxReconcileRate(c.MaxReconcileRate)
+
+	if err := env.Create(ctx, logger); err != nil {
 		return err
 	}
 
 	for _, node := range c.Nodes {
-		if err := c.createNode(ctx, node, logger); err != nil {
+		if err := createNode(ctx, env.WithCpu(node.Cpu), node.Name, node.Scopes, node.Taints, node.Host, node.User, node.Port, node.Key, node.Mount, logger); err != nil {
 			return err
 		}
-	}
-	return nil
-}
-
-// createNode creates a single declared node, equivalent to running
-// "overlock env node create" for that node's configuration.
-func (c *createCmd) createNode(ctx context.Context, node NodeConfig, logger *zap.SugaredLogger) error {
-	if node.Name == "" {
-		return fmt.Errorf("node configuration requires a name")
-	}
-
-	var remote *environment.SSHClient
-	if node.Host != "" {
-		user := node.User
-		if user == "" {
-			user = "root"
-		}
-		port := node.Port
-		if port == 0 {
-			port = 22
-		}
-		key := node.Key
-		if key == "" {
-			key = "~/.ssh/id_rsa"
-		}
-		var err error
-		remote, err = environment.NewSSHClient(node.Host, user, port, key)
-		if err != nil {
-			return fmt.Errorf("failed to create SSH client for node %q: %w", node.Name, err)
-		}
-		defer remote.Close()
-	}
-
-	env := environment.New(c.Engine, c.Name).WithCpu(node.Cpu)
-	if len(node.Mount) > 0 {
-		if remote != nil {
-			logger.Warnf("mount is only supported for local nodes, ignoring for remote host %s", node.Host)
-		} else {
-			for _, m := range node.Mount {
-				parts := strings.SplitN(m, ":", 2)
-				if len(parts) != 2 {
-					return fmt.Errorf("invalid mount format %q for node %q, expected host:container", m, node.Name)
-				}
-			}
-			env = env.WithMounts(node.Mount)
-		}
-	}
-
-	if err := env.CreateNode(ctx, node.Name, node.Scopes, node.Taints, remote, logger); err != nil {
-		return fmt.Errorf("failed to create node %q: %w", node.Name, err)
 	}
 	return nil
 }

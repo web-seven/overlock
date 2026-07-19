@@ -61,10 +61,7 @@ nodes:
 }
 
 func TestCreateNodeRequiresName(t *testing.T) {
-	c := &createCmd{createOptions: createOptions{Engine: "k3s-docker"}}
-	c.Name = "test-env"
-
-	err := c.createNode(nil, NodeConfig{}, nil)
+	err := createNode(nil, nil, "", nil, nil, "", "", 0, "", nil, nil)
 	if err == nil {
 		t.Fatal("createNode() expected error for missing node name, got nil")
 	}
