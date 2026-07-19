@@ -21,7 +21,7 @@ Create and manage Crossplane-enabled Kubernetes environments.
 Create a new Crossplane environment.
 
 ```bash
-overlock environment create <name> [options]
+overlock environment create [name] [options]
 ```
 
 **Options:**
@@ -29,6 +29,8 @@ overlock environment create <name> [options]
 - `--crossplane-version`: Specific Crossplane version to install
 - `--cpu`: CPU limit for k3s-docker containers (e.g., `2`, `0.5`, `50%`)
 - Additional options available via `overlock environment create --help`
+
+`name` is optional if a `name` field is set in `overlock.yaml` (see [Environment Config File](environment/cfg-file.md)). The positional argument takes precedence over the config file when both are set.
 
 **Example:**
 ```bash

@@ -141,9 +141,9 @@ If you want to expand your environment with additional nodes — for example, to
 
 ## Command Reference
 
-### `overlock env create <name>`
+### `overlock env create [name]`
 
-Creates a new environment with the given name.
+Creates a new environment with the given name. `name` is optional if a `name` field is set in `overlock.yaml` — see the [Environment Config File](../environment/cfg-file.md) reference. The positional argument takes precedence over the config file when both are set.
 
 | Flag | Default | Description |
 |------|---------|-------------|
