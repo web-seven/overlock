@@ -138,10 +138,10 @@ func (c *cli) AfterApply(ctx *kong.Context) error { //nolint:unparam
 		cfg.Level = zap.NewAtomicLevelAt(zapcore.DebugLevel)
 	}
 
-	if os.Getenv(namespace.OVERLOCK_ENGINE_NAMESPACE) != "" {
-		namespace.Namespace = os.Getenv(namespace.OVERLOCK_ENGINE_NAMESPACE)
-	} else if c.Globals.Namespace != "" {
+	if c.Globals.Namespace != "" {
 		namespace.Namespace = c.Globals.Namespace
+	} else if os.Getenv(namespace.OVERLOCK_ENGINE_NAMESPACE) != "" {
+		namespace.Namespace = os.Getenv(namespace.OVERLOCK_ENGINE_NAMESPACE)
 	}
 
 	if os.Getenv(engine.OVERLOCK_ENGINE_RELEASE) != "" {
