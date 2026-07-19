@@ -1,17 +1,15 @@
 name: Deploy Documentation
 
 on:
+  # Deploy on docs/blog content changes only. The displayed release version is
+  # fetched at runtime from the GitHub API, so release tags no longer need to
+  # trigger a build.
   push:
     branches:
       - main
     paths:
       - 'docs/**'
       - 'blog/**'
-    tags:
-      # Plain semver only (e.g. 1.0.0, 1.2.3, 2.10.4).
-      # `[0-9]+` matches one-or-more digits per segment, so pre-release
-      # ("-rc1") and build-metadata ("+build") tags don't match.
-      - '[0-9]+.[0-9]+.[0-9]+'
   workflow_dispatch:
 
 permissions:
@@ -30,9 +28,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          fetch-tags: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -42,37 +37,6 @@ jobs:
       - name: Install dependencies
         working-directory: docs
         run: npm install
-
-      - name: Resolve release tag
-        id: release
-        run: |
-          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            TAG="${GITHUB_REF#refs/tags/}"
-          else
-            # Latest STABLE semver tag only (no pre-release / build-metadata).
-            TAG=$(git describe --tags --abbrev=0 \
-                    --match='[0-9]*.[0-9]*.[0-9]*' \
-                    --exclude='*-*' \
-                    --exclude='*+*' 2>/dev/null || echo "dev")
-          fi
-          DATE=$(git log -1 --format=%cs "$TAG" 2>/dev/null || date -u +%Y-%m-%d)
-          echo "tag=$TAG"   >> "$GITHUB_OUTPUT"
-          echo "date=$DATE" >> "$GITHUB_OUTPUT"
-
-      # Stamp sources BEFORE the build so the release string is part of the
-      # content used for webpack chunk hashes. Stamping the build output
-      # instead produces identical chunk filenames with different content
-      # across releases, which browsers and CDNs then serve stale.
-      - name: Stamp release placeholders
-        env:
-          RELEASE: ${{ steps.release.outputs.tag }}
-          DATE: ${{ steps.release.outputs.date }}
-        run: |
-          grep -rl --include='*.js' --include='*.md' --include='*.html' \
-              --exclude-dir=node_modules '__RELEASE__\|__DATE__' docs \
-            | xargs -r sed -i \
-                -e "s/__RELEASE__/${RELEASE}/g" \
-                -e "s/__DATE__/${DATE}/g"
 
       - name: Build
         working-directory: docs

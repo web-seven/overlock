@@ -6,6 +6,34 @@ import '../css/landing.css';
 
 const INSTALL_CMD = 'curl -sL "https://raw.githubusercontent.com/web-seven/overlock/refs/heads/main/scripts/install.sh" | sh';
 
+// Pre-fetch fallback shown during SSR / first paint. The real value is loaded
+// at runtime from the GitHub API (see useLatestRelease), so this never needs
+// bumping per release — it is only a placeholder until the fetch resolves.
+const FALLBACK_RELEASE = {version: '1.0.9', date: '2026-07-19'};
+
+// Resolve the latest published release at runtime. Fetching client-side keeps
+// the displayed version correct regardless of which Pages deployment is live,
+// avoiding the stale-version problem of stamping it into the build.
+function useLatestRelease() {
+  const [release, setRelease] = useState(FALLBACK_RELEASE);
+  useEffect(() => {
+    let alive = true;
+    fetch('https://api.github.com/repos/web-seven/overlock/releases/latest', {
+      headers: {Accept: 'application/vnd.github+json'},
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!alive || !d || !d.tag_name) return;
+        setRelease({version: d.tag_name, date: (d.published_at || '').slice(0, 10)});
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return release;
+}
+
 function CopyButton({text, mini}) {
   const [copied, setCopied] = useState(false);
   const timer = useRef(null);
@@ -171,6 +199,7 @@ function useReveal() {
 
 export default function Home() {
   useReveal();
+  const release = useLatestRelease();
   useEffect(() => {
     if (typeof document === 'undefined') return;
     document.body.classList.add('landing-body');
@@ -221,7 +250,7 @@ export default function Home() {
                     <b>LAUNCH_SEQUENCE</b>
                     <em>· one line · macOS / linux / windows</em>
                   </span>
-                  <span className="launch__meta"><b>v</b>__RELEASE__&nbsp;·&nbsp;<b>released</b>&nbsp;__DATE__</span>
+                  <span className="launch__meta"><b>v</b>{release.version}&nbsp;·&nbsp;<b>released</b>&nbsp;{release.date}</span>
                 </header>
                 <div className="launch__body">
                   <span className="launch__prompt">$</span>
@@ -708,7 +737,7 @@ export default function Home() {
               <div className="launch launch--final">
                 <header className="launch__head">
                   <span className="launch__chip"><i className="dot dot--ok"></i><b>EXEC_THIS</b><em>· macOS / linux / windows</em></span>
-                  <span className="launch__meta"><b>v</b>__RELEASE__&nbsp;·&nbsp;<b>__DATE__</b></span>
+                  <span className="launch__meta"><b>v</b>{release.version}&nbsp;·&nbsp;<b>{release.date}</b></span>
                 </header>
                 <div className="launch__body">
                   <span className="launch__prompt">$</span>
