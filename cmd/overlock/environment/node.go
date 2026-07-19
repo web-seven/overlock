@@ -43,14 +43,8 @@ func createNode(ctx context.Context, env *environment.Environment, name string, 
 
 	var remote *environment.SSHClient
 	if host != "" {
-		if user == "" {
-			user = "root"
-		}
-		if port == 0 {
-			port = 22
-		}
-		if key == "" {
-			key = "~/.ssh/id_rsa"
+		if user == "" || port == 0 || key == "" {
+			return fmt.Errorf("node %q: user, port and key are required when host is set, refusing to fall back to insecure defaults", name)
 		}
 		var err error
 		remote, err = environment.NewSSHClient(host, user, port, key)

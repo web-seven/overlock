@@ -66,3 +66,26 @@ func TestCreateNodeRequiresName(t *testing.T) {
 		t.Fatal("createNode() expected error for missing node name, got nil")
 	}
 }
+
+func TestCreateNodeRemoteRequiresUserPortKey(t *testing.T) {
+	cases := []struct {
+		name string
+		user string
+		port int
+		key  string
+	}{
+		{name: "missing all", user: "", port: 0, key: ""},
+		{name: "missing user", user: "", port: 2222, key: "~/.ssh/id_rsa"},
+		{name: "missing port", user: "root", port: 0, key: "~/.ssh/id_rsa"},
+		{name: "missing key", user: "root", port: 2222, key: ""},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := createNode(nil, nil, "worker-1", nil, nil, "10.0.0.5", tc.user, tc.port, tc.key, nil, nil)
+			if err == nil {
+				t.Fatal("createNode() expected error for incomplete remote SSH configuration, got nil")
+			}
+		})
+	}
+}
