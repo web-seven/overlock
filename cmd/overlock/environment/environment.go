@@ -1,8 +1,9 @@
 package environment
 
 type Cmd struct {
-	Create createCmd `cmd:"" help:"Create an Environment"`
-	Delete deleteCmd `cmd:"" help:"Delete an Environment"`
+	Create  createCmd  `cmd:"" help:"Create an Environment"`
+	Install installCmd `cmd:"" help:"Install engine into an existing cluster without creating one"`
+	Delete  deleteCmd  `cmd:"" help:"Delete an Environment"`
 	// Copy    copyCmd    `cmd:"" help:"Copy an Environment to another destination context"`
 	// List    listCmd    `cmd:"" help:"List of Environments"`
 	Stop    stopCmd    `cmd:"" help:"Stop an Environment"`
