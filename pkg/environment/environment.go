@@ -44,7 +44,7 @@ type Environment struct {
 	providers                 []string
 	createAdminServiceAccount bool
 	adminServiceAccountName   string
-	skipNodeSetup             bool
+	nodes                     []NodeSpec
 	maxReconcileRate          int
 }
 
@@ -168,20 +168,9 @@ func (e *Environment) Setup(ctx context.Context, logger *zap.SugaredLogger) erro
 		return err
 	}
 
-	// For k3s-docker: create scoped agent nodes before installing charts,
-	// and install charts with engine scope selectors from the start.
-	// Skip if the environment already existed to preserve the existing node topology.
-	if e.engine == "k3s-docker" && !e.skipNodeSetup {
-		for _, scope := range []struct{ node, value string }{
-			{"engine", scopeEngine},
-		} {
-			if err := e.CreateNode(ctx, scope.node, []string{scope.value}, nil, nil, logger); err != nil {
-				return fmt.Errorf("failed to create %s node: %w", scope.node, err)
-			}
-		}
-	}
-
 	// Build engine scope params for chart installation (nil for non-k3s-docker).
+	// The engine-scoped node itself is created earlier, by the engine's own
+	// Create*Environment method (see CreateK3sDockerEnvironment).
 	var nodeSelector map[string]interface{}
 	if e.engine == "k3s-docker" {
 		nodeSelector, _ = chart.EngineScopeSelector()
@@ -423,6 +412,13 @@ func (e *Environment) WithMounts(mounts []string) *Environment {
 
 func (e *Environment) WithCpu(cpu string) *Environment {
 	e.cpu = cpu
+	return e
+}
+
+// WithNodes sets the nodes declared in the environment configuration. They are
+// created by engines that support multi-node topologies (currently k3s-docker).
+func (e *Environment) WithNodes(nodes []NodeSpec) *Environment {
+	e.nodes = nodes
 	return e
 }
 

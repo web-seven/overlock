@@ -2,13 +2,8 @@ package environment
 
 import (
 	"context"
-	"errors"
-	"os"
-	"path/filepath"
 
-	"dario.cat/mergo"
 	"go.uber.org/zap"
-	yaml "gopkg.in/yaml.v2"
 
 	"github.com/web-seven/overlock/pkg/environment"
 	overlockerrors "github.com/web-seven/overlock/pkg/errors"
@@ -40,60 +35,16 @@ type createOptions struct {
 	Cpu                       string   `optional:"" help:"CPU limit for k3s-docker containers (e.g., 2, 0.5, 50%)." default:""`
 	MaxReconcileRate          int      `optional:"" help:"Maximum number of reconciliations per second for Crossplane (e.g., 1)." default:"1"`
 	// Nodes is only settable via a configuration file (see loadConfig), not as a CLI flag.
-	Nodes []NodeConfig `kong:"-" yaml:"nodes,omitempty"`
-}
-
-// NodeConfig declares a node to create after the environment is up, equivalent
-// to an "overlock env node create" invocation. Only meaningful for the
-// k3s-docker engine.
-type NodeConfig struct {
-	Name   string   `yaml:"name"`
-	Host   string   `yaml:"host,omitempty"`
-	User   string   `yaml:"user,omitempty"`
-	Port   int      `yaml:"port,omitempty"`
-	Key    string   `yaml:"key,omitempty"`
-	Scopes []string `yaml:"scopes,omitempty"`
-	Taints []string `yaml:"taints,omitempty"`
-	Cpu    string   `yaml:"cpu,omitempty"`
-	Mount  []string `yaml:"mount,omitempty"`
+	Nodes []environment.NodeSpec `kong:"-" yaml:"nodes,omitempty"`
 }
 
 func (c *createCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
-	if c.Config != "" {
-		cfg, err := loadConfig(c.Config)
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				logger.Errorf("Configuration file not found at specified path: %s", c.Config)
-				return err
-			}
-			logger.Infof("Failed to parse the configuration file at '%s'.", c.Config)
-			logger.Info("For guidance on the correct structure, refer to the documentation: https://docs.overlock.network/environment/cfg-file")
-			return nil
-		}
-		if err := mergo.MergeWithOverwrite(&c.createOptions, cfg, mergo.WithOverride); err != nil {
-			logger.Errorf("Failed to merge configuration: %v", err)
-			return overlockerrors.NewInvalidConfigErrorWithCause("", "", "failed to merge configuration options", err)
-		}
-	} else {
-		paths, err := layeredConfigPaths()
-		if err != nil {
-			return err
-		}
-		for _, path := range paths {
-			cfg, err := loadConfig(path)
-			if err != nil {
-				if errors.Is(err, os.ErrNotExist) {
-					continue
-				}
-				logger.Infof("Failed to parse the configuration file at '%s'.", path)
-				logger.Info("For guidance on the correct structure, refer to the documentation: https://docs.overlock.network/environment/cfg-file")
-				return nil
-			}
-			if err := mergo.MergeWithOverwrite(&c.createOptions, cfg, mergo.WithOverride); err != nil {
-				logger.Errorf("Failed to merge configuration: %v", err)
-				return overlockerrors.NewInvalidConfigErrorWithCause("", "", "failed to merge configuration options", err)
-			}
-		}
+	stop, err := c.loadAndMergeConfig(logger)
+	if err != nil {
+		return err
+	}
+	if stop {
+		return nil
 	}
 
 	if c.Name == "" {
@@ -101,6 +52,10 @@ func (c *createCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
 	}
 	if c.Name == "" {
 		return overlockerrors.NewInvalidConfigError("name", "", "environment name must be provided either as a positional argument or via 'name' in the configuration file")
+	}
+
+	if len(c.Nodes) > 0 && c.Engine != "k3s-docker" {
+		logger.Warnf("nodes declared in configuration are only supported for the k3s-docker engine; skipping %d node(s)", len(c.Nodes))
 	}
 
 	env := environment.
@@ -116,43 +71,12 @@ func (c *createCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
 		WithFunctions(c.Functions).
 		WithAdminServiceAccount(c.CreateAdminServiceAccount, c.AdminServiceAccountName).
 		WithCpu(c.Cpu).
-		WithMaxReconcileRate(c.MaxReconcileRate)
+		WithMaxReconcileRate(c.MaxReconcileRate).
+		WithNodes(c.Nodes)
 
 	if err := env.Create(ctx, logger); err != nil {
 		return err
 	}
 
-	for _, node := range c.Nodes {
-		if err := createNode(ctx, env.WithCpu(node.Cpu), node.Name, node.Scopes, node.Taints, node.Host, node.User, node.Port, node.Key, node.Mount, logger); err != nil {
-			return err
-		}
-	}
 	return nil
-}
-
-// layeredConfigPaths returns the ordered list of config file paths to load and merge.
-// Load order: overlock.yaml, .overlock.yaml, .overlock.*.yaml (alphabetically sorted).
-func layeredConfigPaths() ([]string, error) {
-	paths := []string{"overlock.yaml", ".overlock.yaml"}
-	matches, err := filepath.Glob(".overlock.*.yaml")
-	if err != nil {
-		return nil, err
-	}
-	paths = append(paths, matches...)
-	return paths, nil
-}
-
-func loadConfig(path string) (*createOptions, error) {
-	var cfg createOptions
-
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return nil, overlockerrors.NewInvalidConfigErrorWithCause("", "", "failed to parse configuration file", err)
-	}
-
-	return &cfg, nil
 }

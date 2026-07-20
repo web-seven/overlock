@@ -1,9 +1,12 @@
 package environment
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/web-seven/overlock/pkg/environment"
 )
 
 func TestLoadConfigNodes(t *testing.T) {
@@ -82,9 +85,10 @@ engine: k3s-docker
 }
 
 func TestCreateNodeRequiresName(t *testing.T) {
-	err := createNode(nil, nil, "", nil, nil, "", "", 0, "", nil, nil)
+	env := environment.New("k3s-docker", "test")
+	err := env.CreateNodeFromSpec(context.Background(), environment.NodeSpec{}, nil)
 	if err == nil {
-		t.Fatal("createNode() expected error for missing node name, got nil")
+		t.Fatal("CreateNodeFromSpec() expected error for missing node name, got nil")
 	}
 }
 
@@ -103,9 +107,16 @@ func TestCreateNodeRemoteRequiresUserPortKey(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := createNode(nil, nil, "worker-1", nil, nil, "10.0.0.5", tc.user, tc.port, tc.key, nil, nil)
+			env := environment.New("k3s-docker", "test")
+			err := env.CreateNodeFromSpec(context.Background(), environment.NodeSpec{
+				Name: "worker-1",
+				Host: "10.0.0.5",
+				User: tc.user,
+				Port: tc.port,
+				Key:  tc.key,
+			}, nil)
 			if err == nil {
-				t.Fatal("createNode() expected error for incomplete remote SSH configuration, got nil")
+				t.Fatal("CreateNodeFromSpec() expected error for incomplete remote SSH configuration, got nil")
 			}
 		})
 	}
