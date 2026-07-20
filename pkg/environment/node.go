@@ -65,6 +65,63 @@ func (e *Environment) nodeContainerName(nodeName string) string {
 	return k3sDockerContainerPrefix + e.name + "-" + nodeName
 }
 
+// NodeSpec declares a node to create as part of an environment, equivalent to
+// an "overlock env node create" invocation. It is settable via the Overlock
+// configuration file (nodes:) and only meaningful for engines that support
+// multi-node topologies (currently k3s-docker).
+type NodeSpec struct {
+	Name   string   `yaml:"name"`
+	Host   string   `yaml:"host,omitempty"`
+	User   string   `yaml:"user,omitempty"`
+	Port   int      `yaml:"port,omitempty"`
+	Key    string   `yaml:"key,omitempty"`
+	Scopes []string `yaml:"scopes,omitempty"`
+	Taints []string `yaml:"taints,omitempty"`
+	Cpu    string   `yaml:"cpu,omitempty"`
+	Mount  []string `yaml:"mount,omitempty"`
+}
+
+// CreateNodeFromSpec creates a single node described by spec. It builds an SSH
+// client for remote hosts and applies the spec's per-node CPU and mounts before
+// delegating to CreateNode.
+func (e *Environment) CreateNodeFromSpec(ctx context.Context, spec NodeSpec, logger *zap.SugaredLogger) error {
+	if spec.Name == "" {
+		return fmt.Errorf("node configuration requires a name")
+	}
+
+	var remote *SSHClient
+	if spec.Host != "" {
+		if spec.User == "" || spec.Port == 0 || spec.Key == "" {
+			return fmt.Errorf("node %q: user, port and key are required when host is set, refusing to fall back to insecure defaults", spec.Name)
+		}
+		var err error
+		remote, err = NewSSHClient(spec.Host, spec.User, spec.Port, spec.Key)
+		if err != nil {
+			return fmt.Errorf("failed to create SSH client for node %q: %w", spec.Name, err)
+		}
+		defer remote.Close()
+	}
+
+	if remote != nil {
+		if len(spec.Mount) > 0 {
+			logger.Warnf("mount is only supported for local nodes, ignoring for remote host %s", spec.Host)
+		}
+	} else {
+		for _, m := range spec.Mount {
+			if len(strings.SplitN(m, ":", 2)) != 2 {
+				return fmt.Errorf("invalid mount format %q for node %q, expected host:container", m, spec.Name)
+			}
+		}
+		e.mounts = spec.Mount
+	}
+	e.cpu = spec.Cpu
+
+	if err := e.CreateNode(ctx, spec.Name, spec.Scopes, spec.Taints, remote, logger); err != nil {
+		return fmt.Errorf("failed to create node %q: %w", spec.Name, err)
+	}
+	return nil
+}
+
 // CreateNode creates a new K3s agent node as a Docker container that joins the
 // existing K3s server for this environment. Only supported for the k3s-docker engine.
 // When remote is non-nil, the Docker container is created on the remote host via SSH.

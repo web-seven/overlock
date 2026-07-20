@@ -104,7 +104,6 @@ func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (_ s
 				return "", fmt.Errorf("failed to start existing container: %w", err)
 			}
 		}
-		e.skipNodeSetup = true
 		return e.K3sDockerContextName(), nil
 	}
 
@@ -242,8 +241,29 @@ func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (_ s
 		return "", fmt.Errorf("failed to merge kubeconfig: %w", err)
 	}
 
+	// Create the engine-scoped node and any configuration-declared nodes before
+	// the engine (charts) is installed in Setup, so workloads can be scheduled
+	// onto the right nodes from the start.
+	if err := e.setupK3sDockerNodes(ctx, logger); err != nil {
+		return "", err
+	}
+
 	logger.Debug("k3s-docker environment created successfully")
 	return contextName, nil
+}
+
+// setupK3sDockerNodes creates the engine-scoped node required before charts are
+// installed, followed by any nodes declared in the environment configuration.
+func (e *Environment) setupK3sDockerNodes(ctx context.Context, logger *zap.SugaredLogger) error {
+	if err := e.CreateNode(ctx, scopeEngine, []string{scopeEngine}, nil, nil, logger); err != nil {
+		return fmt.Errorf("failed to create engine node: %w", err)
+	}
+	for _, node := range e.nodes {
+		if err := e.CreateNodeFromSpec(ctx, node, logger); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // DeleteK3sDockerEnvironment stops and removes the k3s-docker server and all
