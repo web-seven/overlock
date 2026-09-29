@@ -3,6 +3,7 @@ package environment
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strconv"
@@ -20,6 +21,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
@@ -882,17 +884,18 @@ func labelNodeRoles(ctx context.Context, kubeClient *kubernetes.Clientset, nodeN
 	if len(scopes) == 0 {
 		return nil
 	}
-	node, err := kubeClient.CoreV1().Nodes().Get(ctx, nodeName, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to get node %q: %w", nodeName, err)
-	}
-	if node.Labels == nil {
-		node.Labels = make(map[string]string)
-	}
+	// Use a merge patch rather than Get+Update: k3s and the kubelet keep
+	// updating a freshly joined node, so an Update races and fails with a
+	// resourceVersion conflict.
+	labels := make(map[string]string, len(scopes))
 	for _, scope := range scopes {
-		node.Labels[fmt.Sprintf("node-role.kubernetes.io/%s", scope)] = ""
+		labels[fmt.Sprintf("node-role.kubernetes.io/%s", scope)] = ""
 	}
-	_, err = kubeClient.CoreV1().Nodes().Update(ctx, node, metav1.UpdateOptions{})
+	patch, err := json.Marshal(map[string]any{"metadata": map[string]any{"labels": labels}})
+	if err != nil {
+		return err
+	}
+	_, err = kubeClient.CoreV1().Nodes().Patch(ctx, nodeName, k8stypes.MergePatchType, patch, metav1.PatchOptions{})
 	return err
 }
 
