@@ -107,6 +107,22 @@ func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (_ s
 		return e.K3sDockerContextName(), nil
 	}
 
+	// Pull the image explicitly; the Docker daemon does not auto-pull when
+	// using ContainerCreate via the Go client.
+	logger.Debugf("Pulling image %s...", image)
+	pullReader, err := dockerClient.ImagePull(ctx, image, types.ImagePullOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to pull image %s: %w", image, err)
+	}
+	_, _ = io.Copy(io.Discard, pullReader)
+	pullReader.Close()
+
+	// Fail before creating anything when the Docker host is low on disk:
+	// k3s would taint the node with disk-pressure and pods would stay Pending.
+	if err := checkDockerDiskSpace(ctx, dockerClient, image, logger); err != nil {
+		return "", err
+	}
+
 	addrs := computeEnvNetAddrs(e.name)
 
 	// Create the Docker bridge network for this environment.
@@ -173,16 +189,6 @@ func (e *Environment) CreateK3sDockerEnvironment(logger *zap.SugaredLogger) (_ s
 			},
 		},
 	}
-
-	// Pull the image explicitly; the Docker daemon does not auto-pull when
-	// using ContainerCreate via the Go client.
-	logger.Debugf("Pulling image %s...", image)
-	pullReader, err := dockerClient.ImagePull(ctx, image, types.ImagePullOptions{})
-	if err != nil {
-		return "", fmt.Errorf("failed to pull image %s: %w", image, err)
-	}
-	_, _ = io.Copy(io.Discard, pullReader)
-	pullReader.Close()
 
 	resp, err := dockerClient.ContainerCreate(ctx, containerConfig, hostConfig, netCfg, nil, containerName)
 	if err != nil {
