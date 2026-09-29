@@ -42,6 +42,11 @@ jobs:
             ## Changelog
             ${{ steps.changelog.outputs.changelog }}
           allowUpdates: true
+          # Tags with a pre-release suffix (e.g. 1.2.0-beta.1) never become
+          # "latest"; stable tags always do, even when they share a commit
+          # with a pre-release (the default "legacy" mode ties on commit date).
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          makeLatest: ${{ !contains(github.ref_name, '-') }}
 
   releases-matrix:
     name: Release Go Binary
