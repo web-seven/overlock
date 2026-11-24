@@ -13,7 +13,7 @@ COPY internal/ internal/
 COPY pkg/ pkg/
 
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} \
-    go build -trimpath -ldflags="-s -w" -o overlock-operator ./cmd/overlock-operator
+    go build -trimpath -ldflags="-s -w" -o overlock-operator ./cmd/operator
 
 # Helm caches charts under $HOME/.cache, which is writable for the nonroot user.
 FROM gcr.io/distroless/static:nonroot

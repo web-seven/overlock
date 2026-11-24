@@ -79,9 +79,9 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
-          project_path: "./cmd/overlock"
+          project_path: "./cmd/cli"
           binary_name: "overlock"
-          ldflags: -X "github.com/web-seven/overlock/cmd/overlock/version.Version=${{ github.ref_name }}"
+          ldflags: -X "github.com/web-seven/overlock/cmd/cli/version.Version=${{ github.ref_name }}"
 
   notify:
     name: Notify Discord

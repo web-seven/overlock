@@ -5,9 +5,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development Commands
 
 ### Building and Running
-- **Build the project**: `go build -o overlock ./cmd/overlock`
-- **Run the application**: `go run ./cmd/overlock [command]`
-- **Install locally**: `go install ./cmd/overlock`
+- **Build the project**: `go build -o overlock ./cmd/cli`
+- **Run the application**: `go run ./cmd/cli [command]`
+- **Install locally**: `go build -o $(go env GOPATH)/bin/overlock ./cmd/cli`
 
 ### Testing and Quality
 - **Run tests**: `go test ./...`
@@ -19,7 +19,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Development Workflow
 - **Run specific tests**: `go test ./path/to/package -run TestName`
-- **Build for specific OS/arch**: `GOOS=linux GOARCH=amd64 go build -o overlock ./cmd/overlock`
+- **Build for specific OS/arch**: `GOOS=linux GOARCH=amd64 go build -o overlock ./cmd/cli`
 
 ## Project Architecture
 

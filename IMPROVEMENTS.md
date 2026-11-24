@@ -22,7 +22,7 @@ Overlock demonstrates solid architectural foundations with good CLI design and m
   - `internal/engine`: >90% (critical Helm operations)
   - `internal/kube`: >85% (Kubernetes client operations)
   - `pkg/environment`: >80% (environment lifecycle)
-  - `cmd/overlock/*`: >75% (CLI command validation)
+  - `cmd/cli/*`: >75% (CLI command validation)
 - [ ] **Integration Tests**: Define scope and mocking strategy:
   - Mock Kubernetes API for unit tests using `client-go/fake`
   - Real cluster tests for critical paths (environment creation/deletion)

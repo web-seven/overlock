@@ -14,11 +14,11 @@ import (
 	"go.uber.org/zap/zapcore"
 	"k8s.io/klog/v2"
 
-	"github.com/web-seven/overlock/cmd/overlock/configuration"
-	"github.com/web-seven/overlock/cmd/overlock/environment"
-	"github.com/web-seven/overlock/cmd/overlock/function"
-	"github.com/web-seven/overlock/cmd/overlock/provider"
-	"github.com/web-seven/overlock/cmd/overlock/version"
+	"github.com/web-seven/overlock/cmd/cli/configuration"
+	"github.com/web-seven/overlock/cmd/cli/environment"
+	"github.com/web-seven/overlock/cmd/cli/function"
+	"github.com/web-seven/overlock/cmd/cli/provider"
+	"github.com/web-seven/overlock/cmd/cli/version"
 	"github.com/web-seven/overlock/internal/engine"
 	"github.com/web-seven/overlock/internal/kube"
 	"github.com/web-seven/overlock/internal/namespace"
@@ -29,8 +29,8 @@ import (
 	"k8s.io/client-go/dynamic"
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	"github.com/web-seven/overlock/cmd/overlock/registry"
-	"github.com/web-seven/overlock/cmd/overlock/resource"
+	"github.com/web-seven/overlock/cmd/cli/registry"
+	"github.com/web-seven/overlock/cmd/cli/resource"
 )
 
 type Globals struct {

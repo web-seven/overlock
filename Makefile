@@ -38,15 +38,15 @@ test: manifests generate ## Run tests.
 
 .PHONY: build
 build: ## Build the overlock CLI.
-	go build -o overlock ./cmd/overlock
+	go build -o overlock ./cmd/cli
 
 .PHONY: build-operator
 build-operator: manifests generate ## Build the overlock operator.
-	go build -o bin/overlock-operator ./cmd/overlock-operator
+	go build -o bin/overlock-operator ./cmd/operator
 
 .PHONY: run-operator
 run-operator: manifests generate ## Run the operator against the current kubeconfig context.
-	go run ./cmd/overlock-operator
+	go run ./cmd/operator
 
 .PHONY: docker-build-operator
 docker-build-operator: ## Build the operator image.
