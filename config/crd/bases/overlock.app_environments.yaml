@@ -4,9 +4,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.14.0
-  name: environments.overlock.io
+  name: environments.overlock.app
 spec:
-  group: overlock.io
+  group: overlock.app
   names:
     kind: Environment
     listKind: EnvironmentList

@@ -85,7 +85,7 @@ The state of each component is listed in `status.components`.
 ## Ownership
 
 The operator only modifies or removes components it owns. Ownership is recorded
-with the `overlock.io/environment: <environment name>` label on Helm releases
+with the `overlock.app/environment: <environment name>` label on Helm releases
 and Kubernetes resources. Components without this label, or with the label of
 another Environment, are never modified or removed.
 
@@ -112,7 +112,7 @@ Ownership is never taken from another Environment, even with `Adopt`.
 
 ## Deletion
 
-An Environment carries the `overlock.io/environment` finalizer, so its
+An Environment carries the `overlock.app/environment` finalizer, so its
 `deletionPolicy` is applied before it is removed:
 
 - `Orphan` (default): all components stay in the cluster.

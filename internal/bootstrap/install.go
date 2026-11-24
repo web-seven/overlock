@@ -16,7 +16,7 @@ const (
 	// FieldOwner is the server-side apply field manager of the CLI.
 	FieldOwner = "overlock"
 
-	crdName       = "environments.overlock.io"
+	crdName       = "environments.overlock.app"
 	crdTimeout    = time.Minute
 	pollInterval  = 2 * time.Second
 	imagePullHint = "check the operator image with: kubectl -n " + Namespace + " describe pods"

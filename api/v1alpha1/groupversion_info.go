@@ -1,7 +1,7 @@
 // Package v1alpha1 contains the operator-compatible Overlock Environment API.
 //
 // +kubebuilder:object:generate=true
-// +groupName=overlock.io
+// +groupName=overlock.app
 package v1alpha1
 
 import (
@@ -11,7 +11,7 @@ import (
 
 var (
 	// GroupVersion is the group version used to register these objects.
-	GroupVersion = schema.GroupVersion{Group: "overlock.io", Version: "v1alpha1"}
+	GroupVersion = schema.GroupVersion{Group: "overlock.app", Version: "v1alpha1"}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme.
 	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}

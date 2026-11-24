@@ -19,7 +19,7 @@ func TestImage(t *testing.T) {
 }
 
 func TestManifests(t *testing.T) {
-	objs, err := Manifests(Options{Image: "example.com/operator:test", NodeSelector: map[string]string{"overlock.io/scope": "engine"}})
+	objs, err := Manifests(Options{Image: "example.com/operator:test", NodeSelector: map[string]string{"overlock.app/scope": "engine"}})
 	if err != nil {
 		t.Fatalf("Manifests() unexpected error: %v", err)
 	}
@@ -30,7 +30,7 @@ func TestManifests(t *testing.T) {
 	}
 	for _, want := range []string{
 		"Namespace/" + Namespace,
-		"CustomResourceDefinition/environments.overlock.io",
+		"CustomResourceDefinition/environments.overlock.app",
 		"ServiceAccount/overlock-operator",
 		"ClusterRole/overlock-operator",
 		"ClusterRoleBinding/overlock-operator",
@@ -51,7 +51,7 @@ func TestManifests(t *testing.T) {
 		t.Errorf("image = %v", image)
 	}
 	sel, _, _ := unstructured.NestedStringMap(deploy.Object, "spec", "template", "spec", "nodeSelector")
-	if sel["overlock.io/scope"] != "engine" {
+	if sel["overlock.app/scope"] != "engine" {
 		t.Errorf("nodeSelector = %v", sel)
 	}
 	if _, found, _ := unstructured.NestedFieldNoCopy(deploy.Object, "status"); found {

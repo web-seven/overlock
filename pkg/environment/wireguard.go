@@ -107,7 +107,7 @@ func (e *Environment) createEnvironmentNetwork(ctx context.Context, dockerClient
 		},
 		Labels: map[string]string{
 			"managed-by":              "overlock",
-			"overlock.io/environment": e.name,
+			"overlock.app/environment": e.name,
 		},
 	})
 	if err != nil {

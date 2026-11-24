@@ -27,18 +27,18 @@ import (
 )
 
 const (
-	scopeLabel     = "overlock.io/scope"
-	nodeLabel      = "overlock.io/node"
+	scopeLabel     = "overlock.app/scope"
+	nodeLabel      = "overlock.app/node"
 	scopeEngine    = "engine"
 	scopeWorkloads = "workloads"
 	scopeEffect    = "NoSchedule"
 
-	annSSHHost        = "overlock.io/ssh-host"
-	annSSHUser        = "overlock.io/ssh-user"
-	annSSHPort        = "overlock.io/ssh-port"
-	annSSHKey         = "overlock.io/ssh-key"
-	annWGPeerIdx      = "overlock.io/wg-peer-idx"
-	annWGRemotePubkey = "overlock.io/wg-remote-pubkey"
+	annSSHHost        = "overlock.app/ssh-host"
+	annSSHUser        = "overlock.app/ssh-user"
+	annSSHPort        = "overlock.app/ssh-port"
+	annSSHKey         = "overlock.app/ssh-key"
+	annWGPeerIdx      = "overlock.app/wg-peer-idx"
+	annWGRemotePubkey = "overlock.app/wg-remote-pubkey"
 )
 
 // formatTaint converts a user-provided "key:value" taint to K8s format "key=value:NoSchedule".
@@ -218,7 +218,7 @@ func (e *Environment) CreateNode(ctx context.Context, nodeName string, scopes []
 		}
 	}
 
-	// Discover the node by the overlock.io/node label.
+	// Discover the node by the overlock.app/node label.
 	actualNodeName, err := e.waitForNodeReadyByLabel(ctx, kubeClient, nodeName, logger)
 	if err != nil {
 		if remote != nil {
@@ -811,7 +811,7 @@ func (e *Environment) getK3sToken(ctx context.Context, dockerClient *docker.Clie
 }
 
 // waitForNodeReadyByLabel polls the Kubernetes API until a node with the
-// overlock.io/node=<nodeName> label appears and has the Ready condition.
+// overlock.app/node=<nodeName> label appears and has the Ready condition.
 // Returns the actual Kubernetes node name (which includes the random suffix).
 func (e *Environment) waitForNodeReadyByLabel(ctx context.Context, kubeClient *kubernetes.Clientset, nodeName string, logger *zap.SugaredLogger) (string, error) {
 	labelSelector := fmt.Sprintf("%s=%s", nodeLabel, nodeName)
@@ -865,7 +865,7 @@ func clearNodePasswordSecret(ctx context.Context, kubeClient *kubernetes.Clients
 }
 
 // findNodeByLabel returns the actual Kubernetes node name for a node with
-// the overlock.io/node=<nodeName> label.
+// the overlock.app/node=<nodeName> label.
 func findNodeByLabel(ctx context.Context, kubeClient *kubernetes.Clientset, nodeName string) (string, error) {
 	nodes, err := kubeClient.CoreV1().Nodes().List(ctx, metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s", nodeLabel, nodeName),

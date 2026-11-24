@@ -17,11 +17,11 @@ at the top level of [overlock.yaml](cfg-file.md).
 
 ## Resource
 
-`Environment` is a cluster-scoped resource in the `overlock.io/v1alpha1` API
+`Environment` is a cluster-scoped resource in the `overlock.app/v1alpha1` API
 group. One `Environment` describes the installation of one cluster.
 
 ```yaml
-apiVersion: overlock.io/v1alpha1
+apiVersion: overlock.app/v1alpha1
 kind: Environment
 metadata:
   name: default
@@ -86,7 +86,7 @@ spec:
 | max reconcile rate | `crossplane.maxReconcileRate` |
 | create admin service account + name | `adminServiceAccount.name` |
 | — | `crossplane.version`, `crossplane.policy`, `crossplane.args`, `tools`, `scheduling`, `deletionPolicy` |
-| `engine: k3s-docker` | `scheduling.nodeSelector: {overlock.io/scope: engine}` unless `scheduling` is set |
+| `engine: k3s-docker` | `scheduling.nodeSelector: {overlock.app/scope: engine}` unless `scheduling` is set |
 | `engine`, `engine_config`, ports, `context`, `mount`, `cpu`, `nodes` | not mapped (CLI-specific) |
 
 The `environment` section of overlock.yaml uses the `spec` schema directly and

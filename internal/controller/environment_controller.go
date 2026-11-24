@@ -48,9 +48,9 @@ type EnvironmentReconciler struct {
 // RBAC requirements are cluster-wide, so its service account is additionally
 // bound to cluster-admin in config/rbac/cluster_admin_binding.yaml.
 //
-// +kubebuilder:rbac:groups=overlock.io,resources=environments,verbs=get;list;watch;update;patch
-// +kubebuilder:rbac:groups=overlock.io,resources=environments/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=overlock.io,resources=environments/finalizers,verbs=update
+// +kubebuilder:rbac:groups=overlock.app,resources=environments,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=overlock.app,resources=environments/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=overlock.app,resources=environments/finalizers,verbs=update
 
 // Reconcile brings the cluster to the state described by an Environment.
 func (r *EnvironmentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {

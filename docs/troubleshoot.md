@@ -184,7 +184,7 @@ Increasing the `fs.inotify.max_user_instances` setting allows more `inotify` ins
 `overlock env node create` (k3s-docker engine) prints the node container start log, then loops forever on:
 
 ```
-DEBUG   Waiting for node with label overlock.io/node=<name> to appear...
+DEBUG   Waiting for node with label overlock.app/node=<name> to appear...
 ```
 
 `docker ps -a` shows the agent container as exited (`exit=1`), and `docker logs <agent-container>` includes errors such as:

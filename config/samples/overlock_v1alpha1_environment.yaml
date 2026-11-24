@@ -1,4 +1,4 @@
-apiVersion: overlock.io/v1alpha1
+apiVersion: overlock.app/v1alpha1
 kind: Environment
 metadata:
   name: default

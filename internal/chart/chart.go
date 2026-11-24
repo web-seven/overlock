@@ -24,11 +24,11 @@ type Chart interface {
 // EngineScopeSelector returns the standard engine scope nodeSelector and tolerations.
 func EngineScopeSelector() (map[string]interface{}, []interface{}) {
 	nodeSelector := map[string]interface{}{
-		"overlock.io/scope": "engine",
+		"overlock.app/scope": "engine",
 	}
 	tolerations := []interface{}{
 		map[string]interface{}{
-			"key":      "overlock.io/scope",
+			"key":      "overlock.app/scope",
 			"operator": "Equal",
 			"value":    "engine",
 			"effect":   "NoSchedule",

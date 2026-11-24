@@ -64,11 +64,11 @@ const sha = "0000000000000000000000000000000000000000000000000000000000000000"
 
 func TestHelmComponentsScheduling(t *testing.T) {
 	spec := v1alpha1.EnvironmentSpec{Scheduling: &v1alpha1.SchedulingSpec{
-		NodeSelector: map[string]string{"overlock.io/scope": "engine"},
+		NodeSelector: map[string]string{"overlock.app/scope": "engine"},
 		Tolerations:  []corev1.Toleration{{Key: "dedicated", Operator: corev1.TolerationOpEqual, Value: "engine", Effect: corev1.TaintEffectNoSchedule}},
 	}}
 	comps := helmComponents(spec)
-	wantSelector := map[string]interface{}{"overlock.io/scope": "engine"}
+	wantSelector := map[string]interface{}{"overlock.app/scope": "engine"}
 	wantTolerations := []interface{}{map[string]interface{}{"key": "dedicated", "operator": "Equal", "value": "engine", "effect": "NoSchedule"}}
 
 	cp := comps[1].Values

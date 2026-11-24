@@ -9,10 +9,10 @@ import (
 const (
 	// LabelEnvironment marks a resource or Helm release as owned by the named
 	// Environment. Resources without it are never modified or removed.
-	LabelEnvironment = "overlock.io/environment"
+	LabelEnvironment = "overlock.app/environment"
 	// labelSpecHash stores the hash of the desired chart version and values
 	// on an owned Helm release, to detect when an upgrade is needed.
-	labelSpecHash = "overlock.io/spec-hash"
+	labelSpecHash = "overlock.app/spec-hash"
 	// labelComponent identifies the component a resource belongs to.
 	labelComponent = "app.kubernetes.io/component"
 	labelManagedBy = "app.kubernetes.io/managed-by"
@@ -20,7 +20,7 @@ const (
 
 	// finalizer guarantees the deletion policy is applied before an
 	// Environment is removed.
-	finalizer = "overlock.io/environment"
+	finalizer = "overlock.app/environment"
 )
 
 // ownerLabels returns the labels marking a resource as owned by env.

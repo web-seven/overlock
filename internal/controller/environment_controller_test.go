@@ -581,7 +581,7 @@ func TestReconcileRuntimeConfigScheduling(t *testing.T) {
 	env := &v1alpha1.Environment{
 		ObjectMeta: metav1.ObjectMeta{Name: "dev", Generation: 1},
 		Spec: v1alpha1.EnvironmentSpec{Scheduling: &v1alpha1.SchedulingSpec{
-			NodeSelector: map[string]string{"overlock.io/scope": "engine"},
+			NodeSelector: map[string]string{"overlock.app/scope": "engine"},
 		}},
 	}
 	r := newTestReconciler(t, releases, env, drc)
@@ -597,7 +597,7 @@ func TestReconcileRuntimeConfigScheduling(t *testing.T) {
 		t.Fatal(err)
 	}
 	sel, _, _ := unstructured.NestedStringMap(updated.Object, "spec", "deploymentTemplate", "spec", "template", "spec", "nodeSelector")
-	if sel["overlock.io/scope"] != "engine" {
+	if sel["overlock.app/scope"] != "engine" {
 		t.Errorf("nodeSelector = %v", sel)
 	}
 	if sa, _, _ := unstructured.NestedString(updated.Object, "spec", "serviceAccountTemplate", "metadata", "name"); sa != "custom-sa" {
