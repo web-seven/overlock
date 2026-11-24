@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/fs"
 	"path"
+	"sort"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -81,6 +82,7 @@ func Manifests(opts Options) ([]*unstructured.Unstructured, error) {
 	if err != nil {
 		return nil, err
 	}
+	sortForApply(objs)
 	for _, obj := range objs {
 		if obj.GetKind() == "Deployment" && obj.GetName() == DeploymentName {
 			if err := customizeDeployment(obj, opts); err != nil {
@@ -123,6 +125,35 @@ func customizeDeployment(obj *unstructured.Unstructured, opts Options) error {
 	unstructured.RemoveNestedField(u, "spec", "template", "metadata", "creationTimestamp")
 	obj.Object = u
 	return nil
+}
+
+// applyOrder lists kinds that other resources depend on, in the order they
+// must be applied: namespaced resources need their Namespace, bindings their
+// ServiceAccount and roles, and the Deployment all of them.
+var applyOrder = []string{
+	"Namespace",
+	"CustomResourceDefinition",
+	"ServiceAccount",
+	"ClusterRole",
+	"Role",
+	"ClusterRoleBinding",
+	"RoleBinding",
+}
+
+// sortForApply orders objects so dependencies are applied first. Kinds not in
+// applyOrder, such as the Deployment, keep their relative order at the end.
+func sortForApply(objs []*unstructured.Unstructured) {
+	rank := func(kind string) int {
+		for i, k := range applyOrder {
+			if k == kind {
+				return i
+			}
+		}
+		return len(applyOrder)
+	}
+	sort.SliceStable(objs, func(i, j int) bool {
+		return rank(objs[i].GetKind()) < rank(objs[j].GetKind())
+	})
 }
 
 func decode(data []byte) ([]*unstructured.Unstructured, error) {
