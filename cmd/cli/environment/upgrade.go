@@ -9,17 +9,24 @@ import (
 )
 
 type upgradeCmd struct {
-	Name                      string `arg:"" required:"" help:"Environment name where engine will be upgraded."`
+	Name                      string `arg:"" required:"" help:"Environment name where the operator will be upgraded."`
 	Engine                    string `optional:"" help:"Specifies the Kubernetes engine to use for the runtime environment." default:"kind"`
 	Context                   string `optional:"" short:"c" help:"Kubernetes context where Environment will be upgraded."`
-	CreateAdminServiceAccount bool   `optional:"" help:"Create admin service account with cluster-admin privileges."`
+	CreateAdminServiceAccount bool   `optional:"" help:"Create admin service account with cluster-admin privileges. Only used when the Environment resource does not exist yet."`
 	AdminServiceAccountName   string `optional:"" help:"Name for the admin service account. Only relevant when create-admin-service-account is enabled. Defaults to 'overlock-admin' if not specified."`
+	operatorOptions
 }
 
+// Run upgrades the operator to the CLI version. An existing Environment
+// resource keeps its specification; when it is missing (e.g. environments
+// created by an earlier CLI), it is created and the operator uses the
+// already installed components as they are.
 func (c *upgradeCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
 	return environment.
 		New(c.Engine, c.Name).
 		WithContext(c.Context).
 		WithAdminServiceAccount(c.CreateAdminServiceAccount, c.AdminServiceAccountName).
+		WithOperatorImage(c.image()).
+		WithWait(c.Wait).
 		Upgrade(ctx, logger)
 }

@@ -12,7 +12,14 @@ its packages and supporting tools so the cluster matches the specification.
 
 ## Installation
 
-Build and push the operator image, then deploy the CRD, RBAC and the operator
+`overlock env create` and `overlock env upgrade` install the operator
+automatically, using the image matching the CLI version
+(`ghcr.io/web-seven/overlock-operator:<version>`, `latest` for development
+builds; override with `--operator-image`). The manifests are embedded in the
+CLI and applied with server-side apply, so running the commands again upgrades
+the operator in place.
+
+To install it into an existing cluster manually, build and push the operator image, then deploy the CRD, RBAC and the operator
 into the current kubeconfig context:
 
 ```bash
@@ -43,8 +50,13 @@ Components are reconciled in dependency order:
 1. cert-manager
 2. Crossplane
 3. Kyverno
-4. Crossplane packages (providers, configurations, functions), once Crossplane is ready
+4. Package runtime scheduling (when `scheduling` is set) and Crossplane packages
+   (providers, configurations, functions), once Crossplane is ready
 5. Admin service account
+
+With `scheduling` set, its node selector and tolerations are added to the chart
+values of each component and to the `default` `DeploymentRuntimeConfig`, so
+provider and function pods run on the same nodes.
 
 Reconciliation is idempotent. A Helm release is upgraded only when its chart
 version or values change, or when its last operation did not succeed. Packages

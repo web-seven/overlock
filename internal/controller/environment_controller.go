@@ -107,6 +107,9 @@ func (r *EnvironmentReconciler) reconcileComponents(ctx context.Context, env *v1
 	}
 
 	if crossplaneReady {
+		if st := r.reconcileRuntimeConfig(ctx, env); st != nil {
+			statuses = append(statuses, *st)
+		}
 		statuses = append(statuses, r.reconcilePackages(ctx, env)...)
 	} else {
 		for _, kind := range packageKinds {

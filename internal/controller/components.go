@@ -5,6 +5,7 @@ import (
 
 	"github.com/web-seven/overlock/api/v1alpha1"
 	"github.com/web-seven/overlock/internal/certmanager"
+	"github.com/web-seven/overlock/internal/chart"
 	"github.com/web-seven/overlock/internal/engine"
 	"github.com/web-seven/overlock/internal/namespace"
 	"github.com/web-seven/overlock/internal/policy"
@@ -39,7 +40,7 @@ type helmComponent struct {
 // could otherwise interfere with the other installations. Removal runs in
 // reverse order.
 func helmComponents(spec v1alpha1.EnvironmentSpec) []helmComponent {
-	return []helmComponent{
+	comps := []helmComponent{
 		{
 			Name:      componentCertManager,
 			Chart:     certmanager.ChartName,
@@ -77,6 +78,62 @@ func helmComponents(spec v1alpha1.EnvironmentSpec) []helmComponent {
 			CRD:       "clusterpolicies.kyverno.io",
 		},
 	}
+
+	if spec.Scheduling != nil {
+		nodeSelector, tolerations := schedulingParams(spec.Scheduling)
+		scopes := []chart.Chart{chart.CertManagerChart{}, chart.CrossplaneChart{}, chart.KyvernoChart{}}
+		for i := range comps {
+			comps[i].Values = mergeValues(comps[i].Values, scopes[i].ScopeParams(nodeSelector, tolerations))
+		}
+	}
+	return comps
+}
+
+// schedulingParams converts scheduling to the generic form used in chart values.
+func schedulingParams(s *v1alpha1.SchedulingSpec) (map[string]interface{}, []interface{}) {
+	nodeSelector := map[string]interface{}{}
+	for k, v := range s.NodeSelector {
+		nodeSelector[k] = v
+	}
+	tolerations := []interface{}{}
+	for _, t := range s.Tolerations {
+		tol := map[string]interface{}{}
+		if t.Key != "" {
+			tol["key"] = t.Key
+		}
+		if t.Operator != "" {
+			tol["operator"] = string(t.Operator)
+		}
+		if t.Value != "" {
+			tol["value"] = t.Value
+		}
+		if t.Effect != "" {
+			tol["effect"] = string(t.Effect)
+		}
+		if t.TolerationSeconds != nil {
+			tol["tolerationSeconds"] = *t.TolerationSeconds
+		}
+		tolerations = append(tolerations, tol)
+	}
+	return nodeSelector, tolerations
+}
+
+// mergeValues deep-merges src into a copy of dst; values of src win.
+func mergeValues(dst, src map[string]any) map[string]any {
+	out := make(map[string]any, len(dst)+len(src))
+	for k, v := range dst {
+		out[k] = v
+	}
+	for k, v := range src {
+		if sm, ok := v.(map[string]any); ok {
+			if dm, ok := out[k].(map[string]any); ok {
+				out[k] = mergeValues(dm, sm)
+				continue
+			}
+		}
+		out[k] = v
+	}
+	return out
 }
 
 // crossplaneValues returns the Crossplane chart values. Packages are not part

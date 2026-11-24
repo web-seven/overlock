@@ -96,6 +96,7 @@ func newScheme(t *testing.T) *runtime.Scheme {
 			t.Fatalf("failed to build scheme: %v", err)
 		}
 	}
+	s.AddKnownTypeWithName(runtimeConfigGVK, &unstructured.Unstructured{})
 	for _, k := range packageKinds {
 		s.AddKnownTypeWithName(k.gvk(), &unstructured.Unstructured{})
 		s.AddKnownTypeWithName(k.gvk().GroupVersion().WithKind(k.Kind+"List"), &unstructured.UnstructuredList{})
@@ -566,5 +567,50 @@ func TestReconcileWaitsForDeployments(t *testing.T) {
 	}
 	if st := component(got, "provider/crossplane-contrib-provider-helm"); st.State != v1alpha1.ComponentInstalled {
 		t.Errorf("provider status = %+v, want Installed", st)
+	}
+}
+
+func TestReconcileRuntimeConfigScheduling(t *testing.T) {
+	releases := newFakeReleases()
+	drc := &unstructured.Unstructured{}
+	drc.SetGroupVersionKind(runtimeConfigGVK)
+	drc.SetName("default")
+	if err := unstructured.SetNestedField(drc.Object, "custom-sa", "spec", "serviceAccountTemplate", "metadata", "name"); err != nil {
+		t.Fatal(err)
+	}
+	env := &v1alpha1.Environment{
+		ObjectMeta: metav1.ObjectMeta{Name: "dev", Generation: 1},
+		Spec: v1alpha1.EnvironmentSpec{Scheduling: &v1alpha1.SchedulingSpec{
+			NodeSelector: map[string]string{"overlock.io/scope": "engine"},
+		}},
+	}
+	r := newTestReconciler(t, releases, env, drc)
+
+	_, got := reconcile(t, r, "dev")
+
+	if st := component(got, componentRuntimeConfig); st.State != v1alpha1.ComponentInstalled || !st.Ready {
+		t.Errorf("runtime config status = %+v", st)
+	}
+	updated := &unstructured.Unstructured{}
+	updated.SetGroupVersionKind(runtimeConfigGVK)
+	if err := r.Get(context.Background(), types.NamespacedName{Name: "default"}, updated); err != nil {
+		t.Fatal(err)
+	}
+	sel, _, _ := unstructured.NestedStringMap(updated.Object, "spec", "deploymentTemplate", "spec", "template", "spec", "nodeSelector")
+	if sel["overlock.io/scope"] != "engine" {
+		t.Errorf("nodeSelector = %v", sel)
+	}
+	if sa, _, _ := unstructured.NestedString(updated.Object, "spec", "serviceAccountTemplate", "metadata", "name"); sa != "custom-sa" {
+		t.Errorf("unrelated runtime config fields lost: serviceAccountTemplate = %q", sa)
+	}
+
+	// Without scheduling the runtime config is not managed.
+	got.Spec.Scheduling = nil
+	if err := r.Update(context.Background(), got); err != nil {
+		t.Fatal(err)
+	}
+	_, got = reconcile(t, r, "dev")
+	if st := component(got, componentRuntimeConfig); st.Name != "" {
+		t.Errorf("runtime config reported without scheduling: %+v", st)
 	}
 }

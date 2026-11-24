@@ -61,6 +61,8 @@ spec:
 | `tools.<tool>.enabled` | bool | `true` | Install the tool (`kyverno`, `certManager`). Disabling an owned tool removes it |
 | `tools.<tool>.version` | string | shipped with the operator | Tool Helm chart version |
 | `tools.<tool>.policy` | `Auto` \| `Adopt` \| `External` | `Auto` | How an existing installation of the tool is treated |
+| `scheduling.nodeSelector` | map | — | Node selector for Crossplane, tools and package runtimes |
+| `scheduling.tolerations` | list of tolerations | — | Tolerations for Crossplane, tools and package runtimes |
 | `adminServiceAccount` | object | — | When set, create a service account with `cluster-admin` privileges |
 | `adminServiceAccount.name` | string | `overlock-admin` | Name of the admin service account |
 
@@ -83,7 +85,8 @@ spec:
 | `functions` | `functions` |
 | max reconcile rate | `crossplane.maxReconcileRate` |
 | create admin service account + name | `adminServiceAccount.name` |
-| — | `crossplane.version`, `crossplane.policy`, `crossplane.args`, `tools`, `deletionPolicy` |
+| — | `crossplane.version`, `crossplane.policy`, `crossplane.args`, `tools`, `scheduling`, `deletionPolicy` |
+| `engine: k3s-docker` | `scheduling.nodeSelector: {overlock.io/scope: engine}` unless `scheduling` is set |
 | `engine`, `engine_config`, ports, `context`, `mount`, `cpu`, `nodes` | not mapped (CLI-specific) |
 
 The `environment` section of overlock.yaml uses the `spec` schema directly and
