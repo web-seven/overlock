@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -74,11 +75,27 @@ type EnvironmentSpec struct {
 	// +optional
 	AdminServiceAccount *AdminServiceAccountSpec `json:"adminServiceAccount,omitempty"`
 
+	// Scheduling places Crossplane, tools and package runtimes on matching
+	// nodes, e.g. on dedicated engine nodes.
+	// +optional
+	Scheduling *SchedulingSpec `json:"scheduling,omitempty"`
+
 	// DeletionPolicy defines what happens to owned components when the
 	// Environment is deleted. Defaults to Orphan.
 	// +kubebuilder:default=Orphan
 	// +optional
 	DeletionPolicy DeletionPolicy `json:"deletionPolicy,omitempty"`
+}
+
+// SchedulingSpec constrains the nodes owned components run on.
+type SchedulingSpec struct {
+	// NodeSelector applied to Crossplane, tools and package runtimes.
+	// +optional
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	// Tolerations applied to Crossplane, tools and package runtimes.
+	// +optional
+	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 }
 
 // CrossplaneSpec configures the Crossplane engine.

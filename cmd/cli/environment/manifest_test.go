@@ -135,7 +135,7 @@ func TestRenderManifest(t *testing.T) {
 		t.Fatalf("renderManifest() unexpected error: %v", err)
 	}
 
-	want := `apiVersion: overlock.io/v1alpha1
+	want := `apiVersion: overlock.app/v1alpha1
 kind: Environment
 metadata:
   name: dev

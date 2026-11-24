@@ -118,10 +118,8 @@ reconcile rate and admin service account options) keep working. When a value
 is set both at the top level and in `environment`, the `environment` section
 wins. Layered files merge the `environment` section field by field.
 
-:::note
-In this release the `environment` section is used by `overlock env manifest`.
-Applying it in `overlock env create` follows in a later release.
-:::
+`overlock env create` submits the resulting specification to the
+[Overlock operator](operator.md), which installs the components.
 
 ### Converting to a Kubernetes resource
 

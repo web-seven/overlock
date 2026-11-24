@@ -33,7 +33,18 @@ Pick a name and run:
 overlock env create my-env
 ```
 
-Overlock creates the Kubernetes cluster, installs Crossplane inside it, and switches your terminal's active Kubernetes context to the new environment. After about a minute, you're ready to start installing packages.
+Overlock creates the Kubernetes cluster, installs the [Overlock operator](../environment/operator.md) into it and submits an `Environment` resource. The operator installs Crossplane, packages and tools, while the CLI reports the progress of each component until the environment is ready:
+
+```text
+INFO  Installing Overlock operator (ghcr.io/web-seven/overlock-operator:1.0.0)
+INFO  Environment resource 'my-env' submitted
+INFO  Waiting for the operator to install components
+INFO  cert-manager: Installed, ready, v1.16.2
+INFO  crossplane: Installed, ready, 1.19.0
+INFO  kyverno: Installed, ready, 3.4.4
+```
+
+Your terminal's active Kubernetes context is switched to the new environment. Use `--wait 0` to return as soon as the `Environment` is submitted, and follow it with `kubectl get environment my-env`.
 
 If you already know which packages you'll need, you can install them at creation time to save a round-trip:
 
@@ -99,13 +110,20 @@ overlock env start my-env --switch
 
 ---
 
-## Upgrading Crossplane
+## Upgrading an Environment
 
-When a new version of Crossplane is released and you want to update an existing environment without recreating it:
+To upgrade the operator of an existing environment to the version of your CLI:
 
 ```bash
 overlock env upgrade my-env
 ```
+
+The `Environment` resource keeps its specification. Environments created by an
+earlier CLI version get a new `Environment` resource; the components already
+installed are used as they are and reported as `External`. Set
+`crossplane.policy: Adopt` (and `policy: Adopt` for tools) on the resource to
+let the operator take them over and upgrade them — see
+[Management Policies](../environment/operator.md#management-policies).
 
 > [!WARNING]
 > Upgrading Crossplane in place may cause brief disruption to running reconciliation loops. For critical development work, consider creating a fresh environment on the new version rather than upgrading in place.
@@ -161,6 +179,8 @@ Creates a new environment with the given name. `name` is optional if a `name` fi
 | `--admin-service-account-name` | — | Name for the admin service account |
 | `--mount-path` | — | Host path to bind-mount into the cluster |
 | `--container-path` | `/storage` | Path inside the container to mount to |
+| `--operator-image` | `ghcr.io/web-seven/overlock-operator:<CLI version>` | Operator image to install |
+| `--wait` | `15m` | How long to wait for the environment to become ready; `0` does not wait |
 
 ### `overlock env delete <name>`
 
@@ -190,14 +210,16 @@ Starts a stopped environment.
 
 ### `overlock env upgrade <name>`
 
-Upgrades Crossplane inside an existing environment.
+Upgrades the operator of an existing environment and creates its `Environment` resource when missing.
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--engine` | `kind` | Engine type |
 | `--context` | — | Kubernetes context name |
-| `--create-admin-service-account` | `false` | Create a cluster-admin service account |
+| `--create-admin-service-account` | `false` | Create a cluster-admin service account (only when the `Environment` is created) |
 | `--admin-service-account-name` | — | Name for the admin service account |
+| `--operator-image` | `ghcr.io/web-seven/overlock-operator:<CLI version>` | Operator image to install |
+| `--wait` | `15m` | How long to wait for the environment to become ready; `0` does not wait |
 
 ---
 

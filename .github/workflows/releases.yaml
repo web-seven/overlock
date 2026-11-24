@@ -83,6 +83,37 @@ jobs:
           binary_name: "overlock"
           ldflags: -X "github.com/web-seven/overlock/cmd/cli/version.Version=${{ github.ref_name }}"
 
+  operator-image:
+    name: Release Operator Image
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # The CLI bootstraps ghcr.io/web-seven/overlock-operator:<its version>;
+      # stable releases also update the latest tag used by development builds.
+      - name: Build and push operator image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.operator
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/web-seven/overlock-operator:${{ github.ref_name }}
+            ${{ !contains(github.ref_name, '-') && 'ghcr.io/web-seven/overlock-operator:latest' || '' }}
+
   notify:
     name: Notify Discord
     needs: releases-matrix

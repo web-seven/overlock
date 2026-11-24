@@ -5,7 +5,7 @@ metadata:
   name: overlock-operator
 rules:
 - apiGroups:
-  - overlock.io
+  - overlock.app
   resources:
   - environments
   verbs:
@@ -15,13 +15,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - overlock.io
+  - overlock.app
   resources:
   - environments/finalizers
   verbs:
   - update
 - apiGroups:
-  - overlock.io
+  - overlock.app
   resources:
   - environments/status
   verbs:

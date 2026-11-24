@@ -35,6 +35,7 @@ type createOptions struct {
 	AdminServiceAccountName   string   `optional:"" help:"Name for the admin service account. Only relevant when create-admin-service-account is enabled. Defaults to 'overlock-admin' if not specified."`
 	Cpu                       string   `optional:"" help:"CPU limit for k3s-docker containers (e.g., 2, 0.5, 50%)." default:""`
 	MaxReconcileRate          int      `optional:"" help:"Maximum number of reconciliations per second for Crossplane (e.g., 1)." default:"1"`
+	operatorOptions
 	// Nodes is only settable via a configuration file (see loadConfig), not as a CLI flag.
 	Nodes []environment.NodeSpec `kong:"-" yaml:"nodes,omitempty"`
 	// Environment is the operator-compatible specification from the
@@ -63,6 +64,11 @@ func (c *createCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
 		logger.Warnf("nodes declared in configuration are only supported for the k3s-docker engine; skipping %d node(s)", len(c.Nodes))
 	}
 
+	spec, err := c.environmentSpec()
+	if err != nil {
+		return err
+	}
+
 	env := environment.
 		New(c.Engine, c.Name).
 		WithHttpPort(c.HttpPort).
@@ -71,12 +77,10 @@ func (c *createCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
 		WithMounts(c.Mount).
 		WithEngineConfig(c.EngineConfig).
 		WithEngineK3sVersion(c.EngineK3sVersion).
-		WithProviders(c.Providers).
-		WithConfigurations(c.Configurations).
-		WithFunctions(c.Functions).
-		WithAdminServiceAccount(c.CreateAdminServiceAccount, c.AdminServiceAccountName).
+		WithSpec(spec).
+		WithOperatorImage(c.image()).
+		WithWait(c.Wait).
 		WithCpu(c.Cpu).
-		WithMaxReconcileRate(c.MaxReconcileRate).
 		WithNodes(c.Nodes)
 
 	if err := env.Create(ctx, logger); err != nil {

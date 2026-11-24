@@ -73,7 +73,7 @@ deploy: manifests kustomize ## Deploy the operator into the current cluster.
 
 .PHONY: undeploy
 undeploy: kustomize ## Remove the operator. Environments are deleted first, while the operator still runs, so their deletion policy is applied.
-	-$(KUBECTL) delete environments.overlock.io --all --wait --timeout=15m
+	-$(KUBECTL) delete environments.overlock.app --all --wait --timeout=15m
 	$(KUSTOMIZE) build config/default | $(KUBECTL) delete --ignore-not-found -f -
 
 ##@ Tools

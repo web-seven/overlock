@@ -1,2 +1,2 @@
 resources:
-  - bases/overlock.io_environments.yaml
+  - bases/overlock.app_environments.yaml

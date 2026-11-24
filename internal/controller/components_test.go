@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"github.com/web-seven/overlock/api/v1alpha1"
 )
 
@@ -59,3 +61,47 @@ func TestPackageName(t *testing.T) {
 }
 
 const sha = "0000000000000000000000000000000000000000000000000000000000000000"
+
+func TestHelmComponentsScheduling(t *testing.T) {
+	spec := v1alpha1.EnvironmentSpec{Scheduling: &v1alpha1.SchedulingSpec{
+		NodeSelector: map[string]string{"overlock.app/scope": "engine"},
+		Tolerations:  []corev1.Toleration{{Key: "dedicated", Operator: corev1.TolerationOpEqual, Value: "engine", Effect: corev1.TaintEffectNoSchedule}},
+	}}
+	comps := helmComponents(spec)
+	wantSelector := map[string]interface{}{"overlock.app/scope": "engine"}
+	wantTolerations := []interface{}{map[string]interface{}{"key": "dedicated", "operator": "Equal", "value": "engine", "effect": "NoSchedule"}}
+
+	cp := comps[1].Values
+	if !reflect.DeepEqual(cp["nodeSelector"], wantSelector) || !reflect.DeepEqual(cp["tolerations"], wantTolerations) {
+		t.Errorf("crossplane values = %v", cp)
+	}
+	if _, ok := cp["args"]; !ok {
+		t.Error("crossplane args lost after merge")
+	}
+
+	kyverno := comps[2].Values
+	admission, _ := kyverno["admissionController"].(map[string]any)
+	if !reflect.DeepEqual(admission["nodeSelector"], wantSelector) {
+		t.Errorf("kyverno admissionController = %v", admission)
+	}
+	if cleanup, _ := kyverno["cleanupController"].(map[string]interface{}); cleanup["enabled"] != false {
+		t.Errorf("kyverno base values lost: cleanupController = %v", kyverno["cleanupController"])
+	}
+
+	if specHash(comps[1].Version, comps[1].Values) == specHash(helmComponents(v1alpha1.EnvironmentSpec{})[1].Version, helmComponents(v1alpha1.EnvironmentSpec{})[1].Values) {
+		t.Error("scheduling does not change the release hash")
+	}
+}
+
+func TestMergeValues(t *testing.T) {
+	dst := map[string]any{"a": map[string]any{"x": 1, "y": 2}, "b": 1}
+	src := map[string]any{"a": map[string]any{"y": 3, "z": 4}, "c": 5}
+	got := mergeValues(dst, src)
+	want := map[string]any{"a": map[string]any{"x": 1, "y": 3, "z": 4}, "b": 1, "c": 5}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("mergeValues() = %v, want %v", got, want)
+	}
+	if dst["a"].(map[string]any)["y"] != 2 {
+		t.Fatal("mergeValues() modified dst")
+	}
+}

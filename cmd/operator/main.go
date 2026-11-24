@@ -46,7 +46,7 @@ func main() {
 		Metrics:                metricsserver.Options{BindAddress: metricsAddr},
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         leaderElect,
-		LeaderElectionID:       "overlock-operator.overlock.io",
+		LeaderElectionID:       "overlock-operator.overlock.app",
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to create manager")

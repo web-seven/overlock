@@ -797,4 +797,3 @@ func mergeK3sDockerKubeconfig(kubeconfigData []byte, contextName, serverURL stri
 
 	return clientcmd.ModifyConfig(po, *existingConfig, true)
 }
-
