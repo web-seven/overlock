@@ -86,6 +86,55 @@ Each entry in `nodes` accepts the same parameters as `overlock env node create`:
 | `cpu` | string | — | CPU limit for the node container (e.g. `2`, `0.5`, `50%`) |
 | `mount` | list of strings | — | Bind mounts in `host:container` format. Local nodes only. |
 
+### `environment` section
+
+The optional `environment` section holds the operator-compatible part of the
+configuration: what is installed inside the cluster. It uses the same schema as
+the `spec` of the [Environment custom resource](spec.md) (camelCase keys), so
+the same block can be converted into a Kubernetes resource.
+
+```yaml
+name: my-env
+engine: k3s-docker        # CLI-specific: how the cluster is created
+nodes: []                 # CLI-specific
+environment:              # operator-compatible: what is installed in the cluster
+  crossplane:
+    maxReconcileRate: 5
+  providers:
+    - xpkg.upbound.io/crossplane-contrib/provider-helm:v0.19.0
+  tools:
+    kyverno:
+      enabled: false
+```
+
+Settings are split as follows:
+
+| CLI-specific (top level) | Operator-compatible (`environment`) |
+|--------------------------|-------------------------------------|
+| `engine`, `engine_config`, ports, `context`, `mount`, `cpu`, `nodes` (SSH, Docker, WireGuard) | `crossplane`, `providers`, `configurations`, `functions`, `tools`, `adminServiceAccount` |
+
+The legacy top-level keys (`providers`, `configurations`, `functions`, max
+reconcile rate and admin service account options) keep working. When a value
+is set both at the top level and in `environment`, the `environment` section
+wins. Layered files merge the `environment` section field by field.
+
+:::note
+In this release the `environment` section is used by `overlock env manifest`.
+Applying it in `overlock env create` follows in a later release.
+:::
+
+### Converting to a Kubernetes resource
+
+`overlock env manifest` prints the `environment` part of the configuration
+(including legacy keys) as an `Environment` custom resource:
+
+```bash
+overlock env manifest my-env > environment.yaml
+kubectl apply -f environment.yaml
+```
+
+CLI-specific settings are not included in the resource.
+
 ---
 
 ## Examples
@@ -165,4 +214,5 @@ Overlock merges both files, with `.overlock.local.yaml` taking precedence.
 ## Related
 
 - [Environments](environments.md) — full guide to creating and managing environments
+- [Environment Specification](spec.md) — the `Environment` custom resource
 - [Getting Started](../guide/getting-started.md) — end-to-end walkthrough

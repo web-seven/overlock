@@ -5,6 +5,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/web-seven/overlock/api/v1alpha1"
 	"github.com/web-seven/overlock/pkg/environment"
 	overlockerrors "github.com/web-seven/overlock/pkg/errors"
 )
@@ -36,6 +37,10 @@ type createOptions struct {
 	MaxReconcileRate          int      `optional:"" help:"Maximum number of reconciliations per second for Crossplane (e.g., 1)." default:"1"`
 	// Nodes is only settable via a configuration file (see loadConfig), not as a CLI flag.
 	Nodes []environment.NodeSpec `kong:"-" yaml:"nodes,omitempty"`
+	// Environment is the operator-compatible specification from the
+	// 'environment' section of the configuration file (see loadConfig). Its
+	// values take precedence over the legacy top-level keys.
+	Environment *v1alpha1.EnvironmentSpec `kong:"-" yaml:"-"`
 }
 
 func (c *createCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
