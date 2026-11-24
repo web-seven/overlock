@@ -24,6 +24,23 @@ func TestManifests(t *testing.T) {
 		t.Fatalf("Manifests() unexpected error: %v", err)
 	}
 
+	if objs[0].GetKind() != "Namespace" {
+		t.Errorf("first object = %s, want Namespace", objs[0].GetKind())
+	}
+	if last := objs[len(objs)-1]; last.GetKind() != "Deployment" {
+		t.Errorf("last object = %s, want Deployment", last.GetKind())
+	}
+	seen := map[string]bool{}
+	for _, o := range objs {
+		if o.GetNamespace() != "" && !seen["Namespace"] {
+			t.Errorf("%s %s applied before its Namespace", o.GetKind(), o.GetName())
+		}
+		if o.GetKind() == "ClusterRoleBinding" && !seen["ServiceAccount"] {
+			t.Errorf("ClusterRoleBinding %s applied before the ServiceAccount", o.GetName())
+		}
+		seen[o.GetKind()] = true
+	}
+
 	kinds := map[string]*unstructured.Unstructured{}
 	for _, o := range objs {
 		kinds[o.GetKind()+"/"+o.GetName()] = o
