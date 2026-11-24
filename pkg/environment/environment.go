@@ -16,7 +16,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
-	"github.com/web-seven/overlock/internal/chart"
+	"github.com/web-seven/overlock/api/v1alpha1"
 	"github.com/web-seven/overlock/internal/engine"
 	"github.com/web-seven/overlock/internal/kube"
 	"github.com/web-seven/overlock/internal/namespace"
@@ -28,24 +28,19 @@ import (
 )
 
 type Environment struct {
-	name                      string
-	engine                    string
-	engineConfig              string
-	k3sVersion                string
-	httpPort                  int
-	httpsPort                 int
-	mounts                    []string
-	cpu                       string
-	context                   string
-	options                   EnvironmentOptions
-	disablePorts              bool
-	configurations            []string
-	functions                 []string
-	providers                 []string
-	createAdminServiceAccount bool
-	adminServiceAccountName   string
-	nodes                     []NodeSpec
-	maxReconcileRate          int
+	name         string
+	engine       string
+	engineConfig string
+	k3sVersion   string
+	httpPort     int
+	httpsPort    int
+	mounts       []string
+	cpu          string
+	context      string
+	options      EnvironmentOptions
+	disablePorts bool
+	nodes        []NodeSpec
+	spec         v1alpha1.EnvironmentSpec
 }
 
 // New Environment entity
@@ -168,58 +163,7 @@ func (e *Environment) Setup(ctx context.Context, logger *zap.SugaredLogger) erro
 		return err
 	}
 
-	// Build engine scope params for chart installation (nil for non-k3s-docker).
-	// The engine-scoped node itself is created earlier, by the engine's own
-	// Create*Environment method (see CreateK3sDockerEnvironment).
-	var nodeSelector map[string]interface{}
-	if e.engine == "k3s-docker" {
-		nodeSelector, _ = chart.EngineScopeSelector()
-	}
-
-	var crossplaneArgs []string
-	if e.maxReconcileRate > 0 {
-		crossplaneArgs = append(crossplaneArgs, fmt.Sprintf("--max-reconcile-rate=%d", e.maxReconcileRate))
-	}
-
-	charts := []chart.Chart{
-		chart.CrossplaneChart{
-			Configurations: e.configurations,
-			Providers:      e.providers,
-			Functions:      e.functions,
-			Args:           crossplaneArgs,
-		},
-		chart.KyvernoChart{},
-		chart.CertManagerChart{},
-	}
-	for _, ch := range charts {
-		var scopeParams map[string]any
-		if nodeSelector != nil {
-			scopeParams = ch.ScopeParams(nodeSelector, []interface{}{})
-		}
-		if err := ch.Install(ctx, configClient, scopeParams, logger); err != nil {
-			return fmt.Errorf("failed to install chart: %w", err)
-		}
-	}
-
-	// Patch DeploymentRuntimeConfig for provider/function scheduling.
-	if e.engine == "k3s-docker" {
-		if err := chart.PatchDefaultRuntimeConfig(configClient, nodeSelector, []interface{}{}, logger); err != nil {
-			logger.Warnf("Failed to patch DeploymentRuntimeConfig: %v", err)
-		}
-	}
-
-	// Create admin service account if requested
-	if e.createAdminServiceAccount {
-		logger.Debug("Creating admin service account")
-		_, err = kube.CreateAdminServiceAccount(ctx, configClient, e.adminServiceAccountName, namespace.Namespace, logger)
-		if err != nil {
-			logger.Errorf("Failed to create admin service account: %v", err)
-			return err
-		}
-		logger.Debug("Done")
-	}
-
-	return nil
+	return Install(ctx, configClient, e.spec, InstallOptions{EngineScope: e.engine == "k3s-docker"}, logger)
 }
 
 // Get contect name specially for engine
@@ -432,17 +376,17 @@ func (e *Environment) WithEngineK3sVersion(version string) *Environment {
 	return e
 }
 func (e *Environment) WithConfigurations(configurations []string) *Environment {
-	e.configurations = configurations
+	e.spec.Configurations = configurations
 	return e
 }
 
 func (e *Environment) WithProviders(providers []string) *Environment {
-	e.providers = providers
+	e.spec.Providers = providers
 	return e
 }
 
 func (e *Environment) WithFunctions(functions []string) *Environment {
-	e.functions = functions
+	e.spec.Functions = functions
 	return e
 }
 func (e *Environment) WithDisabledPorts(disablePorts bool) *Environment {
@@ -451,13 +395,23 @@ func (e *Environment) WithDisabledPorts(disablePorts bool) *Environment {
 }
 
 func (e *Environment) WithAdminServiceAccount(create bool, name string) *Environment {
-	e.createAdminServiceAccount = create
-	e.adminServiceAccountName = name
+	e.spec.AdminServiceAccount = nil
+	if create {
+		e.spec.AdminServiceAccount = &v1alpha1.AdminServiceAccountSpec{Name: name}
+	}
 	return e
 }
 
 func (e *Environment) WithMaxReconcileRate(rate int) *Environment {
-	e.maxReconcileRate = rate
+	e.spec.Crossplane.MaxReconcileRate = rate
+	return e
+}
+
+// WithSpec sets the operator-compatible environment specification, replacing
+// providers, configurations, functions, Crossplane, tools and admin service
+// account settings.
+func (e *Environment) WithSpec(spec v1alpha1.EnvironmentSpec) *Environment {
+	e.spec = spec
 	return e
 }
 

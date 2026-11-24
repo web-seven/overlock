@@ -5,6 +5,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/web-seven/overlock/api/v1alpha1"
 	"github.com/web-seven/overlock/pkg/environment"
 	overlockerrors "github.com/web-seven/overlock/pkg/errors"
 )
@@ -36,6 +37,10 @@ type createOptions struct {
 	MaxReconcileRate          int      `optional:"" help:"Maximum number of reconciliations per second for Crossplane (e.g., 1)." default:"1"`
 	// Nodes is only settable via a configuration file (see loadConfig), not as a CLI flag.
 	Nodes []environment.NodeSpec `kong:"-" yaml:"nodes,omitempty"`
+	// Environment is the operator-compatible specification from the
+	// 'environment' section of the configuration file (see loadConfig). Its
+	// values take precedence over the legacy top-level keys.
+	Environment *v1alpha1.EnvironmentSpec `kong:"-" yaml:"-"`
 }
 
 func (c *createCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
@@ -58,6 +63,11 @@ func (c *createCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
 		logger.Warnf("nodes declared in configuration are only supported for the k3s-docker engine; skipping %d node(s)", len(c.Nodes))
 	}
 
+	spec, err := c.environmentSpec()
+	if err != nil {
+		return err
+	}
+
 	env := environment.
 		New(c.Engine, c.Name).
 		WithHttpPort(c.HttpPort).
@@ -66,12 +76,8 @@ func (c *createCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
 		WithMounts(c.Mount).
 		WithEngineConfig(c.EngineConfig).
 		WithEngineK3sVersion(c.EngineK3sVersion).
-		WithProviders(c.Providers).
-		WithConfigurations(c.Configurations).
-		WithFunctions(c.Functions).
-		WithAdminServiceAccount(c.CreateAdminServiceAccount, c.AdminServiceAccountName).
+		WithSpec(spec).
 		WithCpu(c.Cpu).
-		WithMaxReconcileRate(c.MaxReconcileRate).
 		WithNodes(c.Nodes)
 
 	if err := env.Create(ctx, logger); err != nil {

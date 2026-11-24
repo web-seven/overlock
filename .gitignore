@@ -20,3 +20,6 @@
 # Go workspace file
 go.work
 /overlock
+
+# Local tool binaries (controller-gen, kustomize, operator build)
+/bin/
