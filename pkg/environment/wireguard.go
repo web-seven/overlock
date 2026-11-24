@@ -106,7 +106,7 @@ func (e *Environment) createEnvironmentNetwork(ctx context.Context, dockerClient
 			"com.docker.network.driver.mtu":                  envNetMTU,
 		},
 		Labels: map[string]string{
-			"managed-by":              "overlock",
+			"managed-by":               "overlock",
 			"overlock.app/environment": e.name,
 		},
 	})
