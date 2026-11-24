@@ -9,8 +9,40 @@ const EnvironmentKind = "Environment"
 
 // Condition types reported on an Environment.
 const (
-	// ConditionReady is true when Crossplane, packages and tools are installed.
+	// ConditionReady is true when Crossplane, packages and tools are installed
+	// and ready.
 	ConditionReady = "Ready"
+)
+
+// ManagementPolicy defines how the operator treats a component that may
+// already exist in the cluster.
+// +kubebuilder:validation:Enum=Auto;Adopt;External
+type ManagementPolicy string
+
+const (
+	// ManagementAuto installs the component when it is missing and uses an
+	// existing installation as-is, without taking ownership of it.
+	ManagementAuto ManagementPolicy = "Auto"
+	// ManagementAdopt installs the component when it is missing and takes
+	// ownership of an existing Helm release with the expected name, upgrading
+	// it to the desired version and values.
+	ManagementAdopt ManagementPolicy = "Adopt"
+	// ManagementExternal never installs or modifies the component; it must be
+	// provided by someone else.
+	ManagementExternal ManagementPolicy = "External"
+)
+
+// DeletionPolicy defines what happens to owned components when the
+// Environment is deleted.
+// +kubebuilder:validation:Enum=Orphan;Delete
+type DeletionPolicy string
+
+const (
+	// DeletionOrphan keeps all components in the cluster.
+	DeletionOrphan DeletionPolicy = "Orphan"
+	// DeletionDelete removes the components owned by the Environment.
+	// Components not owned by it are never removed.
+	DeletionDelete DeletionPolicy = "Delete"
 )
 
 // EnvironmentSpec is the operator-compatible specification of an Overlock
@@ -41,10 +73,26 @@ type EnvironmentSpec struct {
 	// AdminServiceAccount creates a service account with cluster-admin privileges.
 	// +optional
 	AdminServiceAccount *AdminServiceAccountSpec `json:"adminServiceAccount,omitempty"`
+
+	// DeletionPolicy defines what happens to owned components when the
+	// Environment is deleted. Defaults to Orphan.
+	// +kubebuilder:default=Orphan
+	// +optional
+	DeletionPolicy DeletionPolicy `json:"deletionPolicy,omitempty"`
 }
 
 // CrossplaneSpec configures the Crossplane engine.
 type CrossplaneSpec struct {
+	// Version of the Crossplane Helm chart. Defaults to the version shipped
+	// with the operator.
+	// +optional
+	Version string `json:"version,omitempty"`
+
+	// Policy defines how an existing Crossplane installation is treated.
+	// Defaults to Auto.
+	// +optional
+	Policy ManagementPolicy `json:"policy,omitempty"`
+
 	// MaxReconcileRate is the maximum number of reconciliations per second for Crossplane.
 	// +kubebuilder:validation:Minimum=0
 	// +optional
@@ -69,9 +117,20 @@ type ToolsSpec struct {
 
 // ToolSpec configures a single tool.
 type ToolSpec struct {
-	// Enabled installs the tool. Defaults to true.
+	// Enabled installs the tool. Defaults to true. Disabling a tool owned by
+	// the Environment removes it; tools not owned by it are left untouched.
 	// +optional
 	Enabled *bool `json:"enabled,omitempty"`
+
+	// Version of the tool Helm chart. Defaults to the version shipped with
+	// the operator.
+	// +optional
+	Version string `json:"version,omitempty"`
+
+	// Policy defines how an existing installation of the tool is treated.
+	// Defaults to Auto.
+	// +optional
+	Policy ManagementPolicy `json:"policy,omitempty"`
 }
 
 // IsEnabled reports whether the tool should be installed (default true).
@@ -86,6 +145,51 @@ type AdminServiceAccountSpec struct {
 	Name string `json:"name,omitempty"`
 }
 
+// ComponentState is the observed state of a component.
+type ComponentState string
+
+const (
+	// ComponentInstalled is installed and owned by the Environment.
+	ComponentInstalled ComponentState = "Installed"
+	// ComponentExternal is installed and managed outside of the Environment.
+	ComponentExternal ComponentState = "External"
+	// ComponentMissing is required but not installed (External policy).
+	ComponentMissing ComponentState = "Missing"
+	// ComponentDisabled is disabled in the specification.
+	ComponentDisabled ComponentState = "Disabled"
+	// ComponentPending waits for a dependency.
+	ComponentPending ComponentState = "Pending"
+	// ComponentFailed failed to install, upgrade or remove.
+	ComponentFailed ComponentState = "Failed"
+)
+
+// ComponentStatus is the observed state of a single component.
+type ComponentStatus struct {
+	// Name of the component, e.g. crossplane, cert-manager or
+	// provider/provider-helm.
+	Name string `json:"name"`
+
+	// State of the component.
+	State ComponentState `json:"state"`
+
+	// Owned is true when the Environment owns, and may upgrade or remove, the
+	// component.
+	// +optional
+	Owned bool `json:"owned,omitempty"`
+
+	// Ready is true when the component is available.
+	// +optional
+	Ready bool `json:"ready,omitempty"`
+
+	// Version of the component, when known.
+	// +optional
+	Version string `json:"version,omitempty"`
+
+	// Message with details about the state.
+	// +optional
+	Message string `json:"message,omitempty"`
+}
+
 // EnvironmentStatus is the observed state of an Environment.
 type EnvironmentStatus struct {
 	// ObservedGeneration is the generation last reconciled.
@@ -97,6 +201,12 @@ type EnvironmentStatus struct {
 	// +listMapKey=type
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// Components describe the state of each installed component.
+	// +listType=map
+	// +listMapKey=name
+	// +optional
+	Components []ComponentStatus `json:"components,omitempty"`
 }
 
 // Environment is the Schema for the environments API. It is cluster-scoped:
@@ -106,6 +216,7 @@ type EnvironmentStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Cluster,shortName=env
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
+// +kubebuilder:printcolumn:name="Reason",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].reason`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 type Environment struct {
 	metav1.TypeMeta   `json:",inline"`

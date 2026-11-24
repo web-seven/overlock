@@ -7,6 +7,7 @@ const sidebars = {
     'guide/environments',
     'environment/cfg-file',
     'environment/spec',
+    'environment/operator',
     'guide/configurations',
     'guide/providers',
     'guide/functions',

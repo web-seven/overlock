@@ -15,11 +15,11 @@ import (
 )
 
 const (
-	certManagerChartName    = "cert-manager"
-	certManagerChartVersion = "v1.16.2"
-	certManagerReleaseName  = "cert-manager"
-	certManagerRepoUrl      = "https://charts.jetstack.io"
-	certManagerNamespace    = "cert-manager"
+	ChartName    = "cert-manager"
+	ChartVersion = "v1.16.2"
+	ReleaseName  = "cert-manager"
+	RepoURL      = "https://charts.jetstack.io"
+	Namespace    = "cert-manager"
 
 	clusterIssuerName  = "overlock-selfsigned"
 	registryCertName   = "registry-tls"
@@ -36,14 +36,14 @@ var (
 
 // InstallCertManager installs cert-manager via Helm if not already installed
 func InstallCertManager(ctx context.Context, config *rest.Config, extraParams map[string]any) error {
-	repoURL, err := url.Parse(certManagerRepoUrl)
+	repoURL, err := url.Parse(RepoURL)
 	if err != nil {
 		return err
 	}
 
-	manager, err := helm.NewManager(config, certManagerChartName, repoURL, certManagerReleaseName,
+	manager, err := helm.NewManager(config, ChartName, repoURL, ReleaseName,
 		helm.InstallerModifierFn(helm.Wait()),
-		helm.InstallerModifierFn(helm.WithNamespace(certManagerNamespace)),
+		helm.InstallerModifierFn(helm.WithNamespace(Namespace)),
 		helm.InstallerModifierFn(helm.WithUpgradeInstall(true)),
 		helm.InstallerModifierFn(helm.WithCreateNamespace(true)),
 	)
@@ -64,7 +64,7 @@ func InstallCertManager(ctx context.Context, config *rest.Config, extraParams ma
 		values[k] = v
 	}
 
-	err = manager.Upgrade(certManagerChartVersion, values)
+	err = manager.Upgrade(ChartVersion, values)
 	if err != nil {
 		return err
 	}
@@ -172,4 +172,13 @@ func CreateRegistryCertificate(ctx context.Context, config *rest.Config) error {
 // GetRegistrySecretName returns the name of the TLS secret for the registry
 func GetRegistrySecretName() string {
 	return registrySecretName
+}
+
+// Values returns a copy of the default cert-manager chart values.
+func Values() map[string]any {
+	values := make(map[string]any, len(certManagerValues))
+	for k, v := range certManagerValues {
+		values[k] = v
+	}
+	return values
 }

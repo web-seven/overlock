@@ -20,6 +20,9 @@ spec:
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
       type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].reason
+      name: Reason
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -82,7 +85,30 @@ spec:
                       per second for Crossplane.
                     minimum: 0
                     type: integer
+                  policy:
+                    description: |-
+                      Policy defines how an existing Crossplane installation is treated.
+                      Defaults to Auto.
+                    enum:
+                    - Auto
+                    - Adopt
+                    - External
+                    type: string
+                  version:
+                    description: |-
+                      Version of the Crossplane Helm chart. Defaults to the version shipped
+                      with the operator.
+                    type: string
                 type: object
+              deletionPolicy:
+                default: Orphan
+                description: |-
+                  DeletionPolicy defines what happens to owned components when the
+                  Environment is deleted. Defaults to Orphan.
+                enum:
+                - Orphan
+                - Delete
+                type: string
               functions:
                 description: Functions are Crossplane function packages to install.
                 items:
@@ -100,21 +126,88 @@ spec:
                     description: CertManager certificate manager.
                     properties:
                       enabled:
-                        description: Enabled installs the tool. Defaults to true.
+                        description: |-
+                          Enabled installs the tool. Defaults to true. Disabling a tool owned by
+                          the Environment removes it; tools not owned by it are left untouched.
                         type: boolean
+                      policy:
+                        description: |-
+                          Policy defines how an existing installation of the tool is treated.
+                          Defaults to Auto.
+                        enum:
+                        - Auto
+                        - Adopt
+                        - External
+                        type: string
+                      version:
+                        description: |-
+                          Version of the tool Helm chart. Defaults to the version shipped with
+                          the operator.
+                        type: string
                     type: object
                   kyverno:
                     description: Kyverno policy engine.
                     properties:
                       enabled:
-                        description: Enabled installs the tool. Defaults to true.
+                        description: |-
+                          Enabled installs the tool. Defaults to true. Disabling a tool owned by
+                          the Environment removes it; tools not owned by it are left untouched.
                         type: boolean
+                      policy:
+                        description: |-
+                          Policy defines how an existing installation of the tool is treated.
+                          Defaults to Auto.
+                        enum:
+                        - Auto
+                        - Adopt
+                        - External
+                        type: string
+                      version:
+                        description: |-
+                          Version of the tool Helm chart. Defaults to the version shipped with
+                          the operator.
+                        type: string
                     type: object
                 type: object
             type: object
           status:
             description: EnvironmentStatus is the observed state of an Environment.
             properties:
+              components:
+                description: Components describe the state of each installed component.
+                items:
+                  description: ComponentStatus is the observed state of a single component.
+                  properties:
+                    message:
+                      description: Message with details about the state.
+                      type: string
+                    name:
+                      description: |-
+                        Name of the component, e.g. crossplane, cert-manager or
+                        provider/provider-helm.
+                      type: string
+                    owned:
+                      description: |-
+                        Owned is true when the Environment owns, and may upgrade or remove, the
+                        component.
+                      type: boolean
+                    ready:
+                      description: Ready is true when the component is available.
+                      type: boolean
+                    state:
+                      description: State of the component.
+                      type: string
+                    version:
+                      description: Version of the component, when known.
+                      type: string
+                  required:
+                  - name
+                  - state
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               conditions:
                 description: Conditions describe the current state of the environment.
                 items:

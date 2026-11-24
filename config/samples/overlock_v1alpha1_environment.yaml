@@ -3,14 +3,15 @@ kind: Environment
 metadata:
   name: default
 spec:
+  deletionPolicy: Orphan
   crossplane:
+    policy: Auto
     maxReconcileRate: 5
   providers:
     - xpkg.upbound.io/crossplane-contrib/provider-helm:v0.19.0
-  configurations: []
-  functions: []
   tools:
     kyverno:
       enabled: true
     certManager:
       enabled: true
+      policy: Auto

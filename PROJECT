@@ -1,0 +1,17 @@
+# Kubebuilder project file. The CLI lives in cmd/overlock and the operator in
+# cmd/overlock-operator; both share pkg/ and internal/.
+domain: io
+layout:
+- go.kubebuilder.io/v4
+projectName: overlock
+repo: github.com/web-seven/overlock
+resources:
+- api:
+    crdVersion: v1
+  controller: true
+  domain: io
+  group: overlock
+  kind: Environment
+  path: github.com/web-seven/overlock/api/v1alpha1
+  version: v1alpha1
+version: "3"
