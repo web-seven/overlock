@@ -8,7 +8,9 @@ import (
 	"dario.cat/mergo"
 	"go.uber.org/zap"
 	yaml "gopkg.in/yaml.v2"
+	k8syaml "sigs.k8s.io/yaml"
 
+	"github.com/web-seven/overlock/api/v1alpha1"
 	overlockerrors "github.com/web-seven/overlock/pkg/errors"
 )
 
@@ -78,6 +80,13 @@ func layeredConfigPaths() ([]string, error) {
 	return paths, nil
 }
 
+// environmentSection is the operator-compatible part of the configuration
+// file. It uses the Kubernetes API field names (camelCase), so it is parsed
+// separately from the legacy CLI options.
+type environmentSection struct {
+	Environment *v1alpha1.EnvironmentSpec `json:"environment,omitempty"`
+}
+
 func loadConfig(path string) (*createOptions, error) {
 	var cfg createOptions
 
@@ -90,5 +99,33 @@ func loadConfig(path string) (*createOptions, error) {
 		return nil, overlockerrors.NewInvalidConfigErrorWithCause("", "", "failed to parse configuration file", err)
 	}
 
+	var section environmentSection
+	if err := k8syaml.Unmarshal(data, &section); err != nil {
+		return nil, overlockerrors.NewInvalidConfigErrorWithCause("environment", "", "failed to parse environment section", err)
+	}
+	cfg.Environment = section.Environment
+
 	return &cfg, nil
+}
+
+// environmentSpec returns the operator-compatible specification of the
+// environment: legacy top-level options (flags and configuration keys)
+// overridden by the 'environment' section of the configuration file.
+func (o *createOptions) environmentSpec() (v1alpha1.EnvironmentSpec, error) {
+	spec := v1alpha1.EnvironmentSpec{
+		Crossplane:     v1alpha1.CrossplaneSpec{MaxReconcileRate: o.MaxReconcileRate},
+		Providers:      o.Providers,
+		Configurations: o.Configurations,
+		Functions:      o.Functions,
+	}
+	if o.CreateAdminServiceAccount {
+		spec.AdminServiceAccount = &v1alpha1.AdminServiceAccountSpec{Name: o.AdminServiceAccountName}
+	}
+	if o.Environment == nil {
+		return spec, nil
+	}
+	if err := mergo.Merge(&spec, *o.Environment, mergo.WithOverride); err != nil {
+		return spec, overlockerrors.NewInvalidConfigErrorWithCause("environment", "", "failed to merge environment section", err)
+	}
+	return spec, nil
 }

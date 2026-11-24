@@ -1,0 +1,200 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.14.0
+  name: environments.overlock.io
+spec:
+  group: overlock.io
+  names:
+    kind: Environment
+    listKind: EnvironmentList
+    plural: environments
+    shortNames:
+    - env
+    singular: environment
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          Environment is the Schema for the environments API. It is cluster-scoped:
+          one Environment describes what the operator installs in its own cluster.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              EnvironmentSpec is the operator-compatible specification of an Overlock
+              environment: what is installed inside a Kubernetes cluster. How the cluster
+              itself is created (engine, nodes, SSH, Docker, WireGuard) is CLI-specific
+              and intentionally not part of this API.
+            properties:
+              adminServiceAccount:
+                description: AdminServiceAccount creates a service account with cluster-admin
+                  privileges.
+                properties:
+                  name:
+                    description: Name of the service account. Defaults to "overlock-admin".
+                    type: string
+                type: object
+              configurations:
+                description: Configurations are Crossplane configuration packages
+                  to install.
+                items:
+                  type: string
+                type: array
+              crossplane:
+                description: Crossplane configures the Crossplane engine installation.
+                properties:
+                  args:
+                    description: Args are additional arguments passed to the Crossplane
+                      core container.
+                    items:
+                      type: string
+                    type: array
+                  maxReconcileRate:
+                    description: MaxReconcileRate is the maximum number of reconciliations
+                      per second for Crossplane.
+                    minimum: 0
+                    type: integer
+                type: object
+              functions:
+                description: Functions are Crossplane function packages to install.
+                items:
+                  type: string
+                type: array
+              providers:
+                description: Providers are Crossplane provider packages to install.
+                items:
+                  type: string
+                type: array
+              tools:
+                description: Tools configures supporting tools installed next to Crossplane.
+                properties:
+                  certManager:
+                    description: CertManager certificate manager.
+                    properties:
+                      enabled:
+                        description: Enabled installs the tool. Defaults to true.
+                        type: boolean
+                    type: object
+                  kyverno:
+                    description: Kyverno policy engine.
+                    properties:
+                      enabled:
+                        description: Enabled installs the tool. Defaults to true.
+                        type: boolean
+                    type: object
+                type: object
+            type: object
+          status:
+            description: EnvironmentStatus is the observed state of an Environment.
+            properties:
+              conditions:
+                description: Conditions describe the current state of the environment.
+                items:
+                  description: "Condition contains details for one aspect of the current
+                    state of this API Resource.\n---\nThis struct is intended for
+                    direct use as an array at the field path .status.conditions.  For
+                    example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
+                    observations of a foo's current state.\n\t    // Known .status.conditions.type
+                    are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
+                    +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
+                    \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
+                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
+                    \   // other fields\n\t}"
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: |-
+                        type of condition in CamelCase or in foo.example.com/CamelCase.
+                        ---
+                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
+                        useful (see .node.status.conditions), the ability to deconflict is important.
+                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              observedGeneration:
+                description: ObservedGeneration is the generation last reconciled.
+                format: int64
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

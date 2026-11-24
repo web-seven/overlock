@@ -6,6 +6,7 @@ const sidebars = {
     'guide/getting-started',
     'guide/environments',
     'environment/cfg-file',
+    'environment/spec',
     'guide/configurations',
     'guide/providers',
     'guide/functions',
