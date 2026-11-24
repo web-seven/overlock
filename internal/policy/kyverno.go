@@ -16,11 +16,11 @@ import (
 )
 
 const (
-	kyvernoChartName    = "kyverno"
-	kyvernoChartVersion = "3.4.4"
-	kyvernoReleaseName  = "kyverno"
-	kyvernoRepoUrl      = "https://kyverno.github.io/kyverno/"
-	kyvernoNamespace    = "kyverno"
+	KyvernoChartName    = "kyverno"
+	KyvernoChartVersion = "3.4.4"
+	KyvernoReleaseName  = "kyverno"
+	KyvernoRepoURL      = "https://kyverno.github.io/kyverno/"
+	KyvernoNamespace    = "kyverno"
 )
 
 var (
@@ -58,14 +58,14 @@ var (
 )
 
 func addKyvernoPolicyConroller(_ context.Context, config *rest.Config, extraParams map[string]any) error {
-	repoURL, err := url.Parse(kyvernoRepoUrl)
+	repoURL, err := url.Parse(KyvernoRepoURL)
 	if err != nil {
 		return err
 	}
 
-	manager, err := helm.NewManager(config, kyvernoChartName, repoURL, kyvernoReleaseName,
+	manager, err := helm.NewManager(config, KyvernoChartName, repoURL, KyvernoReleaseName,
 		helm.InstallerModifierFn(helm.Wait()),
-		helm.InstallerModifierFn(helm.WithNamespace(kyvernoNamespace)),
+		helm.InstallerModifierFn(helm.WithNamespace(KyvernoNamespace)),
 		helm.InstallerModifierFn(helm.WithUpgradeInstall(true)),
 		helm.InstallerModifierFn(helm.WithCreateNamespace(true)),
 	)
@@ -86,7 +86,7 @@ func addKyvernoPolicyConroller(_ context.Context, config *rest.Config, extraPara
 		values[k] = v
 	}
 
-	err = manager.Upgrade(kyvernoChartVersion, values)
+	err = manager.Upgrade(KyvernoChartVersion, values)
 	if err != nil {
 		return err
 	}
@@ -189,4 +189,17 @@ func deleteKyvernoRegistryPolicies(ctx context.Context, config *rest.Config, reg
 		return err
 	}
 	return nil
+}
+
+// KyvernoValues returns a copy of the default Kyverno chart values.
+func KyvernoValues() map[string]any {
+	return copyValues(chartValues)
+}
+
+func copyValues(in map[string]interface{}) map[string]any {
+	out := make(map[string]any, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
 }

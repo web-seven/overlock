@@ -1,0 +1,14 @@
+# The operator installs Helm charts (Crossplane, Kyverno, cert-manager) that
+# create cluster-wide RBAC, CRDs and webhooks, so it needs cluster-admin.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: overlock-operator-cluster-admin
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: overlock-operator
+    namespace: system

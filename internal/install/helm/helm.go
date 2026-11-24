@@ -140,6 +140,7 @@ type Installer struct {
 	reuseValues     bool
 	upgradeInstall  bool
 	createNamespace bool
+	labels          map[string]string
 
 	// Auth
 	username string
@@ -257,6 +258,13 @@ func WithCreateNamespace(r bool) InstallerModifierFn {
 	}
 }
 
+// WithLabels sets custom labels stored on the Helm release by install and upgrade.
+func WithLabels(labels map[string]string) InstallerModifierFn {
+	return func(h *Installer) {
+		h.labels = labels
+	}
+}
+
 // NewManager builds a helm install manager for UXP.
 func NewManager(config *rest.Config, chartName string, repoURL *url.URL, releaseName string, modifiers ...InstallerModifierFn) (install.Manager, error) { // nolint:gocyclo
 	h := &Installer{
@@ -330,6 +338,7 @@ func NewManager(config *rest.Config, chartName string, repoURL *url.URL, release
 	ic.Timeout = waitTimeout
 	ic.DisableHooks = h.noHooks
 	ic.CreateNamespace = h.createNamespace
+	ic.Labels = h.labels
 	h.installClient = ic
 
 	// Upgrade Client
@@ -340,6 +349,7 @@ func NewManager(config *rest.Config, chartName string, repoURL *url.URL, release
 	uc.DisableHooks = h.noHooks
 	uc.ReuseValues = h.reuseValues
 	uc.Install = h.upgradeInstall
+	uc.Labels = h.labels
 	h.upgradeClient = uc
 
 	// Uninstall Client
@@ -471,7 +481,7 @@ func (h *Installer) Upgrade(version string, parameters map[string]any, opts ...i
 
 // Uninstall uninstalls an installation.
 func (h *Installer) Uninstall() error {
-	_, err := h.uninstallClient.Run(h.chartName)
+	_, err := h.uninstallClient.Run(h.releaseName)
 	return err
 }
 

@@ -1,0 +1,5 @@
+namespace: overlock-system
+resources:
+  - ../crd
+  - ../rbac
+  - ../manager

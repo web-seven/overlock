@@ -34,7 +34,7 @@ cd overlock
 
 ```bash
 # Build for your current platform
-go build -o overlock ./cmd/overlock
+go build -o overlock ./cmd/cli
 
 # The binary will be created in the current directory
 ./overlock --version
@@ -44,7 +44,7 @@ go build -o overlock ./cmd/overlock
 
 ```bash
 # Install to $GOPATH/bin (ensure it's in your PATH)
-go install ./cmd/overlock
+go build -o $(go env GOPATH)/bin/overlock ./cmd/cli
 
 # Verify installation
 overlock --version
@@ -54,13 +54,13 @@ overlock --version
 
 ```bash
 # Build for Linux (AMD64)
-GOOS=linux GOARCH=amd64 go build -o overlock-linux-amd64 ./cmd/overlock
+GOOS=linux GOARCH=amd64 go build -o overlock-linux-amd64 ./cmd/cli
 
 # Build for macOS (ARM64)
-GOOS=darwin GOARCH=arm64 go build -o overlock-darwin-arm64 ./cmd/overlock
+GOOS=darwin GOARCH=arm64 go build -o overlock-darwin-arm64 ./cmd/cli
 
 # Build for Windows
-GOOS=windows GOARCH=amd64 go build -o overlock-windows-amd64.exe ./cmd/overlock
+GOOS=windows GOARCH=amd64 go build -o overlock-windows-amd64.exe ./cmd/cli
 ```
 
 ## Development Commands
@@ -113,13 +113,13 @@ go run golang.org/x/vuln/cmd/govulncheck ./...
 
 ```bash
 # Run without building
-go run ./cmd/overlock [command]
+go run ./cmd/cli [command]
 
 # Example: Create environment
-go run ./cmd/overlock environment create test-env
+go run ./cmd/cli environment create test-env
 
 # Run with debug output
-go run ./cmd/overlock --debug environment list
+go run ./cmd/cli --debug environment list
 ```
 
 ## Project Architecture
@@ -146,7 +146,7 @@ overlock/
 
 #### CLI Framework
 - Uses [Kong](https://github.com/alecthomas/kong) for command-line parsing
-- Command structure defined in `cmd/overlock/`
+- Command structure defined in `cmd/cli/`
 - Supports subcommands and flags
 
 #### Engine Management
@@ -234,20 +234,20 @@ go test ./pkg/environment -v
 ```bash
 # Integration tests require a Kubernetes cluster
 # Create a test environment first
-go run ./cmd/overlock environment create test-integration
+go run ./cmd/cli environment create test-integration
 
 # Run integration tests
 go test ./test/integration -tags=integration
 
 # Cleanup
-go run ./cmd/overlock environment delete test-integration
+go run ./cmd/cli environment delete test-integration
 ```
 
 ### Manual Testing
 
 ```bash
 # Build and test locally
-go build -o overlock ./cmd/overlock
+go build -o overlock ./cmd/cli
 
 # Create test environment
 ./overlock environment create manual-test
@@ -388,7 +388,7 @@ Built-in Go support with excellent refactoring tools.
 go install github.com/go-delve/delve/cmd/dlv@latest
 
 # Debug the application
-dlv debug ./cmd/overlock -- environment create test
+dlv debug ./cmd/cli -- environment create test
 
 # Set breakpoints in code
 # Use debugger commands (break, continue, next, etc.)
@@ -397,7 +397,7 @@ dlv debug ./cmd/overlock -- environment create test
 #### Using Print Debugging
 ```bash
 # Run with debug flag
-go run ./cmd/overlock --debug environment create test
+go run ./cmd/cli --debug environment create test
 ```
 
 ### Performance Profiling

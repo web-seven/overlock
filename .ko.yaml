@@ -1,7 +1,7 @@
 builds:
 - id: overlock-cli
   dir: . 
-  main: ./cmd/overlock
+  main: ./cmd/cli
   flags:
   - -tags
   - "{{.Env.VERSION}}"

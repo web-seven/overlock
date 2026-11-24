@@ -1,0 +1,30 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: overlock-operator
+rules:
+- apiGroups:
+  - overlock.io
+  resources:
+  - environments
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - overlock.io
+  resources:
+  - environments/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - overlock.io
+  resources:
+  - environments/status
+  verbs:
+  - get
+  - patch
+  - update

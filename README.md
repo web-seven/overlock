@@ -89,7 +89,7 @@ overlock --version
 ```bash
 git clone https://github.com/web-seven/overlock.git
 cd overlock
-go build -o overlock ./cmd/overlock
+go build -o overlock ./cmd/cli
 ```
 
 See the [Development Guide](docs/development.md) for detailed build instructions.
