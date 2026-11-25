@@ -1,0 +1,6 @@
+# Default Overlock environment: Crossplane with cert-manager and Kyverno.
+apiVersion: overlock.app/v1alpha1
+kind: Environment
+metadata:
+  name: OVERLOCK_ENVIRONMENT_NAME
+spec: {}

@@ -20,8 +20,10 @@ It contains:
   - `k3s-system-images.tar.zst`: the K3s system images (CoreDNS,
     metrics-server, local-path provisioner, ...) listed by the K3s release,
     without Traefik; the list is at `/opt/overlock/k3s-images.txt`
-- A K3s config drop-in (`/etc/rancher/k3s/config.yaml.d/00-overlock.yaml`)
-  that disables Traefik, which Overlock environments do not use
+- K3s server defaults that disable Traefik, which Overlock environments do not
+  use (installed into `/etc/rancher/k3s/config.yaml.d/00-overlock.yaml` for
+  servers only, since agents reject server options)
+- Environment profiles at `/opt/overlock/profiles/`
 
 A default environment therefore starts without downloading any image. Images
 of upgrade, removal and test hooks (for example `kyverno-cli` for Kyverno CRD
@@ -60,7 +62,95 @@ docker run -d --privileged --name k3s \
   ghcr.io/web-seven/overlock-k3s:latest server
 ```
 
-The operator manifests are only bundled; they are not applied automatically.
+---
+
+## Automatic Bootstrap
+
+Started as `server`, the container bootstraps a complete Overlock environment
+by itself:
+
+1. K3s starts and imports the preloaded images.
+2. The entrypoint writes the operator manifests and an `Environment` into the
+   K3s auto-deploy directory (`<data-dir>/server/manifests`), which K3s applies.
+3. The operator installs Crossplane and the tools described by the
+   `Environment`.
+
+```bash
+docker run -d --privileged --name overlock \
+  -v overlock-data:/var/lib/rancher/k3s \
+  ghcr.io/web-seven/overlock-k3s:latest server
+```
+
+The files are written on every start: a newer image upgrades the operator, and
+the mounted file or profile stays the source of the `Environment` (changes
+made with `kubectl` are replaced on the next start).
+
+### Environment Specification
+
+The `Environment` comes from, in order:
+
+1. A mounted `Environment` resource at `/etc/overlock/environment.yaml`
+   (path: `OVERLOCK_ENVIRONMENT_FILE`). Generate it from `overlock.yaml` with
+   `overlock env manifest`:
+
+   ```bash
+   overlock env manifest dev > environment.yaml
+   docker run -d --privileged \
+     -v $PWD/environment.yaml:/etc/overlock/environment.yaml:ro \
+     ghcr.io/web-seven/overlock-k3s:latest server
+   ```
+
+2. A bundled profile selected with `OVERLOCK_PROFILE`, named
+   `OVERLOCK_ENVIRONMENT_NAME`:
+
+   | Profile | Components |
+   |---------|------------|
+   | `default` | Crossplane, cert-manager, Kyverno |
+   | `minimal` | Crossplane |
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OVERLOCK_BOOTSTRAP` | `true` | `false` runs plain K3s without the operator |
+| `OVERLOCK_PROFILE` | `default` | Profile used when no environment file is mounted |
+| `OVERLOCK_ENVIRONMENT_NAME` | `default` | Name of the `Environment` created from a profile |
+| `OVERLOCK_ENVIRONMENT_FILE` | `/etc/overlock/environment.yaml` | Mounted `Environment` resource |
+
+An unknown profile or an environment file that is not an `Environment`
+resource stops the container with an error.
+
+### Health and Readiness
+
+The image has a Docker health check (`/bin/overlock-healthcheck`). The
+container is `healthy` when:
+
+- server with bootstrap: the `Environment` is `Ready`
+- server with `OVERLOCK_BOOTSTRAP=false`: the Kubernetes API is ready
+- agent: the kubelet is healthy
+
+Installing the components on first start takes a few minutes, covered by the
+start period. Until the environment is ready, its progress is written to the
+container log:
+
+```text
+overlock: environment 'default' from profile 'default'
+overlock: waiting for K3s
+overlock: environment 'default': waiting for the operator
+overlock: environment 'default': Progressing: waiting for crossplane
+overlock: environment 'default' is ready
+```
+
+Wait for it with `docker inspect -f '{{.State.Health.Status}}' overlock` or
+`docker exec overlock overlock-healthcheck --status`.
+
+### Agents
+
+The same image joins a server as an agent; bootstrap only runs on servers:
+
+```bash
+docker run -d --privileged \
+  -e K3S_URL=https://<server>:6443 -e K3S_TOKEN=<token> \
+  ghcr.io/web-seven/overlock-k3s:latest agent
+```
 
 ---
 

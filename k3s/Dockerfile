@@ -47,8 +47,15 @@ COPY --from=images /out/*.tar.zst /opt/overlock/images/
 COPY --from=images /out/k3s-images.txt /opt/overlock/k3s-images.txt
 COPY images.txt /opt/overlock/images.txt
 COPY operator.yaml /opt/overlock/manifests/operator.yaml
-COPY config.yaml /etc/rancher/k3s/config.yaml.d/00-overlock.yaml
+COPY profiles/ /opt/overlock/profiles/
+COPY server-config.yaml /opt/overlock/server-config.yaml
 COPY entrypoint.sh /bin/overlock-entrypoint
+COPY healthcheck.sh /bin/overlock-healthcheck
+
+# Healthy once the bootstrapped Environment is ready (see overlock-healthcheck);
+# installing the components can take a few minutes on first start.
+HEALTHCHECK --interval=10s --timeout=10s --start-period=10m --retries=3 \
+    CMD ["/bin/overlock-healthcheck"]
 
 ENTRYPOINT ["/bin/overlock-entrypoint"]
 CMD ["agent"]
