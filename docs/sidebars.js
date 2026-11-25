@@ -9,6 +9,7 @@ const sidebars = {
     'environment/spec',
     'environment/operator',
     'environment/k3s-image',
+    'environment/compose',
     'guide/configurations',
     'guide/providers',
     'guide/functions',

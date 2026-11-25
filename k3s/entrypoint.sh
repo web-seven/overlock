@@ -9,12 +9,17 @@
 #   and the tools. The Environment comes from a mounted file
 #   (OVERLOCK_ENVIRONMENT_FILE) or a bundled profile (OVERLOCK_PROFILE).
 # - Reports environment progress in the container log until it is ready.
+# - Optionally writes kubeconfigs for the host (OVERLOCK_KUBECONFIG_OUTPUT) and
+#   for other containers (OVERLOCK_KUBECONFIG_SHARED_OUTPUT).
 set -e
 
 OVERLOCK_BOOTSTRAP="${OVERLOCK_BOOTSTRAP:-true}"
 OVERLOCK_PROFILE="${OVERLOCK_PROFILE:-default}"
 OVERLOCK_ENVIRONMENT_NAME="${OVERLOCK_ENVIRONMENT_NAME:-default}"
 OVERLOCK_ENVIRONMENT_FILE="${OVERLOCK_ENVIRONMENT_FILE:-/etc/overlock/environment.yaml}"
+OVERLOCK_KUBECONFIG_OUTPUT="${OVERLOCK_KUBECONFIG_OUTPUT:-}"
+OVERLOCK_KUBECONFIG_SHARED_OUTPUT="${OVERLOCK_KUBECONFIG_SHARED_OUTPUT:-}"
+OVERLOCK_KUBECONFIG_SHARED_SERVER="${OVERLOCK_KUBECONFIG_SHARED_SERVER:-}"
 state_dir=/run/overlock
 
 log() {
@@ -115,6 +120,44 @@ report() {
     done
 }
 
+# write_kubeconfig writes the server kubeconfig to $1 with mode $3, the K3s
+# "default" names replaced by the context name and, when $2 is set, the server
+# address replaced by $2. The file is owned like its directory.
+write_kubeconfig() {
+    out="$1"
+    server="$2"
+    mode="$3"
+    mkdir -p "${out%/*}"
+    sed -E "s/^( *(- )?(name|cluster|user|current-context)): default$/\1: ${context}/" "$src" > "$out.tmp"
+    if [ -n "$server" ]; then
+        sed -i -E "s#^( *server: ).*#\1${server}#" "$out.tmp"
+    fi
+    chmod "$mode" "$out.tmp"
+    chown "$(stat -c %u:%g "${out%/*}")" "$out.tmp" || true
+    mv "$out.tmp" "$out"
+    log "kubeconfig written to $out (context '$context'${server:+, server $server})"
+}
+
+# export_kubeconfig writes kubeconfigs once the API is ready:
+# - OVERLOCK_KUBECONFIG_OUTPUT: for the host (server https://127.0.0.1:<port>),
+#   readable only by its owner, as it holds administrator credentials
+# - OVERLOCK_KUBECONFIG_SHARED_OUTPUT: for other containers, with the server
+#   address OVERLOCK_KUBECONFIG_SHARED_SERVER (e.g. https://k3s:6443),
+#   readable by any user, since containers may run as any non-root user
+export_kubeconfig() {
+    src=/etc/rancher/k3s/k3s.yaml
+    context="${OVERLOCK_KUBECONFIG_CONTEXT:-overlock-${OVERLOCK_ENVIRONMENT_NAME}}"
+    until [ -s "$src" ] && KUBECONFIG="$src" kubectl get --raw /readyz >/dev/null 2>&1; do
+        sleep 2
+    done
+    if [ -n "$OVERLOCK_KUBECONFIG_OUTPUT" ]; then
+        write_kubeconfig "$OVERLOCK_KUBECONFIG_OUTPUT" "" 600
+    fi
+    if [ -n "$OVERLOCK_KUBECONFIG_SHARED_OUTPUT" ]; then
+        write_kubeconfig "$OVERLOCK_KUBECONFIG_SHARED_OUTPUT" "$OVERLOCK_KUBECONFIG_SHARED_SERVER" 644
+    fi
+}
+
 # Server defaults (e.g. disabled Traefik) apply to servers only: agents read
 # the same config directory and reject server options.
 server_config=/etc/rancher/k3s/config.yaml.d/00-overlock.yaml
@@ -129,6 +172,9 @@ if [ "$command" = "server" ]; then
     bootstrap
     if [ -f "$state_dir/environment" ]; then
         report &
+    fi
+    if [ -n "$OVERLOCK_KUBECONFIG_OUTPUT$OVERLOCK_KUBECONFIG_SHARED_OUTPUT" ]; then
+        export_kubeconfig &
     fi
 fi
 

@@ -161,6 +161,19 @@ jobs:
             ghcr.io/web-seven/overlock-k3s:${{ github.ref_name }}-k3s-${{ steps.context.outputs.k3s_version }}
             ${{ !contains(github.ref_name, '-') && 'ghcr.io/web-seven/overlock-k3s:latest' || '' }}
 
+      # compose.yaml pinned to the image of this release.
+      - name: Attach compose.yaml to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          mkdir -p dist
+          sed -e "s/OVERLOCK_VERSION:-latest/OVERLOCK_VERSION:-${VERSION}/" \
+              -e "s/image version (default: latest)/image version (default: ${VERSION})/" \
+              compose.yaml > dist/compose.yaml
+          grep -q "OVERLOCK_VERSION:-${VERSION}}" dist/compose.yaml
+          gh release upload "$VERSION" dist/compose.yaml --clobber
+
   notify:
     name: Notify Discord
     needs: releases-matrix
