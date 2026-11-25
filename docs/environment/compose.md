@@ -84,8 +84,9 @@ workloads of the old one stuck.
 ## CLI Access
 
 Once the API is ready, the container writes `kubeconfig` next to
-`compose.yaml`, owned by the owner of that directory, with the context named
-after `OVERLOCK_ENVIRONMENT_NAME`:
+`compose.yaml`, with the context named after `OVERLOCK_ENVIRONMENT_NAME`. It is
+owned by the owner of that directory and readable only by them (mode `600`), as
+it holds the cluster administrator credentials:
 
 ```bash
 export KUBECONFIG=$PWD/kubeconfig
@@ -156,6 +157,8 @@ networks:
     name: overlock_default
 ```
 
+The shared kubeconfig is owned by `root` with mode `644`, so services can read
+it whatever user they run as; on the host it is only reachable through Docker.
 Both kubeconfigs carry the cluster administrator credentials: every service
 that mounts the volume has full access to the cluster.
 
