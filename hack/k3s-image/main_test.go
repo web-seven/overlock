@@ -63,12 +63,16 @@ data:
 	}
 }
 
-func TestIsTestHook(t *testing.T) {
-	if !isTestHook(&release.Hook{Events: []release.HookEvent{release.HookTest}}) {
-		t.Error("test hook not detected")
+func TestIsInstallHook(t *testing.T) {
+	for _, e := range []release.HookEvent{release.HookPreInstall, release.HookPostInstall} {
+		if !isInstallHook(&release.Hook{Events: []release.HookEvent{release.HookPostUpgrade, e}}) {
+			t.Errorf("%s hook not bundled", e)
+		}
 	}
-	if isTestHook(&release.Hook{Events: []release.HookEvent{release.HookPostDelete}}) {
-		t.Error("post-delete hook treated as test hook")
+	for _, e := range []release.HookEvent{release.HookTest, release.HookPostUpgrade, release.HookPreDelete, release.HookPostDelete} {
+		if isInstallHook(&release.Hook{Events: []release.HookEvent{e}}) {
+			t.Errorf("%s hook bundled", e)
+		}
 	}
 }
 

@@ -1,0 +1,4 @@
+# Overlock defaults: Traefik is not used by Overlock environments and its images
+# are not bundled. Override by adding later files to config.yaml.d.
+disable:
+  - traefik

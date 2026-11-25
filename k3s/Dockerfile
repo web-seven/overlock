@@ -17,16 +17,20 @@ RUN mkdir -p /out \
     && crane pull --platform "linux/${TARGETARCH}" $(cat /images.txt) /tmp/overlock-images.tar \
     && zstd -T0 -12 --rm /tmp/overlock-images.tar -o /out/overlock-images.tar.zst
 
-# K3s system images (CoreDNS, metrics-server, local-path, Traefik, ...) from the
-# K3s release, verified against its published checksums.
+# K3s system images (CoreDNS, metrics-server, local-path, ...) listed by the K3s
+# release, without the add-ons Overlock disables (Traefik and the Helm
+# controller image that installs it).
+ARG K3S_EXCLUDE_IMAGES="traefik klipper-helm"
 RUN set -e; \
     release="$(echo "${K3S_VERSION}" | sed 's/-k3s/%2Bk3s/')"; \
-    base="https://github.com/k3s-io/k3s/releases/download/${release}"; \
-    file="k3s-airgap-images-${TARGETARCH}.tar.zst"; \
-    cd /tmp; \
-    wget -q "${base}/${file}" "${base}/sha256sum-${TARGETARCH}.txt"; \
-    grep " ${file}\$" "sha256sum-${TARGETARCH}.txt" | sha256sum -c -; \
-    mv "${file}" /out/k3s-airgap-images.tar.zst
+    wget -q -O /tmp/k3s-images.txt "https://github.com/k3s-io/k3s/releases/download/${release}/k3s-images.txt"; \
+    cp /tmp/k3s-images.txt /tmp/k3s-selected.txt; \
+    for name in ${K3S_EXCLUDE_IMAGES}; do grep -v "${name}" /tmp/k3s-selected.txt > /tmp/k3s-filtered.txt || true; mv /tmp/k3s-filtered.txt /tmp/k3s-selected.txt; done; \
+    test -s /tmp/k3s-selected.txt; \
+    cat /tmp/k3s-selected.txt; \
+    crane pull --platform "linux/${TARGETARCH}" $(cat /tmp/k3s-selected.txt) /tmp/k3s-system-images.tar; \
+    zstd -T0 -12 --rm /tmp/k3s-system-images.tar -o /out/k3s-system-images.tar.zst; \
+    cp /tmp/k3s-selected.txt /out/k3s-images.txt
 
 FROM rancher/k3s:${K3S_VERSION}
 ARG K3S_VERSION
@@ -39,9 +43,11 @@ LABEL org.opencontainers.image.title="overlock-k3s" \
 
 # Bundled artifacts live outside /var/lib/rancher/k3s, which is a volume and
 # would hide them; the entrypoint links them into the data directory.
-COPY --from=images /out/ /opt/overlock/images/
+COPY --from=images /out/*.tar.zst /opt/overlock/images/
+COPY --from=images /out/k3s-images.txt /opt/overlock/k3s-images.txt
 COPY images.txt /opt/overlock/images.txt
 COPY operator.yaml /opt/overlock/manifests/operator.yaml
+COPY config.yaml /etc/rancher/k3s/config.yaml.d/00-overlock.yaml
 COPY entrypoint.sh /bin/overlock-entrypoint
 
 ENTRYPOINT ["/bin/overlock-entrypoint"]
