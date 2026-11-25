@@ -25,5 +25,5 @@ go.work
 /bin/
 
 # Docker Compose environment (compose.yaml)
-/kubeconfig/
-/environment/
+/kubeconfig
+/environment.yaml
