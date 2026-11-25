@@ -104,6 +104,61 @@ KUBECONFIG=~/.kube/config:$PWD/kubeconfig kubectl config view --flatten > /tmp/c
 The API server listens on `OVERLOCK_API_PORT` inside the container as well, so
 the kubeconfig address (`https://127.0.0.1:<port>`) is correct for any port.
 
+
+
+### Services Using the API
+
+Other containers reach the API at `https://k3s:<OVERLOCK_API_PORT>` on the
+Compose network. The container writes a kubeconfig with that address to the
+`kubeconfig` volume (`/kubeconfig/config`), and the API certificate covers the
+`k3s` and `overlock` names, so TLS is verified as usual.
+
+Add a service to the same `compose.yaml`, or to a `compose.override.yaml` next
+to it:
+
+```yaml
+services:
+  app:
+    image: your/app
+    environment:
+      KUBECONFIG: /kubeconfig/config
+    volumes:
+      - kubeconfig:/kubeconfig:ro
+    depends_on:
+      k3s:
+        condition: service_healthy
+```
+
+`service_healthy` starts the service once the `Environment` is ready, so the
+kubeconfig exists and Crossplane is available.
+
+A service of another Compose project uses the external volume and network of
+the `overlock` project:
+
+```yaml
+services:
+  app:
+    image: your/app
+    environment:
+      KUBECONFIG: /kubeconfig/config
+    volumes:
+      - overlock-kubeconfig:/kubeconfig:ro
+    networks: [overlock]
+
+volumes:
+  overlock-kubeconfig:
+    external: true
+    name: overlock_kubeconfig
+
+networks:
+  overlock:
+    external: true
+    name: overlock_default
+```
+
+Both kubeconfigs carry the cluster administrator credentials: every service
+that mounts the volume has full access to the cluster.
+
 ---
 
 ## Limitations
