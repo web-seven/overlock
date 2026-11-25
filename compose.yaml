@@ -2,8 +2,7 @@
 #
 #   docker compose up -d
 #   docker compose ps                      # wait until the k3s service is healthy
-#   docker compose exec k3s cat /run/overlock/kubeconfig > kubeconfig
-#   export KUBECONFIG=$PWD/kubeconfig
+#   export KUBECONFIG=$PWD/kubeconfig      # written next to this file
 #   kubectl get environments
 #
 # Settings are read from the environment or an .env file next to this file:
@@ -11,17 +10,17 @@
 #   OVERLOCK_VERSION           image version (default: latest)
 #   OVERLOCK_IMAGE             full image reference, overrides OVERLOCK_VERSION
 #   OVERLOCK_ENVIRONMENT_NAME  Environment name (default: overlock)
-#   OVERLOCK_PROFILE           profile when no environment.yaml is mounted:
+#   OVERLOCK_PROFILE           profile when ./environment.yaml is absent:
 #                              default or minimal (default: default)
 #   OVERLOCK_BIND_ADDRESS      host address for the ports (default: 127.0.0.1)
 #   OVERLOCK_API_PORT          Kubernetes API port (default: 6443)
 #   OVERLOCK_HTTP_PORT         host port for 80 (default: 8080)
 #   OVERLOCK_HTTPS_PORT        host port for 443 (default: 8443)
 #
-# To use your own Environment resource (e.g. from "overlock env manifest")
-# instead of a profile, create environment.yaml next to this file and uncomment
-# its volume below. The kubeconfig context is named after
-# OVERLOCK_ENVIRONMENT_NAME.
+# This directory is mounted into the container: the kubeconfig is written to
+# ./kubeconfig (context named after OVERLOCK_ENVIRONMENT_NAME), and an
+# Environment resource in ./environment.yaml (e.g. from "overlock env
+# manifest"), if present, replaces the profile.
 name: overlock
 
 services:
@@ -39,7 +38,8 @@ services:
     environment:
       OVERLOCK_ENVIRONMENT_NAME: ${OVERLOCK_ENVIRONMENT_NAME:-overlock}
       OVERLOCK_PROFILE: ${OVERLOCK_PROFILE:-default}
-      OVERLOCK_KUBECONFIG_OUTPUT: /run/overlock/kubeconfig
+      OVERLOCK_ENVIRONMENT_FILE: /overlock/environment.yaml
+      OVERLOCK_KUBECONFIG_OUTPUT: /overlock/kubeconfig
       OVERLOCK_KUBECONFIG_CONTEXT: ${OVERLOCK_ENVIRONMENT_NAME:-overlock}
     ports:
       - ${OVERLOCK_BIND_ADDRESS:-127.0.0.1}:${OVERLOCK_API_PORT:-6443}:${OVERLOCK_API_PORT:-6443}
@@ -47,7 +47,8 @@ services:
       - ${OVERLOCK_BIND_ADDRESS:-127.0.0.1}:${OVERLOCK_HTTPS_PORT:-8443}:443
     volumes:
       - k3s-data:/var/lib/rancher/k3s
-      # - ./environment.yaml:/etc/overlock/environment.yaml:ro
+      # The directory of this file always exists, so Docker creates nothing.
+      - .:/overlock
     tmpfs:
       - /run
       - /var/run

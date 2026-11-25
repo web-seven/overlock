@@ -22,8 +22,10 @@ docker compose up -d
 docker compose ps          # wait until the k3s service is "healthy"
 ```
 
-Nothing is created next to `compose.yaml`: the cluster state lives in a Docker
-volume, and the kubeconfig is fetched on demand (see [CLI Access](#cli-access)).
+The directory of `compose.yaml` is mounted into the container: once the API is
+ready, the container writes `kubeconfig` there (see [CLI Access](#cli-access)),
+and reads an optional `environment.yaml` from it. The cluster state lives in a
+Docker volume.
 
 Progress is written to the log until the environment is ready:
 
@@ -55,23 +57,13 @@ other machines. Set `OVERLOCK_BIND_ADDRESS=0.0.0.0` to expose them.
 ### Environment Specification
 
 By default the `Environment` comes from the profile. To use your own
-`Environment` resource instead, create `environment.yaml` next to
-`compose.yaml`, for example from `overlock.yaml`:
+`Environment` resource instead, put `environment.yaml` next to `compose.yaml`,
+for example generated from `overlock.yaml`:
 
 ```bash
 overlock env manifest overlock > environment.yaml
+docker compose up -d --force-recreate
 ```
-
-and uncomment its volume in `compose.yaml`:
-
-```yaml
-    volumes:
-      - k3s-data:/var/lib/rancher/k3s
-      - ./environment.yaml:/etc/overlock/environment.yaml:ro
-```
-
-Create the file before uncommenting the line: Docker creates a missing mount
-source as an empty directory owned by `root`.
 
 The file is applied on every start and is the source of the `Environment`:
 edit it and recreate the container (`docker compose up -d --force-recreate`)
@@ -91,18 +83,17 @@ workloads of the old one stuck.
 
 ## CLI Access
 
-The container prepares a kubeconfig for the host at `/run/overlock/kubeconfig`,
-with the context named after `OVERLOCK_ENVIRONMENT_NAME`. Fetch it once the
-service is healthy:
+Once the API is ready, the container writes `kubeconfig` next to
+`compose.yaml`, owned by the owner of that directory, with the context named
+after `OVERLOCK_ENVIRONMENT_NAME`:
 
 ```bash
-docker compose exec k3s cat /run/overlock/kubeconfig > kubeconfig
 export KUBECONFIG=$PWD/kubeconfig
 kubectl get environments
 overlock provider install xpkg.upbound.io/crossplane-contrib/provider-helm:v0.19.0
 ```
 
-It stays valid when the container is recreated, as long as the `k3s-data`
+It is rewritten on every start and stays valid as long as the `k3s-data`
 volume is kept. To merge it into your default kubeconfig:
 
 ```bash
