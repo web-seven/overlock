@@ -1,0 +1,6 @@
+# Overlock server defaults, installed into /etc/rancher/k3s/config.yaml.d by the
+# entrypoint for "server" only (agents reject server options). Traefik is not
+# used by Overlock environments and its images are not bundled. Override by
+# adding later files to config.yaml.d.
+disable:
+  - traefik

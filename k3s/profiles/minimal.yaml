@@ -1,0 +1,11 @@
+# Minimal Overlock environment: Crossplane only.
+apiVersion: overlock.app/v1alpha1
+kind: Environment
+metadata:
+  name: OVERLOCK_ENVIRONMENT_NAME
+spec:
+  tools:
+    certManager:
+      enabled: false
+    kyverno:
+      enabled: false
