@@ -34,7 +34,7 @@ func (r *EnvironmentReconciler) reconcileHelmComponent(ctx context.Context, env 
 			}
 			return st
 		}
-		if err := r.Releases.Uninstall(c); err != nil {
+		if err := r.uninstall(ctx, c); err != nil {
 			return failed(st, fmt.Errorf("failed to remove: %w", err))
 		}
 		st.Message = "removed"
@@ -115,8 +115,19 @@ func (r *EnvironmentReconciler) observeExternal(ctx context.Context, c helmCompo
 	return st
 }
 
+// uninstall removes the release of c, preparing components that cannot be
+// removed by Helm alone.
+func (r *EnvironmentReconciler) uninstall(ctx context.Context, c helmComponent) error {
+	if c.Name == componentKyverno {
+		if err := r.prepareKyvernoRemoval(ctx); err != nil {
+			return err
+		}
+	}
+	return r.Releases.Uninstall(c)
+}
+
 // removeHelmComponent uninstalls c when its release is owned by env.
-func (r *EnvironmentReconciler) removeHelmComponent(env *v1alpha1.Environment, c helmComponent) error {
+func (r *EnvironmentReconciler) removeHelmComponent(ctx context.Context, env *v1alpha1.Environment, c helmComponent) error {
 	rel, err := r.Releases.Get(c)
 	if err != nil {
 		return err
@@ -124,7 +135,7 @@ func (r *EnvironmentReconciler) removeHelmComponent(env *v1alpha1.Environment, c
 	if rel == nil || !isOwnedBy(rel.Labels, env.Name) {
 		return nil
 	}
-	return r.Releases.Uninstall(c)
+	return r.uninstall(ctx, c)
 }
 
 // crdExists reports whether the named CRD exists and is established.

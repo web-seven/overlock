@@ -223,7 +223,7 @@ func (r *EnvironmentReconciler) removeOwned(ctx context.Context, env *v1alpha1.E
 
 	components := helmComponents(env.Spec)
 	for i := len(components) - 1; i >= 0; i-- {
-		if err := r.removeHelmComponent(env, components[i]); err != nil {
+		if err := r.removeHelmComponent(ctx, env, components[i]); err != nil {
 			return false, fmt.Errorf("failed to remove %s: %w", components[i].Name, err)
 		}
 	}
