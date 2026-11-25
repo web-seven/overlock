@@ -9,7 +9,7 @@ func TestK3sImage(t *testing.T) {
 		want    string
 		wantErr bool
 	}{
-		{name: "default when empty", version: "", want: k3sDockerImageRepo + ":" + k3sDockerDefaultVersion},
+		{name: "default when empty", version: "", want: k3sDockerImageRepo + ":" + K3sDefaultVersion},
 		{name: "upstream release format", version: "v1.33.11+k3s1", want: "rancher/k3s:v1.33.11-k3s1"},
 		{name: "docker tag format", version: "v1.34.7-k3s1", want: "rancher/k3s:v1.34.7-k3s1"},
 		{name: "surrounding whitespace", version: " v1.35.4+k3s1 ", want: "rancher/k3s:v1.35.4-k3s1"},

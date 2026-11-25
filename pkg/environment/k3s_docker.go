@@ -25,8 +25,10 @@ import (
 )
 
 const (
-	k3sDockerImageRepo       = "rancher/k3s"
-	k3sDockerDefaultVersion  = "v1.36.2-k3s1"
+	k3sDockerImageRepo = "rancher/k3s"
+	// K3sDefaultVersion is the k3s version (Docker tag form) of the
+	// k3s-docker engine and the Overlock K3s image.
+	K3sDefaultVersion        = "v1.36.2-k3s1"
 	k3sDockerContainerPrefix = "k3s-docker-"
 	k3sKubeconfigPath        = "/etc/rancher/k3s/k3s.yaml"
 	k3sReadinessTimeout      = 120 * time.Second
@@ -66,7 +68,7 @@ var k3sImageVersionRe = regexp.MustCompile(`^v\d+\.\d+\.\d+[+-]k3s\d+$`)
 func (e *Environment) k3sImage() (string, error) {
 	version := strings.TrimSpace(e.k3sVersion)
 	if version == "" {
-		version = k3sDockerDefaultVersion
+		version = K3sDefaultVersion
 	}
 	if !k3sImageVersionRe.MatchString(version) {
 		return "", fmt.Errorf("invalid k3s version %q: expected format v<major>.<minor>.<patch>+k3s<revision>, e.g. v1.36.2+k3s1", version)
