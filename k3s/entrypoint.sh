@@ -9,12 +9,14 @@
 #   and the tools. The Environment comes from a mounted file
 #   (OVERLOCK_ENVIRONMENT_FILE) or a bundled profile (OVERLOCK_PROFILE).
 # - Reports environment progress in the container log until it is ready.
+# - Optionally writes a kubeconfig for host access (OVERLOCK_KUBECONFIG_OUTPUT).
 set -e
 
 OVERLOCK_BOOTSTRAP="${OVERLOCK_BOOTSTRAP:-true}"
 OVERLOCK_PROFILE="${OVERLOCK_PROFILE:-default}"
 OVERLOCK_ENVIRONMENT_NAME="${OVERLOCK_ENVIRONMENT_NAME:-default}"
 OVERLOCK_ENVIRONMENT_FILE="${OVERLOCK_ENVIRONMENT_FILE:-/etc/overlock/environment.yaml}"
+OVERLOCK_KUBECONFIG_OUTPUT="${OVERLOCK_KUBECONFIG_OUTPUT:-}"
 state_dir=/run/overlock
 
 log() {
@@ -115,6 +117,24 @@ report() {
     done
 }
 
+# export_kubeconfig writes the server kubeconfig to OVERLOCK_KUBECONFIG_OUTPUT
+# once the API is ready, with the K3s "default" names replaced by the context
+# name, so it can be used from the host or merged with other kubeconfigs.
+export_kubeconfig() {
+    src=/etc/rancher/k3s/k3s.yaml
+    context="${OVERLOCK_KUBECONFIG_CONTEXT:-overlock-${OVERLOCK_ENVIRONMENT_NAME}}"
+    until [ -s "$src" ] && KUBECONFIG="$src" kubectl get --raw /readyz >/dev/null 2>&1; do
+        sleep 2
+    done
+    mkdir -p "${OVERLOCK_KUBECONFIG_OUTPUT%/*}"
+    sed -E "s/^( *(- )?(name|cluster|user|current-context)): default$/\1: ${context}/" "$src" > "$OVERLOCK_KUBECONFIG_OUTPUT.tmp"
+    chmod 644 "$OVERLOCK_KUBECONFIG_OUTPUT.tmp"
+    # Owned like its directory, e.g. by the host user who created the mount.
+    chown "$(stat -c %u:%g "${OVERLOCK_KUBECONFIG_OUTPUT%/*}")" "$OVERLOCK_KUBECONFIG_OUTPUT.tmp" || true
+    mv "$OVERLOCK_KUBECONFIG_OUTPUT.tmp" "$OVERLOCK_KUBECONFIG_OUTPUT"
+    log "kubeconfig written to $OVERLOCK_KUBECONFIG_OUTPUT (context '$context')"
+}
+
 # Server defaults (e.g. disabled Traefik) apply to servers only: agents read
 # the same config directory and reject server options.
 server_config=/etc/rancher/k3s/config.yaml.d/00-overlock.yaml
@@ -129,6 +149,9 @@ if [ "$command" = "server" ]; then
     bootstrap
     if [ -f "$state_dir/environment" ]; then
         report &
+    fi
+    if [ -n "$OVERLOCK_KUBECONFIG_OUTPUT" ]; then
+        export_kubeconfig &
     fi
 fi
 

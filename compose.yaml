@@ -1,0 +1,56 @@
+# Overlock environment with Docker Compose.
+#
+#   mkdir -p environment kubeconfig        # create the mounts as your user
+#   docker compose up -d
+#   docker compose ps                      # wait until the k3s service is healthy
+#   export KUBECONFIG=$PWD/kubeconfig/config
+#   kubectl get environments
+#
+# Settings are read from the environment or an .env file next to this file:
+#
+#   OVERLOCK_VERSION           image version (default: latest)
+#   OVERLOCK_IMAGE             full image reference, overrides OVERLOCK_VERSION
+#   OVERLOCK_ENVIRONMENT_NAME  Environment name (default: overlock)
+#   OVERLOCK_PROFILE           profile when environment/environment.yaml is absent:
+#                              default or minimal (default: default)
+#   OVERLOCK_BIND_ADDRESS      host address for the ports (default: 127.0.0.1)
+#   OVERLOCK_API_PORT          Kubernetes API port (default: 6443)
+#   OVERLOCK_HTTP_PORT         host port for 80 (default: 8080)
+#   OVERLOCK_HTTPS_PORT        host port for 443 (default: 8443)
+#
+# An Environment resource in environment/environment.yaml (e.g. from
+# "overlock env manifest") replaces the profile. The kubeconfig context is named
+# after OVERLOCK_ENVIRONMENT_NAME.
+name: overlock
+
+services:
+  k3s:
+    image: ${OVERLOCK_IMAGE:-ghcr.io/web-seven/overlock-k3s:${OVERLOCK_VERSION:-latest}}
+    # K3s listens on the published API port, so the exported kubeconfig
+    # (https://127.0.0.1:<port>) works from the host.
+    command: server --https-listen-port=${OVERLOCK_API_PORT:-6443}
+    # A fixed hostname keeps the same K3s node when the container is recreated
+    # (e.g. "docker compose down" and "up"); a new hostname would register a
+    # second node and leave the workloads of the old one stuck.
+    hostname: overlock
+    privileged: true
+    restart: unless-stopped
+    environment:
+      OVERLOCK_ENVIRONMENT_NAME: ${OVERLOCK_ENVIRONMENT_NAME:-overlock}
+      OVERLOCK_PROFILE: ${OVERLOCK_PROFILE:-default}
+      OVERLOCK_KUBECONFIG_OUTPUT: /kubeconfig/config
+      OVERLOCK_KUBECONFIG_CONTEXT: ${OVERLOCK_ENVIRONMENT_NAME:-overlock}
+    ports:
+      - ${OVERLOCK_BIND_ADDRESS:-127.0.0.1}:${OVERLOCK_API_PORT:-6443}:${OVERLOCK_API_PORT:-6443}
+      - ${OVERLOCK_BIND_ADDRESS:-127.0.0.1}:${OVERLOCK_HTTP_PORT:-8080}:80
+      - ${OVERLOCK_BIND_ADDRESS:-127.0.0.1}:${OVERLOCK_HTTPS_PORT:-8443}:443
+    volumes:
+      - k3s-data:/var/lib/rancher/k3s
+      - ./environment:/etc/overlock:ro
+      - ./kubeconfig:/kubeconfig
+    tmpfs:
+      - /run
+      - /var/run
+
+volumes:
+  k3s-data:
