@@ -404,7 +404,10 @@ ip route replace %s via %s
 BR=$(docker network inspect %s --format "{{.Id}}" | head -c 12)
 iptables -I FORWARD -i br-$BR -o wg0 -j ACCEPT 2>/dev/null || true
 iptables -I FORWARD -i wg0 -o br-$BR -j ACCEPT 2>/dev/null || true
-nft insert rule ip raw PREROUTING iifname wg0 ip daddr %s return 2>/dev/null || true
+# Let tunnel traffic reach the containers. Docker 28+ drops packets for container
+# IPs that arrive on other interfaces in raw PREROUTING (before conntrack, so
+# replies too). iptables creates the raw table when no container created it yet.
+iptables -t raw -C PREROUTING -i wg0 -d %s -j RETURN 2>/dev/null || iptables -t raw -I PREROUTING -i wg0 -d %s -j RETURN
 iptables -t nat -A POSTROUTING -s %s ! -d %s ! -o wg0 -j MASQUERADE 2>/dev/null || true
 
 cat %s`,
@@ -419,7 +422,7 @@ cat %s`,
 		netName,
 		addrs.localDockerSubnet, addrs.wgLocalAddr,
 		netName,
-		addrs.remoteDockerSubnet,
+		addrs.remoteDockerSubnet, addrs.remoteDockerSubnet,
 		addrs.remoteDockerSubnet, addrs.localDockerSubnet,
 		pubFile,
 	)
@@ -446,14 +449,14 @@ BR=$(docker network inspect %s --format "{{.Id}}" | head -c 12)
 iptables -I FORWARD -i br-$BR -o wg0 -j ACCEPT 2>/dev/null || true
 iptables -I FORWARD -i wg0 -o br-$BR -j ACCEPT 2>/dev/null || true
 nft insert rule ip nat nat_POST_public_allow oifname wg0 return 2>/dev/null || true
-nft insert rule ip raw PREROUTING iifname wg0 ip daddr %s return 2>/dev/null || true
+iptables -t raw -C PREROUTING -i wg0 -d %s -j RETURN 2>/dev/null || iptables -t raw -I PREROUTING -i wg0 -d %s -j RETURN
 iptables -t nat -A POSTROUTING -s %s ! -d %s ! -o wg0 -j MASQUERADE 2>/dev/null || true`,
 		remotePubkey,
 		remoteHost, wgPort,
 		addrs.wgRemoteAddr, addrs.remoteDockerSubnet,
 		addrs.remoteDockerSubnet, addrs.wgRemoteAddr,
 		netName,
-		addrs.localDockerSubnet,
+		addrs.localDockerSubnet, addrs.localDockerSubnet,
 		addrs.localDockerSubnet, addrs.remoteDockerSubnet,
 	)
 }
