@@ -162,3 +162,33 @@ func policyOrDefault(p v1alpha1.ManagementPolicy) v1alpha1.ManagementPolicy {
 	}
 	return p
 }
+
+// Chart is a Helm chart the operator installs for an Environment.
+type Chart struct {
+	Name      string
+	Chart     string
+	RepoURL   string
+	Release   string
+	Namespace string
+	Version   string
+	Values    map[string]any
+}
+
+// DefaultCharts returns the Helm charts, with versions and values, the
+// operator installs for an Environment with a default specification. It is
+// used to bundle their images into the Overlock K3s image.
+func DefaultCharts() []Chart {
+	var charts []Chart
+	for _, c := range helmComponents(v1alpha1.EnvironmentSpec{}) {
+		charts = append(charts, Chart{
+			Name:      c.Name,
+			Chart:     c.Chart,
+			RepoURL:   c.RepoURL,
+			Release:   c.Release,
+			Namespace: c.Namespace,
+			Version:   c.Version,
+			Values:    c.Values,
+		})
+	}
+	return charts
+}

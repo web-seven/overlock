@@ -1,5 +1,10 @@
 # Image for the operator.
 IMG ?= ghcr.io/web-seven/overlock-operator:latest
+# Overlock K3s image, the operator image it bundles and its K3s version.
+K3S_IMG ?= ghcr.io/web-seven/overlock-k3s:latest
+K3S_OPERATOR_IMG ?= $(IMG)
+K3S_VERSION ?= $(shell go run ./hack/k3s-image k3s-version)
+K3S_PLATFORMS ?= linux/amd64,linux/arm64
 
 LOCALBIN ?= $(shell pwd)/bin
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
@@ -55,6 +60,19 @@ docker-build-operator: ## Build the operator image.
 .PHONY: docker-push-operator
 docker-push-operator: ## Push the operator image.
 	docker push $(IMG)
+
+.PHONY: k3s-image-context
+k3s-image-context: ## Generate the image list and operator manifests of the Overlock K3s image.
+	go run ./hack/k3s-image images --operator-image $(K3S_OPERATOR_IMG) > k3s/images.txt
+	go run ./hack/k3s-image manifests --operator-image $(K3S_OPERATOR_IMG) > k3s/operator.yaml
+
+.PHONY: docker-build-k3s
+docker-build-k3s: k3s-image-context ## Build the Overlock K3s image for the local platform.
+	docker build --build-arg K3S_VERSION=$(K3S_VERSION) -t $(K3S_IMG) k3s
+
+.PHONY: docker-push-k3s
+docker-push-k3s: k3s-image-context ## Build and push the multi-arch Overlock K3s image.
+	docker buildx build --platform $(K3S_PLATFORMS) --build-arg K3S_VERSION=$(K3S_VERSION) -t $(K3S_IMG) --push k3s
 
 ##@ Deployment
 

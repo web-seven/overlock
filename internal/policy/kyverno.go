@@ -50,10 +50,21 @@ var (
 			"autoDeleteWebhooks": map[string]interface{}{
 				"enabled": true,
 			},
+			"image": kubectlImage,
 		},
 		"policyReportsCleanup": map[string]interface{}{
 			"enabled": false,
+			"image":   kubectlImage,
 		},
+	}
+
+	// kubectlImage replaces the chart default bitnami/kubectl, which was removed
+	// from Docker Hub, for the upgrade and removal hooks. The hooks need bash,
+	// kubectl and awk.
+	kubectlImage = map[string]interface{}{
+		"registry":   "docker.io",
+		"repository": "alpine/k8s",
+		"tag":        "1.32.3",
 	}
 )
 

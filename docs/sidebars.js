@@ -8,6 +8,7 @@ const sidebars = {
     'environment/cfg-file',
     'environment/spec',
     'environment/operator',
+    'environment/k3s-image',
     'guide/configurations',
     'guide/providers',
     'guide/functions',
