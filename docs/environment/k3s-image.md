@@ -15,13 +15,17 @@ It contains:
   `/opt/overlock/manifests/operator.yaml`
 - Preloaded image tarballs at `/opt/overlock/images/`:
   - `overlock-images.tar.zst`: the operator, Crossplane, cert-manager and
-    Kyverno, including the images of their install, upgrade and removal hooks;
-    the list is at `/opt/overlock/images.txt`
-  - `k3s-airgap-images.tar.zst`: the K3s system images (CoreDNS,
-    metrics-server, local-path provisioner, Traefik, ...) from the K3s release,
-    verified against its published checksums
+    Kyverno, including the images of their install hooks; the list is at
+    `/opt/overlock/images.txt`
+  - `k3s-system-images.tar.zst`: the K3s system images (CoreDNS,
+    metrics-server, local-path provisioner, ...) listed by the K3s release,
+    without Traefik; the list is at `/opt/overlock/k3s-images.txt`
+- A K3s config drop-in (`/etc/rancher/k3s/config.yaml.d/00-overlock.yaml`)
+  that disables Traefik, which Overlock environments do not use
 
-A default environment therefore starts without downloading any image.
+A default environment therefore starts without downloading any image. Images
+of upgrade, removal and test hooks (for example `kyverno-cli` for Kyverno CRD
+migration on upgrades) are not bundled and are pulled when they run.
 
 The image list is computed from the Helm charts the operator installs, with the
 same versions and values, so the bundle always matches the operator of the same
@@ -68,6 +72,9 @@ make docker-build-k3s K3S_IMG=overlock-k3s:dev K3S_OPERATOR_IMG=ghcr.io/web-seve
 
 # Another K3s version
 make docker-build-k3s K3S_VERSION=v1.35.4-k3s1
+
+# Keep other K3s add-on images (space separated names to exclude)
+docker build --build-arg K3S_EXCLUDE_IMAGES="klipper-helm" k3s
 
 # Multi-arch, pushed
 make docker-push-k3s K3S_IMG=<registry>/overlock-k3s:<tag>

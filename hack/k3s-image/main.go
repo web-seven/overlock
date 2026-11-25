@@ -152,9 +152,9 @@ func render(c controller.Chart, dir string) (string, error) {
 	var b strings.Builder
 	b.WriteString(rel.Manifest)
 	for _, h := range rel.Hooks {
-		// Test hooks only run with "helm test", never during the operator's
-		// install, upgrade or removal.
-		if isTestHook(h) {
+		// Only install hooks run when an environment is created; upgrade,
+		// delete and test hooks pull their images when they run.
+		if !isInstallHook(h) {
 			continue
 		}
 		b.WriteString("\n---\n")
@@ -163,9 +163,9 @@ func render(c controller.Chart, dir string) (string, error) {
 	return b.String(), nil
 }
 
-func isTestHook(h *release.Hook) bool {
+func isInstallHook(h *release.Hook) bool {
 	for _, e := range h.Events {
-		if e == release.HookTest {
+		if e == release.HookPreInstall || e == release.HookPostInstall {
 			return true
 		}
 	}
