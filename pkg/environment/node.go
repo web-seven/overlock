@@ -10,8 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/web-seven/overlock/internal/nodeimage"
-
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
@@ -26,6 +24,8 @@ import (
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+
+	"github.com/web-seven/overlock/internal/nodeimage"
 )
 
 const (
