@@ -50,8 +50,11 @@ Components are reconciled in dependency order:
 1. cert-manager
 2. Crossplane
 3. Kyverno
-4. Package runtime scheduling (when `scheduling` is set) and Crossplane packages
-   (providers, configurations, functions), once Crossplane is ready
+4. Once Crossplane is ready: package runtime scheduling (when `scheduling` is
+   set), registry rules (`registries`, as Crossplane `ImageConfig`s), then
+   Crossplane packages (providers, configurations, functions). Packages wait
+   while a registry rule fails, so they and their dependencies always resolve
+   with the rules
 5. Admin service account
 
 With `scheduling` set, its node selector and tolerations are added to the chart

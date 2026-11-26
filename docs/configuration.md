@@ -24,7 +24,7 @@ overlock [global-options] <command>
 | `--debug` | `-D` | Enable debug mode for verbose output | `false` |
 | `--namespace` | `-n` | Namespace for cluster resources | `crossplane-system` |
 | `--engine-release` | `-r` | Crossplane Helm release name | `crossplane` |
-| `--engine-version` | `-v` | Crossplane version to use | `1.19.0` |
+| `--engine-version` | `-v` | Crossplane version for new environments, at least `2.0.0` | operator default (`2.5.0`) |
 | `--plugin-path` | | Path to plugin directory | `~/.config/overlock/plugins` |
 
 ### Usage Examples
@@ -46,7 +46,7 @@ overlock --engine-version 1.18.0 environment create my-env
 
 **Combine multiple options:**
 ```bash
-overlock --debug --namespace custom-ns --engine-version 1.19.0 environment create my-env
+overlock --debug --namespace custom-ns --engine-version 2.5.0 environment create my-env
 ```
 
 ## Environment Variables
@@ -88,7 +88,7 @@ Add these to your `~/.bashrc` or `~/.zshrc`:
 # Overlock Configuration
 export OVERLOCK_ENGINE_NAMESPACE=crossplane-system
 export OVERLOCK_ENGINE_RELEASE=crossplane
-export OVERLOCK_ENGINE_VERSION=1.19.0
+export OVERLOCK_ENGINE_VERSION=2.5.0
 ```
 
 ## Plugin Configuration

@@ -28,7 +28,7 @@ metadata:
 spec:
   deletionPolicy: Orphan
   crossplane:
-    version: 1.19.0
+    version: 2.5.0
     policy: Auto
     maxReconcileRate: 5
     args: []
@@ -51,7 +51,8 @@ spec:
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `deletionPolicy` | `Orphan` \| `Delete` | `Orphan` | What happens to owned components when the Environment is deleted. See [Operator](operator.md#deletion) |
-| `crossplane.version` | string | shipped with the operator | Crossplane Helm chart version |
+| `crossplane.version` | string | shipped with the operator (`2.5.0`) | Crossplane Helm chart version, at least `2.0.0` |
+| `crossplane.registryCABundle` | `{name, key}` | — | ConfigMap key in the Crossplane namespace with CA certificates Crossplane trusts when pulling packages |
 | `crossplane.policy` | `Auto` \| `Adopt` \| `External` | `Auto` | How an existing Crossplane installation is treated. See [Operator](operator.md#management-policies) |
 | `crossplane.maxReconcileRate` | int | Crossplane default | Maximum reconciliations per second for Crossplane |
 | `crossplane.args` | list of strings | — | Additional arguments for the Crossplane core container |
@@ -61,6 +62,11 @@ spec:
 | `tools.<tool>.enabled` | bool | `true` | Install the tool (`kyverno`, `certManager`). Disabling an owned tool removes it |
 | `tools.<tool>.version` | string | shipped with the operator | Tool Helm chart version |
 | `tools.<tool>.policy` | `Auto` \| `Adopt` \| `External` | `Auto` | How an existing installation of the tool is treated |
+| `registries[]` | list | — | Package image rules, each becoming a Crossplane `ImageConfig` reconciled before packages |
+| `registries[].name` | string | — | Rule name (DNS label) |
+| `registries[].prefixes` | list of strings | — | Fully qualified image prefixes the rule applies to; the longest matching prefix wins |
+| `registries[].rewritePrefix` | string | — | Replacement of the matched prefix, e.g. a local registry; also applies to dependencies |
+| `registries[].pullSecret` | string | — | `kubernetes.io/dockerconfigjson` Secret in the Crossplane namespace to pull matching images |
 | `scheduling.nodeSelector` | map | — | Node selector for Crossplane, tools and package runtimes |
 | `scheduling.tolerations` | list of tolerations | — | Tolerations for Crossplane, tools and package runtimes |
 | `adminServiceAccount` | object | — | When set, create a service account with `cluster-admin` privileges |

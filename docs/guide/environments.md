@@ -40,7 +40,7 @@ INFO  Installing Overlock operator (ghcr.io/web-seven/overlock-operator:1.0.0)
 INFO  Environment resource 'my-env' submitted
 INFO  Waiting for the operator to install components
 INFO  cert-manager: Installed, ready, v1.16.2
-INFO  crossplane: Installed, ready, 1.19.0
+INFO  crossplane: Installed, ready, 2.5.0
 INFO  kyverno: Installed, ready, 3.4.4
 ```
 
