@@ -80,3 +80,37 @@ func TestOtherRules(t *testing.T) {
 		t.Errorf("otherRules() = %v, want rules of other registries and users kept", names)
 	}
 }
+
+func TestLocalPushName(t *testing.T) {
+	local := engine.LocalRegistryDomain() + "/"
+	rules := []v1alpha1.RegistrySpec{
+		{Name: "acme", Prefixes: []string{"xpkg.crossplane.io/acme/"}, RewritePrefix: local + "acme/"},
+		{Name: "acme-dev", Prefixes: []string{"xpkg.crossplane.io/acme/dev/"}, RewritePrefix: local + "acme-dev/"},
+		{Name: "mirror", Prefixes: []string{"ghcr.io/team/"}, RewritePrefix: "mirror.example.com/team/"},
+		{Name: "auth", Prefixes: []string{"ghcr.io/"}, PullSecret: "ghcr"},
+	}
+	for name, want := range map[string]string{
+		"myconfig:5.0":                                 "myconfig:5.0",
+		"acme/myconfig:5.0":                            "acme/myconfig:5.0",
+		local + "acme/myconfig:5.0":                    "acme/myconfig:5.0",
+		"xpkg.crossplane.io/acme/myconfig:5.0":         "acme/myconfig:5.0",
+		"xpkg.crossplane.io/acme/dev/myconfig:5.0":     "acme-dev/myconfig:5.0",
+		"xpkg.crossplane.io/acme/nested/provider:v1.0": "acme/nested/provider:v1.0",
+	} {
+		got, err := localPushName(name, rules)
+		if err != nil || got != want {
+			t.Errorf("localPushName(%q) = %q, %v; want %q", name, got, err, want)
+		}
+	}
+
+	for name, hint := range map[string]string{
+		"xpkg.crossplane.io/other/config:v1": "--rewrite xpkg.crossplane.io/other/",
+		"ghcr.io/team/config:v1":             "--rewrite ghcr.io/team/",
+		"ghcr.io/config:v1":                  "--rewrite ghcr.io/",
+	} {
+		_, err := localPushName(name, rules)
+		if err == nil || !strings.Contains(err.Error(), hint) {
+			t.Errorf("localPushName(%q) error = %v, want hint %q (no local rewrite)", name, err, hint)
+		}
+	}
+}

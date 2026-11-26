@@ -381,7 +381,17 @@ func IsLocalRegistry(ctx context.Context, client *kubernetes.Clientset) (bool, e
 	return true, nil
 }
 
+// PushLocalRegistry pushes image to the local registry. A fully qualified
+// imageName is stored where its rewrite rule points to (see LocalPushName).
 func PushLocalRegistry(ctx context.Context, imageName string, image regv1.Image, config *rest.Config, logger *zap.SugaredLogger) error {
+	pushName, err := LocalPushName(ctx, config, imageName)
+	if err != nil {
+		return err
+	}
+	if pushName != imageName {
+		logger.Debugf("Storing %s as %s in the local registry", imageName, pushName)
+	}
+	imageName = pushName
 	return withLocalRegistryPortForward(ctx, config, logger, func(host string, transport *http.Transport) error {
 		refName := host + "/" + imageName
 		logger.Debugf("Try to push to reference: %s", refName)

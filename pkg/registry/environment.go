@@ -5,9 +5,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"path"
 	"strings"
 	"time"
 
+	gcrname "github.com/google/go-containerregistry/pkg/name"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -205,4 +207,74 @@ func ensureLocalCABundle(ctx context.Context, c client.Client) (*v1alpha1.Config
 		return nil, fmt.Errorf("failed to save local registry CA bundle: %w", err)
 	}
 	return &v1alpha1.ConfigMapKey{Name: LocalCABundleName, Key: localCABundleKey}, nil
+}
+
+// localPushName returns the repository path in the local registry where a
+// package named name is stored, so it is found when Crossplane pulls it:
+//   - a name without registry (e.g. "acme/config:v1") is stored as is,
+//   - a local registry name is stored at its path,
+//   - another fully qualified name is stored at the path of the longest
+//     matching rule that rewrites it to the local registry; without such a
+//     rule it cannot be loaded.
+func localPushName(name string, rules []v1alpha1.RegistrySpec) (string, error) {
+	ref, err := gcrname.ParseReference(name, gcrname.WithDefaultRegistry(""))
+	if err != nil {
+		return "", fmt.Errorf("invalid package name %q: %w", name, err)
+	}
+	local := engine.LocalRegistryDomain() + "/"
+	switch registry := ref.Context().RegistryStr(); {
+	case registry == "":
+		return name, nil
+	case strings.HasPrefix(name, local):
+		return strings.TrimPrefix(name, local), nil
+	}
+
+	match, rewrite := "", ""
+	for _, rule := range rules {
+		if !strings.HasPrefix(rule.RewritePrefix, local) {
+			continue
+		}
+		for _, prefix := range rule.Prefixes {
+			if strings.HasPrefix(name, prefix) && len(prefix) > len(match) {
+				match, rewrite = prefix, rule.RewritePrefix
+			}
+		}
+	}
+	if match == "" {
+		return "", fmt.Errorf("no rewrite to the local registry for %s; add one with: overlock registry create --local --rewrite %s",
+			name, suggestedRewrite(ref))
+	}
+	return strings.TrimPrefix(rewrite+strings.TrimPrefix(name, match), local), nil
+}
+
+// suggestedRewrite returns the prefix of the repository's parent, e.g.
+// "xpkg.crossplane.io/acme/" for "xpkg.crossplane.io/acme/config:v1".
+func suggestedRewrite(ref gcrname.Reference) string {
+	prefix := ref.Context().RegistryStr() + "/"
+	if dir := path.Dir(ref.Context().RepositoryStr()); dir != "." {
+		prefix += dir + "/"
+	}
+	return prefix
+}
+
+// LocalPushName returns where a package named name is stored in the local
+// registry, using the registry rules of the cluster Environment for fully
+// qualified names (see localPushName).
+func LocalPushName(ctx context.Context, config *rest.Config, name string) (string, error) {
+	ref, err := gcrname.ParseReference(name, gcrname.WithDefaultRegistry(""))
+	if err != nil {
+		return "", fmt.Errorf("invalid package name %q: %w", name, err)
+	}
+	if ref.Context().RegistryStr() == "" || strings.HasPrefix(name, engine.LocalRegistryDomain()+"/") {
+		return localPushName(name, nil)
+	}
+	c, err := newClient(config)
+	if err != nil {
+		return "", err
+	}
+	env, err := bootstrap.GetEnvironment(ctx, c)
+	if err != nil {
+		return "", err
+	}
+	return localPushName(name, env.Spec.Registries)
 }

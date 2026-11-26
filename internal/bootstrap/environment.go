@@ -157,26 +157,34 @@ func operatorPodError(ctx context.Context, c client.Client) error {
 	return nil
 }
 
+// GetEnvironment returns the Environment of the cluster, which must have
+// exactly one.
+func GetEnvironment(ctx context.Context, c client.Client) (*v1alpha1.Environment, error) {
+	list := &v1alpha1.EnvironmentList{}
+	if err := c.List(ctx, list); err != nil {
+		if meta.IsNoMatchError(err) {
+			return nil, errNoEnvironment
+		}
+		return nil, fmt.Errorf("failed to list environments: %w", err)
+	}
+	switch len(list.Items) {
+	case 0:
+		return nil, errNoEnvironment
+	case 1:
+		return &list.Items[0], nil
+	default:
+		return nil, fmt.Errorf("the cluster has %d Environments, expected one", len(list.Items))
+	}
+}
+
 // UpdateEnvironment applies mutate to the specification of the Environment of
-// the cluster and saves it, retrying on conflicts. The cluster must have
-// exactly one Environment.
+// the cluster and saves it, retrying on conflicts.
 func UpdateEnvironment(ctx context.Context, c client.Client, mutate func(*v1alpha1.EnvironmentSpec)) error {
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		list := &v1alpha1.EnvironmentList{}
-		if err := c.List(ctx, list); err != nil {
-			if meta.IsNoMatchError(err) {
-				return errNoEnvironment
-			}
-			return fmt.Errorf("failed to list environments: %w", err)
+		env, err := GetEnvironment(ctx, c)
+		if err != nil {
+			return err
 		}
-		switch len(list.Items) {
-		case 0:
-			return errNoEnvironment
-		case 1:
-		default:
-			return fmt.Errorf("the cluster has %d Environments, expected one", len(list.Items))
-		}
-		env := &list.Items[0]
 		mutate(&env.Spec)
 		return c.Update(ctx, env)
 	})

@@ -40,10 +40,12 @@ To develop a package that other packages depend on, redirect its upstream reposi
 
 ```bash
 overlock reg create --local --rewrite xpkg.crossplane.io/crossplane-contrib/
-overlock prv load crossplane-contrib/provider-nop:v0.5.0 --path ./provider-nop.xpkg
+overlock prv load xpkg.crossplane.io/crossplane-contrib/provider-nop:v0.5.0 --path ./provider-nop.xpkg --apply
 ```
 
-Packages and dependencies under `xpkg.crossplane.io/crossplane-contrib/` are now pulled from `registry.overlock.svc.cluster.local/crossplane-contrib/`: a Provider or Configuration that references `xpkg.crossplane.io/crossplane-contrib/provider-nop:v0.5.0` gets your local build. The registry host is replaced, the repository path is kept, so load the package with the same path.
+Packages and dependencies under `xpkg.crossplane.io/crossplane-contrib/` are now pulled from `registry.overlock.svc.cluster.local/crossplane-contrib/`: a Provider or Configuration that references `xpkg.crossplane.io/crossplane-contrib/provider-nop:v0.5.0` gets your local build, so the same manifests and `crossplane.yaml` dependencies work locally and on remote clusters.
+
+`load` with a fully qualified name stores the package where its rewrite points (here `crossplane-contrib/provider-nop:v0.5.0` in the local registry) and `--apply` keeps the upstream name in `spec.package`; Crossplane shows the local source in `status.resolvedPackage`. A fully qualified name without a rewrite to the local registry is rejected, with the `--rewrite` to add. Names without a registry (e.g. `my-provider:v0.1.0`) are loaded and installed from the local registry directly, without rules.
 
 Rewrites are Crossplane `ImageConfig` rules, managed by the Overlock operator from the `registries` of the [Environment](../environment/spec.md). `--rewrite` can be repeated and replaces the registry's previous rewrites; running `overlock reg create --local --rewrite ...` again updates them.
 
