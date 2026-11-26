@@ -28,9 +28,10 @@ const (
 
 // ContainerdStore is a Store backed by a node's containerd, using only its
 // image and content services and the CRI image service. It reads images and
-// content and pulls images through the CRI, so node registry mirrors apply and
-// pulled images are managed like images pulled by the kubelet. It never
-// creates containers or deletes images or content.
+// content, pulls images through the CRI, so node registry mirrors apply and
+// pulled images are managed like images pulled by the kubelet, and labels and
+// names pulled images. It never writes content, creates containers or deletes
+// images or content.
 type ContainerdStore struct {
 	conn    *grpc.ClientConn
 	images  imagesapi.ImagesClient
@@ -148,4 +149,46 @@ func (s *ContainerdStore) Tags(ctx context.Context, name string) ([]string, erro
 func (s *ContainerdStore) Pull(ctx context.Context, ref string) error {
 	_, err := s.cri.PullImage(ctx, &runtimeapi.PullImageRequest{Image: &runtimeapi.ImageSpec{Image: ref}})
 	return err
+}
+
+// Labels of images kept by the store, as for images imported by K3s: managed
+// by the CRI, and pinned against the kubelet's image garbage collection.
+var cacheLabels = map[string]string{
+	"io.cri-containerd.image":  "managed",
+	"io.cri-containerd.pinned": "pinned",
+}
+
+// Cache implements Store.
+func (s *ContainerdStore) Cache(ctx context.Context, ref, alias string) error {
+	ctx = withNamespace(ctx)
+	resp, err := s.images.Get(ctx, &imagesapi.GetImageRequest{Name: ref})
+	if err != nil {
+		return notFound(err)
+	}
+	for _, name := range []string{ref, alias} {
+		img := &imagesapi.Image{Name: name, Labels: mergeLabels(resp.Image.Labels), Target: resp.Image.Target}
+		if name == ref {
+			_, err = s.images.Update(ctx, &imagesapi.UpdateImageRequest{Image: img})
+		} else {
+			_, err = s.images.Create(ctx, &imagesapi.CreateImageRequest{Image: img})
+			if status.Code(err) == codes.AlreadyExists {
+				_, err = s.images.Update(ctx, &imagesapi.UpdateImageRequest{Image: img})
+			}
+		}
+		if err != nil {
+			return fmt.Errorf("failed to keep image %s: %w", name, err)
+		}
+	}
+	return nil
+}
+
+func mergeLabels(labels map[string]string) map[string]string {
+	out := map[string]string{}
+	for k, v := range labels {
+		out[k] = v
+	}
+	for k, v := range cacheLabels {
+		out[k] = v
+	}
+	return out
 }

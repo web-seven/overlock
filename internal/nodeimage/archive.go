@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/layout"
@@ -76,11 +77,14 @@ func ociArchive(img regv1.Image, names []string) ([]byte, error) {
 }
 
 // fileArchive wraps content as a single file named name in a tar stream, the
-// format Docker expects to copy files into a container.
+// format Docker expects to copy files into a container. The file gets the
+// current time: K3s re-imports an archive only when its size or modification
+// time changes, so reloading an image with the same size must still change it.
 func fileArchive(name string, content []byte) ([]byte, error) {
 	var buf bytes.Buffer
 	tw := tar.NewWriter(&buf)
-	if err := tw.WriteHeader(&tar.Header{Name: name, Mode: 0o644, Size: int64(len(content)), Typeflag: tar.TypeReg}); err != nil {
+	header := &tar.Header{Name: name, Mode: 0o644, Size: int64(len(content)), Typeflag: tar.TypeReg, ModTime: time.Now()}
+	if err := tw.WriteHeader(header); err != nil {
 		return nil, err
 	}
 	if _, err := tw.Write(content); err != nil {

@@ -85,6 +85,37 @@ The state of each component is listed in `status.components`.
 
 ---
 
+## Image Store
+
+With `imageStore.enabled`, the operator serves the images of the nodes'
+containerd to Crossplane as a registry, so packages are installed without a
+separate registry:
+
+- A DaemonSet runs the store on every node (from the operator image), behind
+  the `registry` Service in the Crossplane namespace, so it is reached as
+  `registry.overlock.svc.cluster.local`. Clients use the store of their own
+  node.
+- cert-manager issues its TLS certificate (`overlock-image-store`), and its CA
+  is added to Crossplane's trusted CA bundle.
+- The store serves manifests, blobs and tag lists (pull only, read-only for
+  clients). A repository starting with a registry host, e.g.
+  `xpkg.crossplane.io/crossplane-contrib/function-auto-ready`, refers to that
+  registry: missing images are pulled through the CRI (so node registry
+  mirrors apply), pinned against image garbage collection and also named with
+  the store name pods use. Other repositories refer to images loaded by the
+  CLI and are never pulled.
+- `imageStore.cache` prefixes become registry rules rewriting them into the
+  store, so packages and dependencies of those registries are cached on first
+  use and served from containerd afterwards, also offline. Tag lists combine
+  cached and upstream tags.
+- Packages are installed once the store is ready. An existing `registry`
+  Service not owned by the environment (a Docker registry) is not replaced;
+  the store reports `Failed` until it is removed.
+
+The store accesses containerd only through its image, content and CRI image
+services: it reads images and content, pulls images, and labels and names
+pulled images. It never writes content, runs containers or deletes images.
+
 ## Ownership
 
 The operator only modifies or removes components it owns. Ownership is recorded

@@ -137,6 +137,14 @@ type ImageStoreSpec struct {
 	// Defaults to the K3s socket.
 	// +optional
 	ContainerdSocket string `json:"containerdSocket,omitempty"`
+
+	// Cache lists prefixes of fully qualified package images, e.g.
+	// "xpkg.crossplane.io/", that Crossplane pulls through the image store:
+	// packages and their dependencies are cached in containerd on first use
+	// and served from there afterwards, also offline. More specific registry
+	// rules take precedence.
+	// +optional
+	Cache []string `json:"cache,omitempty"`
 }
 
 // ImageStoreEnabled reports whether the image store is enabled.

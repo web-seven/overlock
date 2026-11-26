@@ -177,6 +177,9 @@ func (s *Server) pull(ctx context.Context, ref string) error {
 	if err := s.Store.Pull(ctx, ref); err != nil {
 		return fmt.Errorf("pull %s: %w", ref, err)
 	}
+	if err := s.Store.Cache(ctx, ref, s.LocalDomain+"/"+ref); err != nil {
+		return fmt.Errorf("cache %s: %w", ref, err)
+	}
 	return nil
 }
 

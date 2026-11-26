@@ -24,10 +24,11 @@ type fakeStore struct {
 	content  map[digest.Digest][]byte
 	upstream map[string]ocispec.Descriptor
 	pulls    []string
+	pinned   map[string]bool
 }
 
 func newFakeStore() *fakeStore {
-	return &fakeStore{images: map[string]ocispec.Descriptor{}, content: map[digest.Digest][]byte{}, upstream: map[string]ocispec.Descriptor{}}
+	return &fakeStore{images: map[string]ocispec.Descriptor{}, content: map[digest.Digest][]byte{}, upstream: map[string]ocispec.Descriptor{}, pinned: map[string]bool{}}
 }
 
 func (f *fakeStore) add(images map[string]ocispec.Descriptor, ref, mediaType string, manifest, blob []byte) (digest.Digest, digest.Digest) {
@@ -75,6 +76,16 @@ func (f *fakeStore) Pull(_ context.Context, ref string) error {
 		return errors.New("upstream: not found")
 	}
 	f.images[ref] = d
+	return nil
+}
+
+func (f *fakeStore) Cache(_ context.Context, ref, alias string) error {
+	d, ok := f.images[ref]
+	if !ok {
+		return ErrNotFound
+	}
+	f.images[alias] = d
+	f.pinned[ref], f.pinned[alias] = true, true
 	return nil
 }
 
@@ -146,6 +157,10 @@ func TestPullThroughUpstream(t *testing.T) {
 	}
 	if !reflect.DeepEqual(f.pulls, []string{ref}) {
 		t.Errorf("pulls = %v, want [%s]", f.pulls, ref)
+	}
+	// Pods of packages resolved through the store use the store name.
+	if alias := local + "/" + ref; f.images[alias].Digest != md || !f.pinned[ref] || !f.pinned[alias] {
+		t.Errorf("pulled image not kept under %s and pinned: %v %v", alias, f.images[alias], f.pinned)
 	}
 	do(t, s, http.MethodGet, "/v2/xpkg.crossplane.io/acme/config/manifests/v2")
 	if len(f.pulls) != 1 {

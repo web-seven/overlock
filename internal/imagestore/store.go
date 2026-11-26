@@ -29,6 +29,10 @@ type Store interface {
 	Tags(ctx context.Context, name string) ([]string, error)
 	// Pull fetches an image (name with tag or digest) into the store.
 	Pull(ctx context.Context, ref string) error
+	// Cache keeps a pulled image ref: it pins it, so the kubelet's image
+	// garbage collection does not remove it, and names it alias as well, the
+	// name pods of packages resolved through the store use.
+	Cache(ctx context.Context, ref, alias string) error
 }
 
 // imageName maps a repository requested from the store to the name of the
