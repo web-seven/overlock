@@ -31,8 +31,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/web-seven/overlock/internal/certmanager"
+	"github.com/web-seven/overlock/internal/engine"
 	"github.com/web-seven/overlock/internal/kube"
 	"github.com/web-seven/overlock/internal/namespace"
+	"github.com/web-seven/overlock/internal/nodeimage"
 	"github.com/web-seven/overlock/internal/policy"
 )
 
@@ -392,7 +394,7 @@ func PushLocalRegistry(ctx context.Context, imageName string, image regv1.Image,
 		logger.Debugf("Storing %s as %s in the local registry", imageName, pushName)
 	}
 	imageName = pushName
-	return withLocalRegistryPortForward(ctx, config, logger, func(host string, transport *http.Transport) error {
+	err = withLocalRegistryPortForward(ctx, config, logger, func(host string, transport *http.Transport) error {
 		refName := host + "/" + imageName
 		logger.Debugf("Try to push to reference: %s", refName)
 		ref, err := name.ParseReference(refName)
@@ -405,6 +407,33 @@ func PushLocalRegistry(ctx context.Context, imageName string, image regv1.Image,
 		logger.Debug("Pushed to remote registry.")
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+
+	// Import into local K3s Docker nodes, so runtimes of providers and
+	// functions start without pulling; pulling from the registry still works
+	// when this fails.
+	if err := nodeimage.Import(ctx, config, image, nodeImageNames(ctx, config, imageName), logger); err != nil {
+		logger.Warnf("Could not import %s into the nodes, pods will pull it from the local registry: %v", imageName, err)
+	}
+	return nil
+}
+
+// nodeImageNames returns the names pods use for a local registry image: its
+// registry reference, and the node port reference the registry policy rewrites
+// pod images to.
+func nodeImageNames(ctx context.Context, config *rest.Config, path string) []string {
+	names := []string{engine.LocalRegistryDomain() + "/" + path}
+	client, err := kube.Client(config)
+	if err != nil {
+		return names
+	}
+	svc, err := client.CoreV1().Services(namespace.Namespace).Get(ctx, svcName, v1.GetOptions{})
+	if err != nil || len(svc.Spec.Ports) == 0 || svc.Spec.Ports[0].NodePort == 0 {
+		return names
+	}
+	return append(names, fmt.Sprintf("localhost:%d/%s", svc.Spec.Ports[0].NodePort, path))
 }
 
 // withLocalRegistryPortForward opens a port-forward session to the in-cluster registry pod

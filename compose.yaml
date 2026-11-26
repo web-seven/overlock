@@ -60,6 +60,8 @@ services:
       - .:/overlock
       # Kubeconfig for other containers (server https://k3s:<port>).
       - kubeconfig:/kubeconfig
+      # Images loaded by the Overlock CLI; K3s imports them into containerd.
+      - images:/var/lib/rancher/k3s/agent/images
     tmpfs:
       - /run
       - /var/run
@@ -82,3 +84,7 @@ services:
 volumes:
   k3s-data:
   kubeconfig:
+  # Named like the volume the CLI creates for its environments, so "overlock
+  # ... load" writes loaded packages here.
+  images:
+    name: overlock-images-${OVERLOCK_ENVIRONMENT_NAME:-overlock}

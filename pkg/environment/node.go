@@ -24,6 +24,8 @@ import (
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+
+	"github.com/web-seven/overlock/internal/nodeimage"
 )
 
 const (
@@ -376,6 +378,9 @@ func (e *Environment) createLocalNode(ctx context.Context, dockerClient *docker.
 		Binds: []string{
 			"/lib/modules:/lib/modules:ro",
 			volumeName + ":/var/lib/rancher/k3s",
+			// Shared by the local nodes; K3s imports archives the CLI writes
+			// there (see nodeimage.Import).
+			nodeimage.VolumeName(e.name) + ":" + nodeimage.ImagesDir,
 		},
 		Tmpfs: map[string]string{
 			"/run":     "",

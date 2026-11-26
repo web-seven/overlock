@@ -16,12 +16,15 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/network"
 	docker "github.com/docker/docker/client"
+	"github.com/docker/docker/errdefs"
 	"github.com/docker/go-connections/nat"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+
+	"github.com/web-seven/overlock/internal/nodeimage"
 )
 
 const (
@@ -307,6 +310,10 @@ func (e *Environment) DeleteK3sDockerEnvironment(logger *zap.SugaredLogger) erro
 				if err := dockerClient.ContainerRemove(ctx, c.ID, types.ContainerRemoveOptions{Force: true}); err != nil {
 					logger.Warnf("Failed to remove container %s: %v", n, err)
 				}
+				// The K3s data volume of the node (see createLocalNode).
+				if err := dockerClient.VolumeRemove(ctx, n+"-data", true); err != nil && !errdefs.IsNotFound(err) {
+					logger.Warnf("Failed to remove volume %s-data: %v", n, err)
+				}
 			}
 		}
 	}
@@ -329,6 +336,9 @@ func (e *Environment) DeleteK3sDockerEnvironment(logger *zap.SugaredLogger) erro
 	}
 
 	e.deleteEnvironmentNetwork(ctx, dockerClient, logger)
+	if err := dockerClient.VolumeRemove(ctx, nodeimage.VolumeName(e.name), true); err != nil && !errdefs.IsNotFound(err) {
+		logger.Warnf("Failed to remove volume %s: %v", nodeimage.VolumeName(e.name), err)
+	}
 
 	logger.Info("k3s-docker environment deleted successfully")
 	return nil
