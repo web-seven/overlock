@@ -131,7 +131,7 @@ func TestUpdateEnvironment(t *testing.T) {
 		t.Errorf("registries = %+v", got.Spec.Registries)
 	}
 
-	if err := UpdateEnvironment(context.Background(), newFakeClient(t), func(*v1alpha1.EnvironmentSpec) {}); !errors.Is(err, errNoEnvironment) {
-		t.Errorf("UpdateEnvironment() without Environment = %v, want errNoEnvironment", err)
+	if err := UpdateEnvironment(context.Background(), newFakeClient(t), func(*v1alpha1.EnvironmentSpec) {}); !errors.Is(err, ErrNoEnvironment) {
+		t.Errorf("UpdateEnvironment() without Environment = %v, want ErrNoEnvironment", err)
 	}
 }

@@ -83,6 +83,11 @@ func (e *Environment) environmentSpec() v1alpha1.EnvironmentSpec {
 	if e.engine == "k3s-docker" && spec.Scheduling == nil {
 		spec.Scheduling = &v1alpha1.SchedulingSpec{NodeSelector: engineScopeSelector}
 	}
+	// k3s-docker nodes share the images volume, so packages are served from
+	// containerd by the image store instead of a Docker registry.
+	if e.engine == "k3s-docker" && spec.ImageStore == nil {
+		spec.ImageStore = &v1alpha1.ImageStoreSpec{Enabled: true}
+	}
 	return spec
 }
 

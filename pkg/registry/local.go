@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	"github.com/web-seven/overlock/api/v1alpha1"
 	"github.com/web-seven/overlock/internal/certmanager"
 	"github.com/web-seven/overlock/internal/engine"
 	"github.com/web-seven/overlock/internal/kube"
@@ -372,6 +373,11 @@ func (r *Registry) DeleteLocal(ctx context.Context, client *kubernetes.Clientset
 }
 
 func IsLocalRegistry(ctx context.Context, client *kubernetes.Clientset) (bool, error) {
+	// An image store serves local packages instead of a Docker registry.
+	stores, err := client.AppsV1().DaemonSets(namespace.Namespace).List(ctx, v1.ListOptions{Limit: 1, LabelSelector: imageStoreSelector})
+	if err == nil && len(stores.Items) > 0 {
+		return true, nil
+	}
 	pods := client.CoreV1().Pods(namespace.Namespace)
 	regs, err := pods.List(ctx, v1.ListOptions{Limit: 1, LabelSelector: "app=" + deployName})
 	if err != nil {
@@ -386,9 +392,27 @@ func IsLocalRegistry(ctx context.Context, client *kubernetes.Clientset) (bool, e
 // PushLocalRegistry pushes image to the local registry. A fully qualified
 // imageName is stored where its rewrite rule points to (see LocalPushName).
 func PushLocalRegistry(ctx context.Context, imageName string, image regv1.Image, config *rest.Config, logger *zap.SugaredLogger) error {
-	pushName, err := LocalPushName(ctx, config, imageName)
+	env, err := environment(ctx, config)
 	if err != nil {
 		return err
+	}
+	var rules []v1alpha1.RegistrySpec
+	if env != nil {
+		rules = env.Spec.Registries
+	}
+	pushName, err := localPushName(imageName, rules)
+	if err != nil {
+		return err
+	}
+
+	// With an image store, packages live in the nodes' containerd: write
+	// them to the images volume, where K3s imports them, instead of pushing.
+	if env != nil && env.Spec.ImageStoreEnabled() {
+		ref := engine.LocalRegistryDomain() + "/" + pushName
+		if err := nodeimage.Store(ctx, config, image, ref, logger); err != nil {
+			return fmt.Errorf("failed to store %s in the image store: %w", ref, err)
+		}
+		return nil
 	}
 	if pushName != imageName {
 		logger.Debugf("Storing %s as %s in the local registry", imageName, pushName)
@@ -557,3 +581,6 @@ func CatalogLocalRegistry(ctx context.Context, config *rest.Config, logger *zap.
 	})
 	return repos, err
 }
+
+// imageStoreSelector selects the image store DaemonSet of the operator.
+const imageStoreSelector = "app.kubernetes.io/component=image-store"

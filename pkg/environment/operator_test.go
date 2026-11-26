@@ -25,3 +25,16 @@ func TestEnvironmentSpecEngineScheduling(t *testing.T) {
 		t.Errorf("kind scheduling = %+v, want nil", spec.Scheduling)
 	}
 }
+
+func TestEnvironmentSpecImageStoreDefault(t *testing.T) {
+	if spec := New("k3s-docker", "dev").environmentSpec(); !spec.ImageStoreEnabled() {
+		t.Error("k3s-docker environments must use the image store by default")
+	}
+	if spec := New("kind", "dev").environmentSpec(); spec.ImageStoreEnabled() {
+		t.Error("kind environments must keep the Docker registry")
+	}
+	off := v1alpha1.EnvironmentSpec{ImageStore: &v1alpha1.ImageStoreSpec{Enabled: false}}
+	if spec := New("k3s-docker", "dev").WithSpec(off).environmentSpec(); spec.ImageStoreEnabled() {
+		t.Error("an explicitly disabled image store was enabled")
+	}
+}

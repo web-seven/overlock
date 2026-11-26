@@ -42,6 +42,9 @@ type EnvironmentReconciler struct {
 	client.Client
 	Scheme   *runtime.Scheme
 	Releases Releases
+	// ImageStoreImage is the image the image store runs from (the operator
+	// image, which contains it).
+	ImageStoreImage string
 }
 
 // The operator installs Helm charts (Crossplane, Kyverno, cert-manager) whose
@@ -98,8 +101,15 @@ func (r *EnvironmentReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 func (r *EnvironmentReconciler) reconcileComponents(ctx context.Context, env *v1alpha1.Environment) []v1alpha1.ComponentStatus {
 	var statuses []v1alpha1.ComponentStatus
 	crossplaneReady := false
+	certManagerReady := false
 	for _, c := range helmComponents(env.Spec) {
+		if c.Name == componentCrossplane {
+			c = r.withImageStoreCA(ctx, env, c, certManagerReady, &statuses)
+		}
 		st := r.reconcileHelmComponent(ctx, env, c)
+		if c.Name == componentCertManager {
+			certManagerReady = st.Ready
+		}
 		if c.Name == componentCrossplane {
 			crossplaneReady = st.Ready
 		}
@@ -110,13 +120,24 @@ func (r *EnvironmentReconciler) reconcileComponents(ctx context.Context, env *v1
 		if st := r.reconcileRuntimeConfig(ctx, env); st != nil {
 			statuses = append(statuses, *st)
 		}
-		// Registry rules must exist before packages, so packages and their
-		// dependencies are resolved with them.
+		// The image store and registry rules must exist before packages, so
+		// packages and their dependencies are resolved with them.
+		storeReady := true
+		if env.Spec.ImageStoreEnabled() {
+			st := r.reconcileImageStore(ctx, env)
+			statuses = append(statuses, st)
+			storeReady = st.Ready
+		} else if err := r.removeImageStore(ctx, env); err != nil {
+			statuses = append(statuses, failed(v1alpha1.ComponentStatus{Name: componentImageStore}, err))
+		}
 		registries := r.reconcileImageConfigs(ctx, env)
 		statuses = append(statuses, registries...)
-		if anyFailed(registries) {
+		switch {
+		case anyFailed(registries):
 			statuses = append(statuses, pendingPackages(env.Spec, "waiting for registry rules")...)
-		} else {
+		case !storeReady:
+			statuses = append(statuses, pendingPackages(env.Spec, "waiting for the image store")...)
+		default:
 			statuses = append(statuses, r.reconcilePackages(ctx, env)...)
 		}
 	} else {
@@ -127,6 +148,27 @@ func (r *EnvironmentReconciler) reconcileComponents(ctx context.Context, env *v1
 		statuses = append(statuses, *st)
 	}
 	return statuses
+}
+
+// withImageStoreCA makes Crossplane trust the image store: once cert-manager
+// is ready and the store certificate is issued, its CA is added to the
+// Crossplane chart values, unless a CA bundle is set explicitly.
+func (r *EnvironmentReconciler) withImageStoreCA(ctx context.Context, env *v1alpha1.Environment, c helmComponent, certManagerReady bool, statuses *[]v1alpha1.ComponentStatus) helmComponent {
+	if !env.Spec.ImageStoreEnabled() || env.Spec.Crossplane.RegistryCABundle != nil || !certManagerReady {
+		return c
+	}
+	ca, err := r.imageStoreCA(ctx, env)
+	if err != nil {
+		*statuses = append(*statuses, failed(v1alpha1.ComponentStatus{Name: componentImageStore + "-ca"}, err))
+		return c
+	}
+	if ca == nil {
+		return c
+	}
+	spec := env.Spec.Crossplane
+	spec.RegistryCABundle = ca
+	c.Values = mergeValues(c.Values, crossplaneValues(spec))
+	return c
 }
 
 // pendingPackages reports the packages of spec as pending with message.
@@ -242,6 +284,9 @@ func (r *EnvironmentReconciler) removeOwned(ctx context.Context, env *v1alpha1.E
 	}
 
 	if err := r.removeImageConfigs(ctx, env); err != nil {
+		return false, err
+	}
+	if err := r.removeImageStore(ctx, env); err != nil {
 		return false, err
 	}
 

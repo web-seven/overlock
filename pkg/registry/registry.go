@@ -255,12 +255,19 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.
 	}
 
 	if r.Local {
-		logger.Debug("Creating local registry")
-		err := r.CreateLocal(ctx, client, logger)
+		store, err := imageStoreEnabled(ctx, config)
 		if err != nil {
 			return err
 		}
-		logger.Debug("Local registry created.")
+		if store {
+			logger.Info("The image store of the environment serves the local registry.")
+		} else {
+			logger.Debug("Creating local registry")
+			if err := r.CreateLocal(ctx, client, logger); err != nil {
+				return err
+			}
+			logger.Debug("Local registry created.")
+		}
 	}
 
 	logger.Debug("Adding registry rules to the environment")
@@ -308,8 +315,10 @@ func (r *Registry) Delete(ctx context.Context, config *rest.Config, logger *zap.
 	}
 
 	if r.Local {
-		if err := r.DeleteLocal(ctx, client, logger); err != nil {
-			return err
+		if store, err := imageStoreEnabled(ctx, config); err != nil || !store {
+			if err := r.DeleteLocal(ctx, client, logger); err != nil {
+				return err
+			}
 		}
 	}
 
