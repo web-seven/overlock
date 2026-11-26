@@ -22,7 +22,7 @@ type createCmd struct {
 	Username       string   `help:"is your Username."`
 	Password       string   `help:"is your Password."`
 	Email          string   `help:"is your Email."`
-	Default        bool     `help:"Set registry as default."`
+	Rewrite        []string `help:"Fully qualified image prefix Crossplane pulls from this registry instead, e.g. xpkg.crossplane.io/crossplane-contrib/. Also applies to package dependencies. Can be specified multiple times; replaces the registry's previous rewrites."`
 	Local          bool     `help:"Create local registry."`
 	Context        string   `short:"c" help:"Kubernetes context where registry will be created."`
 	Label          []string `short:"l" help:"Label to attach to the registry secret in key:value format. Can be specified multiple times."`
@@ -34,7 +34,7 @@ func (c *createCmd) Run(ctx context.Context, client *kubernetes.Clientset, confi
 	if c.Local {
 		reg = registry.NewLocal()
 	}
-	reg.SetDefault(c.Default)
+	reg.SetRewrites(c.Rewrite)
 	reg.SetLocal(c.Local)
 	reg.WithContext(c.Context)
 
@@ -56,6 +56,19 @@ func (c *createCmd) Run(ctx context.Context, client *kubernetes.Clientset, confi
 				return err
 			}
 			logger.Infof("Registry '%s' credentials updated successfully.", reg.Server)
+			return nil
+		}
+		if len(c.Rewrite) > 0 {
+			existing := reg.GetExisting(ctx, client)
+			if existing == nil {
+				return fmt.Errorf("registry %s not found", reg.Server)
+			}
+			existing.SetRewrites(c.Rewrite)
+			existing.SetLocal(c.Local)
+			if err := existing.ApplyRules(ctx, config); err != nil {
+				return err
+			}
+			logger.Infof("Rewrites of registry '%s' updated.", existing.Name)
 			return nil
 		}
 		logger.Infof("Registry '%s' already exists. Using existing registry.", reg.Name)

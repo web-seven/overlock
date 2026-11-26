@@ -97,6 +97,8 @@ func newScheme(t *testing.T) *runtime.Scheme {
 		}
 	}
 	s.AddKnownTypeWithName(runtimeConfigGVK, &unstructured.Unstructured{})
+	s.AddKnownTypeWithName(imageConfigGVK, &unstructured.Unstructured{})
+	s.AddKnownTypeWithName(imageConfigGVK.GroupVersion().WithKind("ImageConfigList"), &unstructured.UnstructuredList{})
 	for _, k := range packageKinds {
 		s.AddKnownTypeWithName(k.gvk(), &unstructured.Unstructured{})
 		s.AddKnownTypeWithName(k.gvk().GroupVersion().WithKind(k.Kind+"List"), &unstructured.UnstructuredList{})

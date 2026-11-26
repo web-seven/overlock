@@ -146,7 +146,6 @@ func (c *Function) load(ctx context.Context, config *rest.Config, logger *zap.Su
 	isLocal, err := registry.IsLocalRegistry(ctx, client)
 	if !isLocal || err != nil {
 		reg := registry.NewLocal()
-		reg.SetDefault(true)
 		err := reg.Create(ctx, config, logger)
 		if err != nil {
 			return err

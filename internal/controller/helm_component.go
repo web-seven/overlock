@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Masterminds/semver/v3"
 	"helm.sh/helm/v3/pkg/release"
 	appsv1 "k8s.io/api/apps/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -44,6 +45,10 @@ func (r *EnvironmentReconciler) reconcileHelmComponent(ctx context.Context, env 
 	// External: never install or modify, only observe.
 	if c.Policy == v1alpha1.ManagementExternal {
 		return r.observeExternal(ctx, c, rel, st)
+	}
+
+	if err := checkMinVersion(c); err != nil {
+		return failed(st, err)
 	}
 
 	labels := ownerLabels(env.Name)
@@ -190,4 +195,19 @@ func failed(st v1alpha1.ComponentStatus, err error) v1alpha1.ComponentStatus {
 	st.Ready = false
 	st.Message = err.Error()
 	return st
+}
+
+// checkMinVersion rejects chart versions older than the component supports.
+func checkMinVersion(c helmComponent) error {
+	if c.MinVersion == "" {
+		return nil
+	}
+	v, err := semver.NewVersion(c.Version)
+	if err != nil {
+		return fmt.Errorf("invalid %s version %q: %w", c.Name, c.Version, err)
+	}
+	if v.LessThan(semver.MustParse(c.MinVersion)) {
+		return fmt.Errorf("%s version %s is not supported, at least %s is required", c.Name, c.Version, c.MinVersion)
+	}
+	return nil
 }

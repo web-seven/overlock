@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/web-seven/overlock/api/v1alpha1"
@@ -155,3 +156,30 @@ func operatorPodError(ctx context.Context, c client.Client) error {
 	}
 	return nil
 }
+
+// UpdateEnvironment applies mutate to the specification of the Environment of
+// the cluster and saves it, retrying on conflicts. The cluster must have
+// exactly one Environment.
+func UpdateEnvironment(ctx context.Context, c client.Client, mutate func(*v1alpha1.EnvironmentSpec)) error {
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		list := &v1alpha1.EnvironmentList{}
+		if err := c.List(ctx, list); err != nil {
+			if meta.IsNoMatchError(err) {
+				return errNoEnvironment
+			}
+			return fmt.Errorf("failed to list environments: %w", err)
+		}
+		switch len(list.Items) {
+		case 0:
+			return errNoEnvironment
+		case 1:
+		default:
+			return fmt.Errorf("the cluster has %d Environments, expected one", len(list.Items))
+		}
+		env := &list.Items[0]
+		mutate(&env.Spec)
+		return c.Update(ctx, env)
+	})
+}
+
+var errNoEnvironment = fmt.Errorf("no Overlock Environment found in the cluster; create it with \"overlock env create\" or the Overlock K3s image")

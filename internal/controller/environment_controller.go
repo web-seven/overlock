@@ -110,23 +110,47 @@ func (r *EnvironmentReconciler) reconcileComponents(ctx context.Context, env *v1
 		if st := r.reconcileRuntimeConfig(ctx, env); st != nil {
 			statuses = append(statuses, *st)
 		}
-		statuses = append(statuses, r.reconcilePackages(ctx, env)...)
-	} else {
-		for _, kind := range packageKinds {
-			for _, ref := range kind.refs(env.Spec) {
-				statuses = append(statuses, v1alpha1.ComponentStatus{
-					Name:    kind.Prefix + "/" + ref,
-					State:   v1alpha1.ComponentPending,
-					Message: "waiting for Crossplane to become ready",
-				})
-			}
+		// Registry rules must exist before packages, so packages and their
+		// dependencies are resolved with them.
+		registries := r.reconcileImageConfigs(ctx, env)
+		statuses = append(statuses, registries...)
+		if anyFailed(registries) {
+			statuses = append(statuses, pendingPackages(env.Spec, "waiting for registry rules")...)
+		} else {
+			statuses = append(statuses, r.reconcilePackages(ctx, env)...)
 		}
+	} else {
+		statuses = append(statuses, pendingPackages(env.Spec, "waiting for Crossplane to become ready")...)
 	}
 
 	if st := r.reconcileAdminServiceAccount(ctx, env); st != nil {
 		statuses = append(statuses, *st)
 	}
 	return statuses
+}
+
+// pendingPackages reports the packages of spec as pending with message.
+func pendingPackages(spec v1alpha1.EnvironmentSpec, message string) []v1alpha1.ComponentStatus {
+	var statuses []v1alpha1.ComponentStatus
+	for _, kind := range packageKinds {
+		for _, ref := range kind.refs(spec) {
+			statuses = append(statuses, v1alpha1.ComponentStatus{
+				Name:    kind.Prefix + "/" + ref,
+				State:   v1alpha1.ComponentPending,
+				Message: message,
+			})
+		}
+	}
+	return statuses
+}
+
+func anyFailed(statuses []v1alpha1.ComponentStatus) bool {
+	for _, st := range statuses {
+		if st.State == v1alpha1.ComponentFailed {
+			return true
+		}
+	}
+	return false
 }
 
 // readyCondition summarizes component statuses into the Ready condition.
@@ -214,6 +238,10 @@ func (r *EnvironmentReconciler) removeOwned(ctx context.Context, env *v1alpha1.E
 	}
 	remaining, err := r.packagesRemaining(ctx, env)
 	if err != nil || remaining {
+		return false, err
+	}
+
+	if err := r.removeImageConfigs(ctx, env); err != nil {
 		return false, err
 	}
 

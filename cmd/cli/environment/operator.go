@@ -5,6 +5,7 @@ import (
 
 	"github.com/web-seven/overlock/cmd/cli/version"
 	"github.com/web-seven/overlock/internal/bootstrap"
+	"github.com/web-seven/overlock/internal/engine"
 )
 
 // operatorOptions configure how the operator is bootstrapped into the
@@ -20,4 +21,10 @@ func (o operatorOptions) image() string {
 		return o.OperatorImage
 	}
 	return bootstrap.Image(version.Version)
+}
+
+// engineVersionSet reports whether the Crossplane version was chosen with
+// --engine-version or OVERLOCK_ENGINE_VERSION.
+func engineVersionSet() bool {
+	return engine.Version != engine.DefaultVersion
 }

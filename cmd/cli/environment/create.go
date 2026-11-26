@@ -6,6 +6,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/web-seven/overlock/api/v1alpha1"
+	"github.com/web-seven/overlock/internal/engine"
 	"github.com/web-seven/overlock/pkg/environment"
 	overlockerrors "github.com/web-seven/overlock/pkg/errors"
 )
@@ -67,6 +68,9 @@ func (c *createCmd) Run(ctx context.Context, logger *zap.SugaredLogger) error {
 	spec, err := c.environmentSpec()
 	if err != nil {
 		return err
+	}
+	if spec.Crossplane.Version == "" && engineVersionSet() {
+		spec.Crossplane.Version = engine.Version
 	}
 
 	env := environment.

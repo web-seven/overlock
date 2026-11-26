@@ -75,6 +75,15 @@ type EnvironmentSpec struct {
 	// +optional
 	AdminServiceAccount *AdminServiceAccountSpec `json:"adminServiceAccount,omitempty"`
 
+	// Registries configure how Crossplane resolves package images: prefix
+	// rewrites (e.g. to a local registry) and registry authentication. Each
+	// entry becomes a Crossplane ImageConfig, reconciled before packages.
+	// Rewrites also apply to package dependencies.
+	// +listType=map
+	// +listMapKey=name
+	// +optional
+	Registries []RegistrySpec `json:"registries,omitempty"`
+
 	// Scheduling places Crossplane, tools and package runtimes on matching
 	// nodes, e.g. on dedicated engine nodes.
 	// +optional
@@ -85,6 +94,31 @@ type EnvironmentSpec struct {
 	// +kubebuilder:default=Orphan
 	// +optional
 	DeletionPolicy DeletionPolicy `json:"deletionPolicy,omitempty"`
+}
+
+// RegistrySpec is a rule for package images whose reference starts with one
+// of the prefixes.
+type RegistrySpec struct {
+	// Name of the rule, unique in the Environment.
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	// +kubebuilder:validation:MaxLength=50
+	Name string `json:"name"`
+
+	// Prefixes of fully qualified package images the rule applies to, e.g.
+	// "xpkg.crossplane.io/crossplane-contrib/". The longest matching prefix of
+	// all rules wins.
+	// +kubebuilder:validation:MinItems=1
+	Prefixes []string `json:"prefixes"`
+
+	// RewritePrefix replaces the matched prefix, e.g.
+	// "registry.overlock.svc.cluster.local/crossplane-contrib/".
+	// +optional
+	RewritePrefix string `json:"rewritePrefix,omitempty"`
+
+	// PullSecret is the name of a Secret of type kubernetes.io/dockerconfigjson
+	// in the Crossplane namespace used to pull matching images.
+	// +optional
+	PullSecret string `json:"pullSecret,omitempty"`
 }
 
 // SchedulingSpec constrains the nodes owned components run on.
@@ -100,8 +134,8 @@ type SchedulingSpec struct {
 
 // CrossplaneSpec configures the Crossplane engine.
 type CrossplaneSpec struct {
-	// Version of the Crossplane Helm chart. Defaults to the version shipped
-	// with the operator.
+	// Version of the Crossplane Helm chart, at least 2.0.0. Defaults to the
+	// version shipped with the operator.
 	// +optional
 	Version string `json:"version,omitempty"`
 
@@ -118,6 +152,20 @@ type CrossplaneSpec struct {
 	// Args are additional arguments passed to the Crossplane core container.
 	// +optional
 	Args []string `json:"args,omitempty"`
+
+	// RegistryCABundle is a ConfigMap key in the Crossplane namespace with
+	// additional CA certificates Crossplane trusts when pulling packages,
+	// e.g. of a local registry.
+	// +optional
+	RegistryCABundle *ConfigMapKey `json:"registryCABundle,omitempty"`
+}
+
+// ConfigMapKey selects a key of a ConfigMap.
+type ConfigMapKey struct {
+	// Name of the ConfigMap.
+	Name string `json:"name"`
+	// Key in the ConfigMap.
+	Key string `json:"key"`
 }
 
 // ToolsSpec configures supporting tools. Every tool is enabled unless

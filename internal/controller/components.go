@@ -36,6 +36,8 @@ type helmComponent struct {
 	// UninstallWithoutHooks skips the chart's delete hooks; the operator
 	// does their work itself (see prepareKyvernoRemoval).
 	UninstallWithoutHooks bool
+	// MinVersion is the oldest chart version the operator installs.
+	MinVersion string
 }
 
 // helmComponents returns the Helm components of spec in installation order:
@@ -57,16 +59,17 @@ func helmComponents(spec v1alpha1.EnvironmentSpec) []helmComponent {
 			CRD:       "certificates.cert-manager.io",
 		},
 		{
-			Name:      componentCrossplane,
-			Chart:     engine.ChartName,
-			RepoURL:   engine.RepoUrl,
-			Release:   engine.ReleaseName,
-			Namespace: namespace.Namespace,
-			Version:   orDefault(spec.Crossplane.Version, engine.Version),
-			Values:    crossplaneValues(spec.Crossplane),
-			Enabled:   true,
-			Policy:    policyOrDefault(spec.Crossplane.Policy),
-			CRD:       "providers.pkg.crossplane.io",
+			Name:       componentCrossplane,
+			Chart:      engine.ChartName,
+			RepoURL:    engine.RepoUrl,
+			Release:    engine.ReleaseName,
+			Namespace:  namespace.Namespace,
+			Version:    orDefault(spec.Crossplane.Version, engine.Version),
+			MinVersion: engine.MinVersion,
+			Values:     crossplaneValues(spec.Crossplane),
+			Enabled:    true,
+			Policy:     policyOrDefault(spec.Crossplane.Policy),
+			CRD:        "providers.pkg.crossplane.io",
 		},
 		{
 			Name:      componentKyverno,
@@ -152,7 +155,14 @@ func crossplaneValues(spec v1alpha1.CrossplaneSpec) map[string]any {
 	if spec.MaxReconcileRate > 0 {
 		args = append(args, fmt.Sprintf("--max-reconcile-rate=%d", spec.MaxReconcileRate))
 	}
-	return map[string]any{"args": args}
+	values := map[string]any{"args": args}
+	if spec.RegistryCABundle != nil {
+		values["registryCaBundleConfig"] = map[string]any{
+			"name": spec.RegistryCABundle.Name,
+			"key":  spec.RegistryCABundle.Key,
+		}
+	}
+	return values
 }
 
 func orDefault(v, def string) string {

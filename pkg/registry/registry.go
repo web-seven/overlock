@@ -30,7 +30,6 @@ var (
 	DefaultRemoteDomain = "xpkg.upbound.io"
 	LocalServiceName    = "registry"
 	LocalRegistryName   = "registry.local"
-	defaultLocalDomain  = LocalServiceName + ".%s.svc.cluster.local"
 	AuthConfigLabel     = "overlock-registry-auth-config"
 )
 
@@ -47,13 +46,15 @@ type RegistryConfig struct {
 }
 
 type Registry struct {
-	Config  RegistryConfig
-	Default bool
-	Local   bool
-	Context string
-	Server  string
-	Name    string
-	Labels  map[string]string
+	Config RegistryConfig
+	// Rewrites are fully qualified image prefixes Crossplane pulls from this
+	// registry instead (Crossplane ImageConfig rewrites).
+	Rewrites []string
+	Local    bool
+	Context  string
+	Server   string
+	Name     string
+	Labels   map[string]string
 	corev1.Secret
 }
 
@@ -100,9 +101,8 @@ func GetRegistry(ctx context.Context, client *kubernetes.Clientset, name string)
 // Creates new Registry by required parameters
 func New(server string, username string, password string, email string) Registry {
 	registry := Registry{
-		Default: false,
-		Server:  server,
-		Name:    generateRegistryName(),
+		Server: server,
+		Name:   generateRegistryName(),
 		Config: RegistryConfig{
 			Auths: map[string]RegistryAuth{
 				server: {
@@ -124,9 +124,8 @@ func New(server string, username string, password string, email string) Registry
 // Creates new local Registry
 func NewLocal() Registry {
 	registry := Registry{
-		Default: false,
-		Local:   true,
-		Name:    LocalRegistryName,
+		Local: true,
+		Name:  LocalRegistryName,
 	}
 	registry.Server = registry.LocalDomain()
 	registry.Secret.Annotations = map[string]string{
@@ -262,93 +261,10 @@ func (r *Registry) Create(ctx context.Context, config *rest.Config, logger *zap.
 			return err
 		}
 		logger.Debug("Local registry created.")
-	} else {
-		logger.Debug("Creating remote registry")
-		err = r.SetRegistyPullSecret(ctx, config)
-		if err != nil {
-			return err
-		}
-		logger.Debug("Remote registry created.")
 	}
 
-	if r.Default {
-		logger.Debug("Set registry as default.")
-		return r.SetRegistyDefault(ctx, config)
-	}
-
-	return nil
-}
-
-func (r *Registry) SetRegistyPullSecret(ctx context.Context, config *rest.Config) error {
-	installer, err := engine.GetEngine(config)
-	if err != nil {
-		return err
-	}
-	release, err := installer.GetRelease()
-	if err != nil {
-		return err
-	}
-
-	if release.Config == nil {
-		release.Config = map[string]interface{}{}
-	}
-
-	if !r.Local {
-		if release.Config["imagePullSecrets"] == nil {
-			release.Config["imagePullSecrets"] = []interface{}{}
-		}
-		release.Config["imagePullSecrets"] = append(
-			release.Config["imagePullSecrets"].([]interface{}),
-			r.Name,
-		)
-	}
-
-	version, err := installer.GetCurrentVersion()
-	if err != nil {
-		return err
-	}
-	return installer.Upgrade(version, release.Config)
-}
-
-func (r *Registry) SetRegistyDefault(ctx context.Context, config *rest.Config) error {
-	installer, err := engine.GetEngine(config)
-	if err != nil {
-		return err
-	}
-	release, err := installer.GetRelease()
-	if err != nil {
-		return err
-	}
-
-	if release.Config == nil {
-		release.Config = map[string]interface{}{}
-	}
-
-	if release.Config["args"] == nil {
-		release.Config["args"] = []interface{}{}
-	}
-	args := []string{}
-	for _, arg := range release.Config["args"].([]interface{}) {
-		if !strings.Contains(arg.(string), "--registry") {
-			args = append(args, arg.(string))
-		}
-	}
-
-	domain, err := r.Domain()
-	if err != nil {
-		return errors.Wrap(err, "failed to get registry domain")
-	}
-
-	release.Config["args"] = append(
-		args,
-		"--registry="+domain,
-	)
-
-	version, err := installer.GetCurrentVersion()
-	if err != nil {
-		return err
-	}
-	return installer.Upgrade(version, release.Config)
+	logger.Debug("Adding registry rules to the environment")
+	return r.applyToEnvironment(ctx, config)
 }
 
 func (r *Registry) FromSecret(sec corev1.Secret) *Registry {
@@ -360,6 +276,9 @@ func (r *Registry) FromSecret(sec corev1.Secret) *Registry {
 	if err := json.Unmarshal(secJson, r); err != nil {
 		// Log error but continue with partially populated registry
 	}
+	r.Name = sec.Name
+	r.Server = sec.Annotations[RegistryServerLabel]
+	r.Local = sec.Name == LocalRegistryName
 	return r
 }
 
@@ -378,53 +297,9 @@ func (r *Registry) ToSecret() *corev1.Secret {
 
 // Delete registry
 func (r *Registry) Delete(ctx context.Context, config *rest.Config, logger *zap.SugaredLogger) error {
-	installer, err := engine.GetEngine(config)
-	if err != nil {
-		logger.Errorf(" %v\n", err)
-	}
-
-	release, _ := installer.GetRelease()
-
-	if release != nil && release.Config != nil && release.Config["imagePullSecrets"] != nil {
-		oldRegistries := release.Config["imagePullSecrets"].([]interface{})
-
-		newRegistries := []interface{}{}
-		for _, reg := range oldRegistries {
-			if reg != r.Name {
-				newRegistries = append(
-					newRegistries,
-					reg,
-				)
-			}
-		}
-		release.Config["imagePullSecrets"] = newRegistries
-		if len(oldRegistries) == len(newRegistries) {
-			logger.Warn("Configuration URL not found applied configurations.")
-			return nil
-		}
-
-		if r.Default {
-			if release.Config["args"] != nil {
-				args := []string{}
-				for _, arg := range release.Config["args"].([]interface{}) {
-					if !strings.Contains(arg.(string), "--registry") {
-						args = append(args, arg.(string))
-					}
-				}
-
-				release.Config["args"] = args
-			}
-		}
-
-		version, err := installer.GetCurrentVersion()
-		if err != nil {
-			return err
-		}
-
-		err = installer.Upgrade(version, release.Config)
-		if err != nil {
-			return err
-		}
+	logger.Debug("Removing registry rules from the environment")
+	if err := r.removeFromEnvironment(ctx, config); err != nil {
+		return err
 	}
 
 	client, err := kube.Client(config)
@@ -433,7 +308,9 @@ func (r *Registry) Delete(ctx context.Context, config *rest.Config, logger *zap.
 	}
 
 	if r.Local {
-		r.DeleteLocal(ctx, client, logger)
+		if err := r.DeleteLocal(ctx, client, logger); err != nil {
+			return err
+		}
 	}
 
 	return secretClient(client).Delete(ctx, r.Name, metav1.DeleteOptions{})
@@ -476,8 +353,9 @@ func CopyRegistries(ctx context.Context, logger *zap.SugaredLogger, sourceConfig
 }
 
 // Make registry default
-func (r *Registry) SetDefault(d bool) {
-	r.Default = d
+// SetRewrites sets the image prefixes Crossplane pulls from this registry.
+func (r *Registry) SetRewrites(prefixes []string) {
+	r.Rewrites = prefixes
 }
 
 // Make local registry
@@ -509,7 +387,7 @@ func (r *Registry) Domain() (string, error) {
 
 // Local domain composed with parameters
 func (r *Registry) LocalDomain() string {
-	return fmt.Sprintf(defaultLocalDomain, namespace.Namespace)
+	return engine.LocalRegistryDomain()
 }
 
 // Creates specs of Secret base on Registry data
