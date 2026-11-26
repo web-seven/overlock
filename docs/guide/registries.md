@@ -95,13 +95,13 @@ Names without a registry refer to the local registry, so the Provider is created
 
 ### Runtime Images on Nodes
 
-Providers and functions run as pods whose image is the package itself. With the image store, the package is already in the node's containerd under the name the pod uses, so the pod starts without pulling. With the Docker registry: `load` and `serve` also write the package as an image archive into the images volume of the environment, `overlock-images-<environment>`. Local nodes created by `overlock env create` mount it as the K3s images directory (`/var/lib/rancher/k3s/agent/images`), and K3s imports new archives into containerd while running, under the local registry name and the node port name pods are rewritten to. The pods then start without pulling:
+Providers and functions run as pods whose image is the package itself. With the image store, the package is already in the node's containerd under the name the pod uses, so the pod starts without pulling. With the Docker registry: `load` and `serve` also write the package as an image archive into the images volume of the environment, `overlock-images-<environment>`. Local nodes created by `overlock env create` mount it as the K3s images directory (`/var/lib/rancher/k3s/agent/images/overlock`, a sub-folder of the K3s images directory), and K3s imports new archives into containerd while running, under the local registry name and the node port name pods are rewritten to. The pods then start without pulling:
 
 ```text
 Container image "localhost:32227/my-provider:v0.1.0" already present on machine
 ```
 
-The archive keeps the image digest of the registry, and loading a new version replaces it. Environments without the volume, remote nodes and other engines pull from the local registry as before. Any K3s based environment can opt in by mounting a volume with that name as the images directory, as the [Compose file](../environment/compose.md) does; it must exist when K3s starts.
+The archive keeps the image digest of the registry, and loading a new version replaces it. Environments without the volume, remote nodes and other engines pull from the local registry as before. Any K3s based environment can opt in by mounting a volume with that name at `/var/lib/rancher/k3s/agent/images/overlock`, as the [Compose file](../environment/compose.md) does; it must exist when K3s starts.
 ---
 
 ## Connecting to a Remote Registry

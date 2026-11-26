@@ -23,10 +23,12 @@ import (
 )
 
 const (
-	// ImagesDir is the K3s agent images directory. K3s imports image archives
-	// placed there into containerd while running, if the directory exists
-	// when K3s starts.
-	ImagesDir = "/var/lib/rancher/k3s/agent/images"
+	// ImagesDir is a sub-folder of the K3s agent images directory, where the
+	// images volume is mounted. K3s imports image archives placed in the
+	// images directory and its sub-folders into containerd while running, if
+	// they exist when K3s starts. A sub-folder keeps loaded images apart from
+	// the node's own archives (e.g. bundled images of the Overlock K3s image).
+	ImagesDir = "/var/lib/rancher/k3s/agent/images/overlock"
 	// volumePrefix and the Environment name form the name of the Docker
 	// volume shared by the local nodes of an environment as ImagesDir.
 	volumePrefix = "overlock-images-"

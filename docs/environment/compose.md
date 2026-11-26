@@ -81,7 +81,9 @@ overlock cfg load my-config:v1.0.0 --path ./my-config.xpkg --apply
 ```
 
 `load` writes the package into the `overlock-images-<OVERLOCK_ENVIRONMENT_NAME>`
-volume, where K3s imports it, and Crossplane installs it from the store.
+volume, mounted at `/var/lib/rancher/k3s/agent/images/overlock` (a sub-folder of
+the K3s images directory, next to the images bundled with the K3s image), where
+K3s imports it, and Crossplane installs it from the store.
 Packages of `xpkg.crossplane.io` and `xpkg.upbound.io`, including dependencies,
 are cached in containerd on first use. With your own `environment.yaml`, enable
 the store the same way and keep `metadata.name` equal to
