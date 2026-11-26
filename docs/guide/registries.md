@@ -85,15 +85,24 @@ overlock reg load-image \
 
 ## Installing from the Local Registry
 
-After loading a package, install it from the local registry the same way you'd install from any remote registry — just use the local registry's address as the package URL:
+Install a loaded package with `--apply`, or later with `apply`, using the name it was loaded with:
 
 ```bash
-overlock prv install localhost:5000/my-provider:v0.1.0
+overlock prv load my-provider:v0.1.0 --path ./my-provider.xpkg --apply
+overlock prv apply my-provider:v0.1.0
 ```
 
-> [!NOTE]
-> The exact hostname and port depend on how your local registry was created and how Overlock configured it. Run `overlock reg list` to see the registry address.
+Names without a registry refer to the local registry, so the Provider is created with `registry.overlock.svc.cluster.local/my-provider:v0.1.0`. In your own manifests, use that full address.
 
+### Runtime Images on Nodes
+
+Providers and functions run as pods whose image is the package itself. For `k3s-docker` environments, `load` and `serve` also import the package into the containerd of every local node, under its local registry name and the node port name pods are rewritten to. The pods then start without pulling anything:
+
+```text
+Container image "localhost:32227/my-provider:v0.1.0" already present on machine
+```
+
+The import keeps the image digest of the registry, needs no K3s restart, and runs on every load, so new versions are available immediately. Remote nodes and other engines pull the image from the local registry as before; if an import fails, `load` warns and pods fall back to pulling.
 ---
 
 ## Connecting to a Remote Registry
