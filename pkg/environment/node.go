@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/web-seven/overlock/internal/nodeimage"
+
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
@@ -376,6 +378,9 @@ func (e *Environment) createLocalNode(ctx context.Context, dockerClient *docker.
 		Binds: []string{
 			"/lib/modules:/lib/modules:ro",
 			volumeName + ":/var/lib/rancher/k3s",
+			// Shared by the local nodes; K3s imports archives the CLI writes
+			// there (see nodeimage.Import).
+			nodeimage.VolumeName(e.name) + ":" + nodeimage.ImagesDir,
 		},
 		Tmpfs: map[string]string{
 			"/run":     "",

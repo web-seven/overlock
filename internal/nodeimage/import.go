@@ -7,178 +7,120 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/filters"
 	docker "github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/stdcopy"
 	regv1 "github.com/google/go-containerregistry/pkg/v1"
 	"go.uber.org/zap"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/web-seven/overlock/api/v1alpha1"
+	"github.com/web-seven/overlock/internal/bootstrap"
 )
 
 const (
-	// containerPrefix and the node name form the Docker container name of a
-	// K3s Docker node.
-	containerPrefix = "k3s-docker-"
-	// remoteNodeAnnotation marks nodes running on remote hosts.
-	remoteNodeAnnotation = "overlock.app/ssh-host"
-	// tmpDir receives archives before they are imported with ctr. The K3s
-	// images directory is not used: K3s only watches it when it exists at
-	// startup, which is not the case for nodes created by the CLI.
-	tmpDir        = "/tmp/"
-	importTimeout = 2 * time.Minute
-	pollInterval  = 2 * time.Second
+	// ImagesDir is the K3s agent images directory. K3s imports image archives
+	// placed there into containerd while running, if the directory exists
+	// when K3s starts.
+	ImagesDir = "/var/lib/rancher/k3s/agent/images"
+	// volumePrefix and the Environment name form the name of the Docker
+	// volume shared by the local nodes of an environment as ImagesDir.
+	volumePrefix = "overlock-images-"
 )
 
-// Import makes img available under each of names in the containerd of every
-// local K3s Docker node of the cluster, so pods referencing one of the names
-// start without pulling it. Remote nodes and clusters of other engines are
-// skipped. Import waits until every node reports the image with its digest.
+// VolumeName returns the name of the images volume of an environment. Node
+// containers that mount it as ImagesDir receive the images loaded by the CLI.
+func VolumeName(environment string) string {
+	return volumePrefix + environment
+}
+
+// Import writes img, named names, into the images volume of the cluster's
+// Environment, where K3s imports it into the containerd of every local node
+// mounting the volume, so pods start without pulling it. Environments without
+// such a volume (e.g. not created by the CLI and not configured with it) are
+// skipped.
 func Import(ctx context.Context, config *rest.Config, img regv1.Image, names []string, logger *zap.SugaredLogger) error {
+	environment, err := environmentName(ctx, config)
+	if err != nil {
+		return err
+	}
+	volume := VolumeName(environment)
+
 	dockerClient, err := docker.NewClientWithOpts(docker.FromEnv, docker.WithAPIVersionNegotiation())
 	if err != nil {
 		return fmt.Errorf("failed to create Docker client: %w", err)
 	}
 	defer dockerClient.Close()
 
-	containers, err := localNodeContainers(ctx, config, dockerClient)
-	if err != nil || len(containers) == 0 {
-		return err
-	}
-
-	digest, err := img.Digest()
+	container, dir, err := volumeContainer(ctx, dockerClient, volume)
 	if err != nil {
 		return err
 	}
+	if container == "" {
+		logger.Debugf("No running container mounts volume %s, images are pulled from the registry", volume)
+		return nil
+	}
+
 	archive, err := ociArchive(img, names)
 	if err != nil {
 		return err
 	}
-	sum := sha256.Sum256([]byte(strings.Join(names, ",")))
-	fileName := "overlock-" + hex.EncodeToString(sum[:])[:16] + ".tar"
-	file, err := fileArchive(fileName, archive)
+	file, err := fileArchive(archiveName(names), archive)
 	if err != nil {
 		return err
 	}
-
-	for _, container := range containers {
-		if err := importInto(ctx, dockerClient, container, fileName, file); err != nil {
-			return err
-		}
-		for _, name := range names {
-			if err := waitImported(ctx, dockerClient, container, name, digest.String()); err != nil {
-				return err
-			}
-		}
-		logger.Debugf("Imported %s into node %s", strings.Join(names, ", "), container)
+	if err := dockerClient.CopyToContainer(ctx, container, dir, bytes.NewReader(file), types.CopyToContainerOptions{}); err != nil {
+		return fmt.Errorf("failed to write image archive to volume %s: %w", volume, err)
 	}
+	logger.Debugf("Wrote %s to volume %s", strings.Join(names, ", "), volume)
 	return nil
 }
 
-// importInto copies the archive into the container and imports it into the
-// containerd namespace of the CRI, where the kubelet finds it.
-func importInto(ctx context.Context, dockerClient *docker.Client, container, fileName string, file []byte) error {
-	if err := dockerClient.CopyToContainer(ctx, container, tmpDir, bytes.NewReader(file), types.CopyToContainerOptions{}); err != nil {
-		return fmt.Errorf("failed to copy image archive to %s: %w", container, err)
-	}
-	path := tmpDir + fileName
-	defer func() {
-		// Best effort: a leftover file in /tmp does no harm.
-		_, _ = exec(ctx, dockerClient, container, "rm", "-f", path)
-	}()
-	if _, err := exec(ctx, dockerClient, container, "ctr", "-n", "k8s.io", "images", "import", path); err != nil {
-		return fmt.Errorf("failed to import image into %s: %w", container, err)
-	}
-	return nil
+// archiveName returns a stable file name for an image, so loading the same
+// name again replaces its archive and K3s imports the new content.
+func archiveName(names []string) string {
+	sum := sha256.Sum256([]byte(strings.Join(names, ",")))
+	return "overlock-" + hex.EncodeToString(sum[:])[:16] + ".tar"
 }
 
-// localNodeContainers returns the Docker containers of the local K3s Docker
-// nodes of the cluster.
-func localNodeContainers(ctx context.Context, config *rest.Config, dockerClient *docker.Client) ([]string, error) {
-	kube, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-	nodes, err := kube.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to list nodes: %w", err)
-	}
-
-	var containers []string
-	for _, node := range nodes.Items {
-		if _, remote := node.Annotations[remoteNodeAnnotation]; remote {
-			continue
+// environmentName returns the name of the cluster's Environment.
+func environmentName(ctx context.Context, config *rest.Config) (string, error) {
+	scheme := runtime.NewScheme()
+	for _, add := range []func(*runtime.Scheme) error{apiextensionsv1.AddToScheme, v1alpha1.AddToScheme} {
+		if err := add(scheme); err != nil {
+			return "", err
 		}
-		name := containerPrefix + node.Name
-		info, err := dockerClient.ContainerInspect(ctx, name)
-		if err != nil || info.State == nil || !info.State.Running {
-			continue
-		}
-		containers = append(containers, name)
 	}
-	return containers, nil
+	c, err := client.New(config, client.Options{Scheme: scheme})
+	if err != nil {
+		return "", err
+	}
+	env, err := bootstrap.GetEnvironment(ctx, c)
+	if err != nil {
+		return "", err
+	}
+	return env.Name, nil
 }
 
-// waitImported waits until the CRI of container knows the image name with the
-// expected digest.
-func waitImported(ctx context.Context, dockerClient *docker.Client, container, name, digest string) error {
-	var got string
-	err := wait.PollUntilContextTimeout(ctx, pollInterval, importTimeout, true, func(ctx context.Context) (bool, error) {
-		if _, err := exec(ctx, dockerClient, container, "crictl", "inspecti", "-q", name); err != nil {
-			return false, nil
-		}
-		out, err := exec(ctx, dockerClient, container, "ctr", "-n", "k8s.io", "images", "ls", "name=="+name)
-		if err != nil {
-			return false, nil
-		}
-		got = imageDigest(out, name)
-		return got != "", nil
+// volumeContainer returns a running container mounting volume and the path it
+// is mounted at, or an empty container name when there is none.
+func volumeContainer(ctx context.Context, dockerClient *docker.Client, volume string) (string, string, error) {
+	containers, err := dockerClient.ContainerList(ctx, types.ContainerListOptions{
+		Filters: filters.NewArgs(filters.Arg("volume", volume), filters.Arg("status", "running")),
 	})
 	if err != nil {
-		return fmt.Errorf("image %s was not imported into %s: %w", name, container, err)
+		return "", "", fmt.Errorf("failed to list containers: %w", err)
 	}
-	if got != digest {
-		return fmt.Errorf("image %s in %s has digest %s, want %s", name, container, got, digest)
-	}
-	return nil
-}
-
-// imageDigest returns the digest of name in the output of "ctr images ls".
-func imageDigest(out, name string) string {
-	for _, line := range strings.Split(out, "\n") {
-		fields := strings.Fields(line)
-		if len(fields) >= 3 && fields[0] == name {
-			return fields[2]
+	for _, c := range containers {
+		for _, m := range c.Mounts {
+			if m.Name == volume {
+				return c.ID, m.Destination, nil
+			}
 		}
 	}
-	return ""
-}
-
-// exec runs a command in a container and returns its standard output.
-func exec(ctx context.Context, dockerClient *docker.Client, container string, cmd ...string) (string, error) {
-	created, err := dockerClient.ContainerExecCreate(ctx, container, types.ExecConfig{Cmd: cmd, AttachStdout: true, AttachStderr: true})
-	if err != nil {
-		return "", err
-	}
-	attach, err := dockerClient.ContainerExecAttach(ctx, created.ID, types.ExecStartCheck{})
-	if err != nil {
-		return "", err
-	}
-	defer attach.Close()
-	var stdout, stderr bytes.Buffer
-	if _, err := stdcopy.StdCopy(&stdout, &stderr, attach.Reader); err != nil {
-		return "", err
-	}
-	inspect, err := dockerClient.ContainerExecInspect(ctx, created.ID)
-	if err != nil {
-		return "", err
-	}
-	if inspect.ExitCode != 0 {
-		return "", fmt.Errorf("%s exited %d: %s", strings.Join(cmd, " "), inspect.ExitCode, strings.TrimSpace(stderr.String()))
-	}
-	return stdout.String(), nil
+	return "", "", nil
 }

@@ -65,15 +65,15 @@ func TestOCIArchiveKeepsDigestAndNames(t *testing.T) {
 	}
 }
 
-func TestImageDigest(t *testing.T) {
-	out := `REF                                                   TYPE                                       DIGEST                                                                  SIZE    PLATFORMS   LABELS
-localhost:30100/acme/provider:v1                      application/vnd.oci.image.manifest.v1+json sha256:aaa1                                                             17.0 MiB linux/amd64 io.cri-containerd.image=managed
-registry.overlock.svc.cluster.local/acme/provider:v1  application/vnd.oci.image.manifest.v1+json sha256:bbb2                                                             17.0 MiB linux/amd64 io.cri-containerd.image=managed
-`
-	if got := imageDigest(out, "registry.overlock.svc.cluster.local/acme/provider:v1"); got != "sha256:bbb2" {
-		t.Errorf("imageDigest() = %q, want sha256:bbb2", got)
+func TestArchiveName(t *testing.T) {
+	a := archiveName([]string{"registry.local/acme/provider:v1", "localhost:30100/acme/provider:v1"})
+	if a != archiveName([]string{"registry.local/acme/provider:v1", "localhost:30100/acme/provider:v1"}) {
+		t.Error("archive name is not stable, reloading would not replace the archive")
 	}
-	if got := imageDigest(out, "missing:v1"); got != "" {
-		t.Errorf("imageDigest() for missing image = %q", got)
+	if a == archiveName([]string{"registry.local/acme/provider:v2"}) {
+		t.Error("different images share an archive name")
+	}
+	if VolumeName("dev") != "overlock-images-dev" {
+		t.Errorf("VolumeName() = %q", VolumeName("dev"))
 	}
 }
