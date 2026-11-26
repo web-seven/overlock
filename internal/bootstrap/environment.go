@@ -163,13 +163,13 @@ func GetEnvironment(ctx context.Context, c client.Client) (*v1alpha1.Environment
 	list := &v1alpha1.EnvironmentList{}
 	if err := c.List(ctx, list); err != nil {
 		if meta.IsNoMatchError(err) {
-			return nil, errNoEnvironment
+			return nil, ErrNoEnvironment
 		}
 		return nil, fmt.Errorf("failed to list environments: %w", err)
 	}
 	switch len(list.Items) {
 	case 0:
-		return nil, errNoEnvironment
+		return nil, ErrNoEnvironment
 	case 1:
 		return &list.Items[0], nil
 	default:
@@ -190,4 +190,5 @@ func UpdateEnvironment(ctx context.Context, c client.Client, mutate func(*v1alph
 	})
 }
 
-var errNoEnvironment = fmt.Errorf("no Overlock Environment found in the cluster; create it with \"overlock env create\" or the Overlock K3s image")
+// ErrNoEnvironment is returned when the cluster has no Environment.
+var ErrNoEnvironment = fmt.Errorf("no Overlock Environment found in the cluster; create it with \"overlock env create\" or the Overlock K3s image")

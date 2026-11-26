@@ -14,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -26,6 +27,7 @@ import (
 // fakeReleases is an in-memory Releases implementation.
 type fakeReleases struct {
 	releases map[string]*release.Release
+	values   map[string]map[string]any
 	calls    []string
 	failOn   string
 	// client, when set, receives the CRD of each installed component, as a
@@ -34,7 +36,7 @@ type fakeReleases struct {
 }
 
 func newFakeReleases() *fakeReleases {
-	return &fakeReleases{releases: map[string]*release.Release{}}
+	return &fakeReleases{releases: map[string]*release.Release{}, values: map[string]map[string]any{}}
 }
 
 func (f *fakeReleases) Get(c helmComponent) (*release.Release, error) {
@@ -42,6 +44,9 @@ func (f *fakeReleases) Get(c helmComponent) (*release.Release, error) {
 }
 
 func (f *fakeReleases) set(c helmComponent, labels map[string]string) {
+	if f.values != nil {
+		f.values[c.Name] = c.Values
+	}
 	f.releases[c.Name] = &release.Release{
 		Name:   c.Release,
 		Labels: labels,
@@ -98,6 +103,10 @@ func newScheme(t *testing.T) *runtime.Scheme {
 	}
 	s.AddKnownTypeWithName(runtimeConfigGVK, &unstructured.Unstructured{})
 	s.AddKnownTypeWithName(imageConfigGVK, &unstructured.Unstructured{})
+	for _, gvk := range []schema.GroupVersionKind{certificateGVK, issuerGVK} {
+		s.AddKnownTypeWithName(gvk, &unstructured.Unstructured{})
+		s.AddKnownTypeWithName(gvk.GroupVersion().WithKind(gvk.Kind+"List"), &unstructured.UnstructuredList{})
+	}
 	s.AddKnownTypeWithName(imageConfigGVK.GroupVersion().WithKind("ImageConfigList"), &unstructured.UnstructuredList{})
 	for _, k := range packageKinds {
 		s.AddKnownTypeWithName(k.gvk(), &unstructured.Unstructured{})

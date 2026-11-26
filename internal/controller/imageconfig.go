@@ -2,6 +2,8 @@ package controller
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -12,6 +14,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/web-seven/overlock/api/v1alpha1"
+	"github.com/web-seven/overlock/internal/engine"
 )
 
 const (
@@ -20,6 +23,25 @@ const (
 )
 
 var imageConfigGVK = schema.GroupVersionKind{Group: "pkg.crossplane.io", Version: "v1beta1", Kind: "ImageConfig"}
+
+// cacheRules returns the registry rules that pull the cache prefixes of the
+// image store through it: the store keeps the registry host in the path to
+// know which upstream to pull from.
+func cacheRules(spec v1alpha1.EnvironmentSpec) []v1alpha1.RegistrySpec {
+	if !spec.ImageStoreEnabled() {
+		return nil
+	}
+	var rules []v1alpha1.RegistrySpec
+	for _, prefix := range spec.ImageStore.Cache {
+		sum := sha256.Sum256([]byte(prefix))
+		rules = append(rules, v1alpha1.RegistrySpec{
+			Name:          "image-store-cache-" + hex.EncodeToString(sum[:])[:8],
+			Prefixes:      []string{prefix},
+			RewritePrefix: engine.LocalRegistryDomain() + "/" + prefix,
+		})
+	}
+	return rules
+}
 
 // imageConfigName returns the ImageConfig name of a registry rule.
 func imageConfigName(reg v1alpha1.RegistrySpec) string {
@@ -52,7 +74,7 @@ func imageConfigSpec(reg v1alpha1.RegistrySpec) map[string]any {
 func (r *EnvironmentReconciler) reconcileImageConfigs(ctx context.Context, env *v1alpha1.Environment) []v1alpha1.ComponentStatus {
 	var statuses []v1alpha1.ComponentStatus
 	desired := map[string]bool{}
-	for _, reg := range env.Spec.Registries {
+	for _, reg := range append(cacheRules(env.Spec), env.Spec.Registries...) {
 		name := imageConfigName(reg)
 		desired[name] = true
 		statuses = append(statuses, r.reconcileImageConfig(ctx, env, name, reg))

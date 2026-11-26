@@ -23,10 +23,12 @@ import (
 )
 
 const (
-	// ImagesDir is the K3s agent images directory. K3s imports image archives
-	// placed there into containerd while running, if the directory exists
-	// when K3s starts.
-	ImagesDir = "/var/lib/rancher/k3s/agent/images"
+	// ImagesDir is a sub-folder of the K3s agent images directory, where the
+	// images volume is mounted. K3s imports image archives placed in the
+	// images directory and its sub-folders into containerd while running, if
+	// they exist when K3s starts. A sub-folder keeps loaded images apart from
+	// the node's own archives (e.g. bundled images of the Overlock K3s image).
+	ImagesDir = "/var/lib/rancher/k3s/agent/images/overlock"
 	// volumePrefix and the Environment name form the name of the Docker
 	// volume shared by the local nodes of an environment as ImagesDir.
 	volumePrefix = "overlock-images-"
@@ -44,40 +46,60 @@ func VolumeName(environment string) string {
 // such a volume (e.g. not created by the CLI and not configured with it) are
 // skipped.
 func Import(ctx context.Context, config *rest.Config, img regv1.Image, names []string, logger *zap.SugaredLogger) error {
-	environment, err := environmentName(ctx, config)
+	_, err := write(ctx, config, img, names, logger)
+	return err
+}
+
+// Store writes img named ref into the images volume like Import, but requires
+// the volume: with an image store, it is how packages reach the nodes.
+func Store(ctx context.Context, config *rest.Config, img regv1.Image, ref string, logger *zap.SugaredLogger) error {
+	volume, err := write(ctx, config, img, []string{ref}, logger)
 	if err != nil {
 		return err
+	}
+	if volume != "" {
+		return fmt.Errorf("no running node container mounts volume %s at %s; recreate the environment with this version of the CLI or mount the volume", volume, ImagesDir)
+	}
+	return nil
+}
+
+// write writes the archive into the images volume. It returns the volume name
+// when no container mounts it, and an empty name when the archive was written.
+func write(ctx context.Context, config *rest.Config, img regv1.Image, names []string, logger *zap.SugaredLogger) (string, error) {
+	environment, err := environmentName(ctx, config)
+	if err != nil {
+		return "", err
 	}
 	volume := VolumeName(environment)
 
 	dockerClient, err := docker.NewClientWithOpts(docker.FromEnv, docker.WithAPIVersionNegotiation())
 	if err != nil {
-		return fmt.Errorf("failed to create Docker client: %w", err)
+		return "", fmt.Errorf("failed to create Docker client: %w", err)
 	}
 	defer dockerClient.Close()
 
 	container, dir, err := volumeContainer(ctx, dockerClient, volume)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if container == "" {
 		logger.Debugf("No running container mounts volume %s, images are pulled from the registry", volume)
-		return nil
+		return volume, nil
 	}
 
 	archive, err := ociArchive(img, names)
 	if err != nil {
-		return err
+		return "", err
 	}
 	file, err := fileArchive(archiveName(names), archive)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if err := dockerClient.CopyToContainer(ctx, container, dir, bytes.NewReader(file), types.CopyToContainerOptions{}); err != nil {
-		return fmt.Errorf("failed to write image archive to volume %s: %w", volume, err)
+		return "", fmt.Errorf("failed to write image archive to volume %s: %w", volume, err)
 	}
 	logger.Debugf("Wrote %s to volume %s", strings.Join(names, ", "), volume)
-	return nil
+	return "", nil
 }
 
 // archiveName returns a stable file name for an image, so loading the same

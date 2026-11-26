@@ -84,6 +84,12 @@ type EnvironmentSpec struct {
 	// +optional
 	Registries []RegistrySpec `json:"registries,omitempty"`
 
+	// ImageStore serves the images of the nodes' containerd to Crossplane as a
+	// registry, so packages are installed without a separate registry. Images
+	// of upstream registries are cached in containerd on first use.
+	// +optional
+	ImageStore *ImageStoreSpec `json:"imageStore,omitempty"`
+
 	// Scheduling places Crossplane, tools and package runtimes on matching
 	// nodes, e.g. on dedicated engine nodes.
 	// +optional
@@ -119,6 +125,31 @@ type RegistrySpec struct {
 	// in the Crossplane namespace used to pull matching images.
 	// +optional
 	PullSecret string `json:"pullSecret,omitempty"`
+}
+
+// ImageStoreSpec configures the image store.
+type ImageStoreSpec struct {
+	// Enabled deploys the image store on every node and makes Crossplane
+	// trust it. Requires cert-manager.
+	Enabled bool `json:"enabled"`
+
+	// ContainerdSocket is the path of the containerd socket on the nodes.
+	// Defaults to the K3s socket.
+	// +optional
+	ContainerdSocket string `json:"containerdSocket,omitempty"`
+
+	// Cache lists prefixes of fully qualified package images, e.g.
+	// "xpkg.crossplane.io/", that Crossplane pulls through the image store:
+	// packages and their dependencies are cached in containerd on first use
+	// and served from there afterwards, also offline. More specific registry
+	// rules take precedence.
+	// +optional
+	Cache []string `json:"cache,omitempty"`
+}
+
+// ImageStoreEnabled reports whether the image store is enabled.
+func (s *EnvironmentSpec) ImageStoreEnabled() bool {
+	return s.ImageStore != nil && s.ImageStore.Enabled
 }
 
 // SchedulingSpec constrains the nodes owned components run on.

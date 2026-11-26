@@ -118,3 +118,16 @@ func TestCrossplaneValuesCABundle(t *testing.T) {
 		t.Errorf("registryCaBundleConfig = %v, want %v", values["registryCaBundleConfig"], want)
 	}
 }
+
+func TestImageStoreCacheRules(t *testing.T) {
+	spec := v1alpha1.EnvironmentSpec{ImageStore: &v1alpha1.ImageStoreSpec{Enabled: true, Cache: []string{"xpkg.crossplane.io/"}}}
+	rules := cacheRules(spec)
+	if len(rules) != 1 || rules[0].RewritePrefix != "registry.overlock.svc.cluster.local/xpkg.crossplane.io/" ||
+		!reflect.DeepEqual(rules[0].Prefixes, []string{"xpkg.crossplane.io/"}) {
+		t.Fatalf("cacheRules() = %+v", rules)
+	}
+	spec.ImageStore.Enabled = false
+	if rules := cacheRules(spec); len(rules) != 0 {
+		t.Errorf("cache rules without image store = %+v", rules)
+	}
+}

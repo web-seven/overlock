@@ -24,13 +24,12 @@ Overlock's `serve` command (available for [configurations](configurations.md), [
 
 ## Setting Up a Local Registry
 
-Before you can develop packages locally, you need a local registry in the environment:
+Packages you load are served to Crossplane as `registry.overlock.svc.cluster.local`, in one of two ways:
 
-```bash
-overlock reg create --local
-```
+- **Image store** (`k3s-docker` environments, default): there is no separate registry. Packages are stored in the nodes' containerd, and the [image store](../environment/operator.md#image-store) serves them to Crossplane. `load` writes packages to the environment's images volume, where K3s imports them. Packages of `xpkg.crossplane.io` and `xpkg.upbound.io`, including dependencies, are cached in containerd on first use.
+- **Docker registry** (other engines, or `imageStore.enabled: false`): an OCI registry deployed into the environment. Create it with `overlock reg create --local`; `load` and `serve` create it automatically when it is missing.
 
-This deploys an OCI registry into the environment (`registry.overlock.svc.cluster.local`) and makes Crossplane trust its certificate. `load` and `serve` commands create it automatically when it is missing.
+With the image store, `overlock reg create --local` deploys nothing and only manages `--rewrite` rules.
 
 Crossplane v2 has no default registry: every package reference must name its registry. Packages loaded by Overlock without a registry in their name are installed from the local registry, e.g. `my-provider:v0.1.0` becomes `registry.overlock.svc.cluster.local/my-provider:v0.1.0`.
 
@@ -96,13 +95,13 @@ Names without a registry refer to the local registry, so the Provider is created
 
 ### Runtime Images on Nodes
 
-Providers and functions run as pods whose image is the package itself. `load` and `serve` also write the package as an image archive into the images volume of the environment, `overlock-images-<environment>`. Local nodes created by `overlock env create` mount it as the K3s images directory (`/var/lib/rancher/k3s/agent/images`), and K3s imports new archives into containerd while running, under the local registry name and the node port name pods are rewritten to. The pods then start without pulling:
+Providers and functions run as pods whose image is the package itself. With the image store, the package is already in the node's containerd under the name the pod uses, so the pod starts without pulling. With the Docker registry: `load` and `serve` also write the package as an image archive into the images volume of the environment, `overlock-images-<environment>`. Local nodes created by `overlock env create` mount it as the K3s images directory (`/var/lib/rancher/k3s/agent/images/overlock`, a sub-folder of the K3s images directory), and K3s imports new archives into containerd while running, under the local registry name and the node port name pods are rewritten to. The pods then start without pulling:
 
 ```text
 Container image "localhost:32227/my-provider:v0.1.0" already present on machine
 ```
 
-The archive keeps the image digest of the registry, and loading a new version replaces it. Environments without the volume, remote nodes and other engines pull from the local registry as before. Any K3s based environment can opt in by mounting a volume with that name as the images directory, as the [Compose file](../environment/compose.md) does; it must exist when K3s starts.
+The archive keeps the image digest of the registry, and loading a new version replaces it. Environments without the volume, remote nodes and other engines pull from the local registry as before. Any K3s based environment can opt in by mounting a volume with that name at `/var/lib/rancher/k3s/agent/images/overlock`, as the [Compose file](../environment/compose.md) does; it must exist when K3s starts.
 ---
 
 ## Connecting to a Remote Registry

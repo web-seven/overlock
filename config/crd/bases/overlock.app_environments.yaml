@@ -130,6 +130,35 @@ spec:
                 items:
                   type: string
                 type: array
+              imageStore:
+                description: |-
+                  ImageStore serves the images of the nodes' containerd to Crossplane as a
+                  registry, so packages are installed without a separate registry. Images
+                  of upstream registries are cached in containerd on first use.
+                properties:
+                  cache:
+                    description: |-
+                      Cache lists prefixes of fully qualified package images, e.g.
+                      "xpkg.crossplane.io/", that Crossplane pulls through the image store:
+                      packages and their dependencies are cached in containerd on first use
+                      and served from there afterwards, also offline. More specific registry
+                      rules take precedence.
+                    items:
+                      type: string
+                    type: array
+                  containerdSocket:
+                    description: |-
+                      ContainerdSocket is the path of the containerd socket on the nodes.
+                      Defaults to the K3s socket.
+                    type: string
+                  enabled:
+                    description: |-
+                      Enabled deploys the image store on every node and makes Crossplane
+                      trust it. Requires cert-manager.
+                    type: boolean
+                required:
+                - enabled
+                type: object
               providers:
                 description: Providers are Crossplane provider packages to install.
                 items:

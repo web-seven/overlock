@@ -69,6 +69,33 @@ The file is applied on every start and is the source of the `Environment`:
 edit it and recreate the container (`docker compose up -d --force-recreate`)
 to change the environment. See [Environment Specification](spec.md).
 
+### Packages
+
+The default profile serves packages from the nodes' containerd with the
+[image store](operator.md#image-store); there is no separate registry. Load
+packages with the CLI against the Compose environment:
+
+```bash
+export KUBECONFIG=$PWD/kubeconfig
+overlock cfg load my-config:v1.0.0 --path ./my-config.xpkg --apply
+```
+
+`load` writes the package into the `overlock-images-<OVERLOCK_ENVIRONMENT_NAME>`
+volume, mounted at `/var/lib/rancher/k3s/agent/images/overlock` (a sub-folder of
+the K3s images directory, next to the images bundled with the K3s image), where
+K3s imports it, and Crossplane installs it from the store.
+Packages of `xpkg.crossplane.io` and `xpkg.upbound.io`, including dependencies,
+are cached in containerd on first use. With your own `environment.yaml`, enable
+the store the same way and keep `metadata.name` equal to
+`OVERLOCK_ENVIRONMENT_NAME`, the name the CLI uses to find the volume:
+
+```yaml
+spec:
+  imageStore:
+    enabled: true
+    cache: ["xpkg.crossplane.io/", "xpkg.upbound.io/"]
+```
+
 ### Persistent State
 
 The cluster state is stored in the `k3s-data` volume. `docker compose down`

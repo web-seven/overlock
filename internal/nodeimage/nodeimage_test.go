@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"testing"
+	"time"
 
 	"github.com/google/go-containerregistry/pkg/v1/random"
 )
@@ -75,5 +76,19 @@ func TestArchiveName(t *testing.T) {
 	}
 	if VolumeName("dev") != "overlock-images-dev" {
 		t.Errorf("VolumeName() = %q", VolumeName("dev"))
+	}
+}
+
+func TestFileArchiveHasModTime(t *testing.T) {
+	data, err := fileArchive("a.tar", []byte("x"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	h, err := tar.NewReader(bytes.NewReader(data)).Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if time.Since(h.ModTime) > time.Minute {
+		t.Errorf("archive modification time = %v, K3s would not re-import a reloaded image of the same size", h.ModTime)
 	}
 }

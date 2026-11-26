@@ -62,6 +62,9 @@ spec:
 | `tools.<tool>.enabled` | bool | `true` | Install the tool (`kyverno`, `certManager`). Disabling an owned tool removes it |
 | `tools.<tool>.version` | string | shipped with the operator | Tool Helm chart version |
 | `tools.<tool>.policy` | `Auto` \| `Adopt` \| `External` | `Auto` | How an existing installation of the tool is treated |
+| `imageStore.enabled` | bool | `true` for `k3s-docker` environments created by the CLI | Serve packages to Crossplane from the nodes' containerd instead of a registry. Requires cert-manager. See [Operator](operator.md#image-store) |
+| `imageStore.cache` | list of strings | `xpkg.crossplane.io/`, `xpkg.upbound.io/` for `k3s-docker` | Package image prefixes pulled through and cached in containerd |
+| `imageStore.containerdSocket` | string | `/run/k3s/containerd/containerd.sock` | containerd socket on the nodes |
 | `registries[]` | list | — | Package image rules, each becoming a Crossplane `ImageConfig` reconciled before packages |
 | `registries[].name` | string | — | Rule name (DNS label) |
 | `registries[].prefixes` | list of strings | — | Fully qualified image prefixes the rule applies to; the longest matching prefix wins |

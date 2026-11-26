@@ -18,6 +18,10 @@ import (
 	"github.com/web-seven/overlock/internal/namespace"
 )
 
+// defaultCache are the package registries cached by the image store of
+// k3s-docker environments.
+var defaultCache = []string{"xpkg.crossplane.io/", "xpkg.upbound.io/"}
+
 // engineScopeSelector places engine components on the engine-scoped node of
 // the k3s-docker engine.
 var engineScopeSelector = map[string]string{scopeLabel: scopeEngine}
@@ -82,6 +86,11 @@ func (e *Environment) environmentSpec() v1alpha1.EnvironmentSpec {
 	spec := *e.spec.DeepCopy()
 	if e.engine == "k3s-docker" && spec.Scheduling == nil {
 		spec.Scheduling = &v1alpha1.SchedulingSpec{NodeSelector: engineScopeSelector}
+	}
+	// k3s-docker nodes share the images volume, so packages are served from
+	// containerd by the image store instead of a Docker registry.
+	if e.engine == "k3s-docker" && spec.ImageStore == nil {
+		spec.ImageStore = &v1alpha1.ImageStoreSpec{Enabled: true, Cache: defaultCache}
 	}
 	return spec
 }

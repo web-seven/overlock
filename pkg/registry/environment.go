@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"path"
 	"strings"
@@ -129,8 +130,15 @@ func (r *Registry) applyToEnvironment(ctx context.Context, config *rest.Config) 
 	}
 	var caBundle *v1alpha1.ConfigMapKey
 	if r.Local {
-		if caBundle, err = ensureLocalCABundle(ctx, c); err != nil {
+		// The operator makes Crossplane trust the image store itself.
+		store, err := imageStoreEnabled(ctx, config)
+		if err != nil {
 			return err
+		}
+		if !store {
+			if caBundle, err = ensureLocalCABundle(ctx, c); err != nil {
+				return err
+			}
 		}
 	}
 	return bootstrap.UpdateEnvironment(ctx, c, func(spec *v1alpha1.EnvironmentSpec) {
@@ -261,20 +269,37 @@ func suggestedRewrite(ref gcrname.Reference) string {
 // registry, using the registry rules of the cluster Environment for fully
 // qualified names (see localPushName).
 func LocalPushName(ctx context.Context, config *rest.Config, name string) (string, error) {
-	ref, err := gcrname.ParseReference(name, gcrname.WithDefaultRegistry(""))
+	env, err := environment(ctx, config)
 	if err != nil {
-		return "", fmt.Errorf("invalid package name %q: %w", name, err)
+		return "", err
 	}
-	if ref.Context().RegistryStr() == "" || strings.HasPrefix(name, engine.LocalRegistryDomain()+"/") {
-		return localPushName(name, nil)
+	var rules []v1alpha1.RegistrySpec
+	if env != nil {
+		rules = env.Spec.Registries
 	}
+	return localPushName(name, rules)
+}
+
+// environment returns the Environment of the cluster, or nil when the
+// cluster has none (e.g. an environment of an earlier version).
+func environment(ctx context.Context, config *rest.Config) (*v1alpha1.Environment, error) {
 	c, err := newClient(config)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	env, err := bootstrap.GetEnvironment(ctx, c)
-	if err != nil {
-		return "", err
+	if errors.Is(err, bootstrap.ErrNoEnvironment) {
+		return nil, nil
 	}
-	return localPushName(name, env.Spec.Registries)
+	return env, err
+}
+
+// imageStoreEnabled reports whether the cluster Environment uses an image
+// store instead of a local Docker registry.
+func imageStoreEnabled(ctx context.Context, config *rest.Config) (bool, error) {
+	env, err := environment(ctx, config)
+	if err != nil || env == nil {
+		return false, err
+	}
+	return env.Spec.ImageStoreEnabled(), nil
 }

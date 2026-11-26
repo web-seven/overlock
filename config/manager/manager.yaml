@@ -33,6 +33,17 @@ spec:
           args:
             - --leader-elect
             - --health-probe-bind-address=:8081
+          env:
+            # The operator reads its own pod to run the image store from
+            # its image.
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
