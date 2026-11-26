@@ -49,7 +49,12 @@ func (p *Package) UpgradeVersion(ctx context.Context, dc dynamic.Interface, pnam
 		}
 	}
 
-	return strings.Join([]string{pRef.Context().Name(), base.IncPatch().String()}, tagDelim), nil
+	// Keep the "v" prefix of the requested tag, which semver drops.
+	prefix := ""
+	if strings.HasPrefix(pRef.Identifier(), "v") {
+		prefix = "v"
+	}
+	return strings.Join([]string{pRef.Context().Name(), prefix + base.IncPatch().String()}, tagDelim), nil
 }
 
 // sameRepository reports whether two package references name the same
