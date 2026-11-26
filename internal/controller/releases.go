@@ -35,19 +35,20 @@ func NewHelmReleases(restConfig *rest.Config) Releases {
 	return &helmReleases{restConfig: restConfig}
 }
 
-func (h *helmReleases) manager(c helmComponent, labels map[string]string) (install.Manager, error) {
+func (h *helmReleases) manager(c helmComponent, labels map[string]string, extra ...helm.InstallerModifierFn) (install.Manager, error) {
 	repoURL, err := url.Parse(c.RepoURL)
 	if err != nil {
 		return nil, fmt.Errorf("invalid repository URL %q: %w", c.RepoURL, err)
 	}
-	return helm.NewManager(h.restConfig, c.Chart, repoURL, c.Release,
+	modifiers := append([]helm.InstallerModifierFn{
 		helm.Wait(),
 		helm.WithNamespace(c.Namespace),
 		helm.WithCreateNamespace(true),
 		helm.WithUpgradeInstall(false),
 		helm.WithReuseValues(false),
 		helm.WithLabels(labels),
-	)
+	}, extra...)
+	return helm.NewManager(h.restConfig, c.Chart, repoURL, c.Release, modifiers...)
 }
 
 func (h *helmReleases) Get(c helmComponent) (*release.Release, error) {
@@ -79,7 +80,11 @@ func (h *helmReleases) Upgrade(c helmComponent, labels map[string]string) error 
 }
 
 func (h *helmReleases) Uninstall(c helmComponent) error {
-	mgr, err := h.manager(c, nil)
+	var extra []helm.InstallerModifierFn
+	if c.UninstallWithoutHooks {
+		extra = append(extra, helm.WithNoHooks())
+	}
+	mgr, err := h.manager(c, nil, extra...)
 	if err != nil {
 		return err
 	}

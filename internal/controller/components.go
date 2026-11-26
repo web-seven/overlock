@@ -33,6 +33,9 @@ type helmComponent struct {
 	// CRD identifies an existing installation that was not made by a Helm
 	// release with the expected name.
 	CRD string
+	// UninstallWithoutHooks skips the chart's delete hooks; the operator
+	// does their work itself (see prepareKyvernoRemoval).
+	UninstallWithoutHooks bool
 }
 
 // helmComponents returns the Helm components of spec in installation order:
@@ -76,6 +79,9 @@ func helmComponents(spec v1alpha1.EnvironmentSpec) []helmComponent {
 			Enabled:   spec.Tools.Kyverno.IsEnabled(),
 			Policy:    policyOrDefault(spec.Tools.Kyverno.Policy),
 			CRD:       "clusterpolicies.kyverno.io",
+			// Releases installed before config.preserve=false run a kubectl
+			// post-delete hook whose image no longer exists.
+			UninstallWithoutHooks: true,
 		},
 	}
 
