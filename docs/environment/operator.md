@@ -116,6 +116,26 @@ The store accesses containerd only through its image, content and CRI image
 services: it reads images and content, pulls images, and labels and names
 pulled images. It never writes content, runs containers or deletes images.
 
+### Why the store reads containerd directly
+
+K3s's embedded registry mirror (Spegel) also serves containerd content, but
+Crossplane cannot use it:
+
+- Spegel answers only requests carrying the original registry as the
+  non-standard `?ns=<registry>` query parameter, which containerd adds for
+  mirrors. Crossplane's OCI client sends standard requests, and an
+  `ImageConfig` can only rewrite the image reference, not add parameters, so
+  every request returns 404.
+- Spegel has no tag listing, which Crossplane needs to resolve dependency
+  version ranges, and only serves images some node already has.
+- On K3s v1.36 it serves images without requiring a client certificate.
+
+The store answers the standard API itself, including tag listing and pulls of
+missing images. Spegel remains useful to distribute images between nodes,
+which goes through containerd's mirror support; images imported into
+containerd (rather than pulled) are only shared once their content carries the
+`containerd.io/distribution.source.<registry>=<repository>` labels.
+
 ## Ownership
 
 The operator only modifies or removes components it owns. Ownership is recorded
