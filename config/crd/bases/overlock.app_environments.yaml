@@ -94,10 +94,26 @@ spec:
                     - Adopt
                     - External
                     type: string
+                  registryCABundle:
+                    description: |-
+                      RegistryCABundle is a ConfigMap key in the Crossplane namespace with
+                      additional CA certificates Crossplane trusts when pulling packages,
+                      e.g. of a local registry.
+                    properties:
+                      key:
+                        description: Key in the ConfigMap.
+                        type: string
+                      name:
+                        description: Name of the ConfigMap.
+                        type: string
+                    required:
+                    - key
+                    - name
+                    type: object
                   version:
                     description: |-
-                      Version of the Crossplane Helm chart. Defaults to the version shipped
-                      with the operator.
+                      Version of the Crossplane Helm chart, at least 2.0.0. Defaults to the
+                      version shipped with the operator.
                     type: string
                 type: object
               deletionPolicy:
@@ -119,6 +135,49 @@ spec:
                 items:
                   type: string
                 type: array
+              registries:
+                description: |-
+                  Registries configure how Crossplane resolves package images: prefix
+                  rewrites (e.g. to a local registry) and registry authentication. Each
+                  entry becomes a Crossplane ImageConfig, reconciled before packages.
+                  Rewrites also apply to package dependencies.
+                items:
+                  description: |-
+                    RegistrySpec is a rule for package images whose reference starts with one
+                    of the prefixes.
+                  properties:
+                    name:
+                      description: Name of the rule, unique in the Environment.
+                      maxLength: 50
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                      type: string
+                    prefixes:
+                      description: |-
+                        Prefixes of fully qualified package images the rule applies to, e.g.
+                        "xpkg.crossplane.io/crossplane-contrib/". The longest matching prefix of
+                        all rules wins.
+                      items:
+                        type: string
+                      minItems: 1
+                      type: array
+                    pullSecret:
+                      description: |-
+                        PullSecret is the name of a Secret of type kubernetes.io/dockerconfigjson
+                        in the Crossplane namespace used to pull matching images.
+                      type: string
+                    rewritePrefix:
+                      description: |-
+                        RewritePrefix replaces the matched prefix, e.g.
+                        "registry.overlock.svc.cluster.local/crossplane-contrib/".
+                      type: string
+                  required:
+                  - name
+                  - prefixes
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               scheduling:
                 description: |-
                   Scheduling places Crossplane, tools and package runtimes on matching

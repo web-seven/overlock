@@ -47,7 +47,6 @@ func (c *loadImageCmd) Run(ctx context.Context, client *kubernetes.Clientset, co
 			logger.Debug(err)
 		}
 		reg := registry.NewLocal()
-		reg.SetDefault(true)
 		err := reg.Create(ctx, config, logger)
 		if err != nil {
 			return fmt.Errorf("failed to create local registry: %w", err)

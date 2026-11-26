@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -111,5 +112,26 @@ func TestOperatorPodError(t *testing.T) {
 	}
 	if err := operatorPodError(context.Background(), newFakeClient(t)); err != nil {
 		t.Fatalf("operatorPodError() without pods = %v", err)
+	}
+}
+
+func TestUpdateEnvironment(t *testing.T) {
+	c := newFakeClient(t, &v1alpha1.Environment{ObjectMeta: metav1.ObjectMeta{Name: "dev"}})
+	err := UpdateEnvironment(context.Background(), c, func(spec *v1alpha1.EnvironmentSpec) {
+		spec.Registries = append(spec.Registries, v1alpha1.RegistrySpec{Name: "local", Prefixes: []string{"xpkg.crossplane.io/"}})
+	})
+	if err != nil {
+		t.Fatalf("UpdateEnvironment() unexpected error: %v", err)
+	}
+	got := &v1alpha1.Environment{}
+	if err := c.Get(context.Background(), client.ObjectKey{Name: "dev"}, got); err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Spec.Registries) != 1 || got.Spec.Registries[0].Name != "local" {
+		t.Errorf("registries = %+v", got.Spec.Registries)
+	}
+
+	if err := UpdateEnvironment(context.Background(), newFakeClient(t), func(*v1alpha1.EnvironmentSpec) {}); !errors.Is(err, errNoEnvironment) {
+		t.Errorf("UpdateEnvironment() without Environment = %v, want errNoEnvironment", err)
 	}
 }

@@ -22,6 +22,12 @@ import (
 )
 
 const (
+	// MinVersion is the oldest Crossplane version Overlock supports: v2
+	// removed the default package registry, which Overlock replaces with
+	// ImageConfig rules.
+	MinVersion = "2.0.0"
+	// DefaultVersion is the Crossplane Helm chart version installed by default.
+	DefaultVersion          = "2.5.0"
 	RepoUrl                 = "https://charts.crossplane.io/stable"
 	ChartName               = "crossplane"
 	ReleaseName             = "overlock-crossplane"
@@ -32,7 +38,9 @@ const (
 )
 
 var (
-	Version       = "1.19.0"
+	// Version is the Crossplane Helm chart version, DefaultVersion unless
+	// overridden. Overlock requires Crossplane v2 (MinVersion or newer).
+	Version       = DefaultVersion
 	AltRelease    = ""
 	managedLabels = map[string]string{
 		"app.kubernetes.io/managed-by": "overlock",
@@ -149,17 +157,40 @@ func ManagedSelector(m map[string]string) string {
 	return strings.Join(selectors, ",")
 }
 
+// LocalRegistryDomain returns the domain of the in-cluster local registry.
+func LocalRegistryDomain() string {
+	return "registry." + namespace.Namespace + ".svc.cluster.local"
+}
+
+// QualifyPackage returns the fully qualified reference of a package image.
+// Crossplane v2 has no default registry, so a reference without a registry
+// refers to the local registry, where "load" commands push packages.
+func QualifyPackage(img string) (string, error) {
+	ref, err := name.ParseReference(img, name.WithDefaultRegistry(""))
+	if err != nil {
+		return "", errors.Wrap(err, errParsePackageName)
+	}
+	if ref.Context().RegistryStr() == "" {
+		return LocalRegistryDomain() + "/" + ref.String(), nil
+	}
+	return ref.String(), nil
+}
+
 func BuildPack(pack v1.Package, img string, pkgMap map[string]string) error {
 	ref, err := name.ParseReference(img, name.WithDefaultRegistry(""))
 	if err != nil {
 		return errors.Wrap(err, errParsePackageName)
+	}
+	source, err := QualifyPackage(img)
+	if err != nil {
+		return err
 	}
 	objName := ToDNSLabel(ref.Context().RepositoryStr())
 	if existing, ok := pkgMap[ref.Context().RepositoryStr()]; ok {
 		objName = existing
 	}
 	pack.SetName(objName)
-	pack.SetSource(ref.String())
+	pack.SetSource(source)
 	return nil
 }
 

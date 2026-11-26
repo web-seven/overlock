@@ -24,16 +24,30 @@ Overlock's `serve` command (available for [configurations](configurations.md), [
 
 ## Setting Up a Local Registry
 
-Before you can develop packages locally, you need a local registry. Create one and set it as the default:
+Before you can develop packages locally, you need a local registry in the environment:
 
 ```bash
-overlock reg create --local --default
+overlock reg create --local
 ```
 
-This starts a local OCI registry as a Docker container and registers it as the default destination for package load and serve operations.
+This deploys an OCI registry into the environment (`registry.overlock.svc.cluster.local`) and makes Crossplane trust its certificate. `load` and `serve` commands create it automatically when it is missing.
 
-> [!NOTE]
-> You only need to do this once. The registry container persists across environment restarts — it's not tied to any specific environment, so it works with all your environments.
+Crossplane v2 has no default registry: every package reference must name its registry. Packages loaded by Overlock without a registry in their name are installed from the local registry, e.g. `my-provider:v0.1.0` becomes `registry.overlock.svc.cluster.local/my-provider:v0.1.0`.
+
+### Redirecting Packages to the Local Registry
+
+To develop a package that other packages depend on, redirect its upstream repository to the local registry with `--rewrite`:
+
+```bash
+overlock reg create --local --rewrite xpkg.crossplane.io/crossplane-contrib/
+overlock prv load xpkg.crossplane.io/crossplane-contrib/provider-nop:v0.5.0 --path ./provider-nop.xpkg --apply
+```
+
+Packages and dependencies under `xpkg.crossplane.io/crossplane-contrib/` are now pulled from `registry.overlock.svc.cluster.local/crossplane-contrib/`: a Provider or Configuration that references `xpkg.crossplane.io/crossplane-contrib/provider-nop:v0.5.0` gets your local build, so the same manifests and `crossplane.yaml` dependencies work locally and on remote clusters.
+
+`load` with a fully qualified name stores the package where its rewrite points (here `crossplane-contrib/provider-nop:v0.5.0` in the local registry) and `--apply` keeps the upstream name in `spec.package`; Crossplane shows the local source in `status.resolvedPackage`. A fully qualified name without a rewrite to the local registry is rejected, with the `--rewrite` to add. Names without a registry (e.g. `my-provider:v0.1.0`) are loaded and installed from the local registry directly, without rules.
+
+Rewrites are Crossplane `ImageConfig` rules, managed by the Overlock operator from the `registries` of the [Environment](../environment/spec.md). `--rewrite` can be repeated and replaces the registry's previous rewrites; running `overlock reg create --local --rewrite ...` again updates them.
 
 Confirm it's running:
 
@@ -94,7 +108,7 @@ overlock reg create \
   --email user@example.com
 ```
 
-Overlock saves these credentials and uses them automatically when pulling packages from that registry.
+Overlock saves these credentials and adds a rule to the Environment, so Crossplane uses them when pulling packages from that registry. Add `--rewrite <prefix>` to pull packages of another registry from this one instead, e.g. a mirror.
 
 > [!TIP]
 > For GitHub Container Registry (`ghcr.io`), use your GitHub username and a personal access token with `read:packages` scope as the password. For AWS ECR, generate temporary credentials with `aws ecr get-login-password` and use `AWS` as the username.
@@ -106,16 +120,10 @@ Overlock saves these credentials and uses them automatically when pulling packag
 
 ## Removing a Registry
 
-To remove a registry configuration:
+To remove a registry configuration and its rules:
 
 ```bash
 overlock reg delete --name my-registry
-```
-
-If it was set as the default registry, pass `--default` to unset it at the same time:
-
-```bash
-overlock reg delete --name my-registry --default
 ```
 
 ---
@@ -129,7 +137,7 @@ Connects to or starts a registry.
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--local` | `false` | Create a local registry running as a container |
-| `--default` | `false` | Set this registry as the default for package operations |
+| `--rewrite` | — | Fully qualified image prefix pulled from this registry instead, e.g. `xpkg.crossplane.io/crossplane-contrib/`; also applies to dependencies. Repeatable |
 | `--registry-server` | — | Hostname of the remote registry |
 | `--username` | — | Registry username |
 | `--password` | — | Registry password |
@@ -147,7 +155,6 @@ Removes a registry configuration.
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--name` | *(required)* | Name of the registry to remove |
-| `--default` | `false` | Also unset this registry as the default |
 
 ### `overlock reg load-image`
 

@@ -38,7 +38,7 @@ type Globals struct {
 	Version       VersionFlag `name:"version" help:"Print version information and quit"`
 	Namespace     string      `name:"namespace" short:"n" help:"Namespace used for cluster resources"`
 	EngineRelease string      `name:"engine-release" short:"r" help:"Crossplane Helm release name"`
-	EngineVersion string      `name:"engine-version" default:"1.19.0" short:"v" help:"Crossplane version"`
+	EngineVersion string      `name:"engine-version" short:"v" help:"Crossplane version for new environments, at least 2.0.0. Defaults to the operator's version."`
 	PluginPath    string      `name:"plugin-path" help:"Path to the plugin file" default:"${homedir}/.config/overlock/plugins"`
 }
 
