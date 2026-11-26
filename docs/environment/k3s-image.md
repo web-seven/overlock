@@ -105,7 +105,7 @@ The `Environment` comes from, in order:
 
    | Profile | Components |
    |---------|------------|
-   | `default` | Crossplane, cert-manager, Kyverno |
+   | `default` | Crossplane, cert-manager, Kyverno, image store caching `xpkg.crossplane.io` and `xpkg.upbound.io` |
    | `minimal` | Crossplane |
 
 | Variable | Default | Description |
