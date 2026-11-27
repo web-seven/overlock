@@ -5,14 +5,16 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -60,7 +62,16 @@ func main() {
 	}
 
 	if imageStoreImage == "" {
-		imageStoreImage = ownImage(restConfig, scheme)
+		// The API may not be reachable yet, e.g. while K3s restarts; without
+		// the image the image store cannot run, so retry and otherwise exit to
+		// let the pod restart instead of running without it.
+		ctx, cancel := context.WithTimeout(context.Background(), ownImageTimeout)
+		imageStoreImage, err = ownImage(ctx, mgr.GetAPIReader(), ownImageInterval)
+		cancel()
+		if err != nil {
+			setupLog.Error(err, "unable to get the operator image for the image store")
+			os.Exit(1)
+		}
 	}
 	if err := (&controller.EnvironmentReconciler{
 		Client:          mgr.GetClient(),
@@ -88,25 +99,40 @@ func main() {
 	}
 }
 
+const (
+	ownImageInterval = 2 * time.Second
+	ownImageTimeout  = 2 * time.Minute
+)
+
 // ownImage returns the image of the operator pod (POD_NAME and POD_NAMESPACE
-// from the downward API), which also contains the image store.
-func ownImage(restConfig *rest.Config, scheme *runtime.Scheme) string {
+// from the downward API), which also contains the image store. It retries
+// every interval until ctx is done, and returns an empty image without error
+// when not running in a pod.
+func ownImage(ctx context.Context, reader client.Reader, interval time.Duration) (string, error) {
 	name, ns := os.Getenv("POD_NAME"), os.Getenv("POD_NAMESPACE")
 	if name == "" || ns == "" {
-		return ""
+		return "", nil
 	}
-	c, err := client.New(restConfig, client.Options{Scheme: scheme})
-	if err != nil {
-		return ""
-	}
-	pod := &corev1.Pod{}
-	if err := c.Get(context.Background(), client.ObjectKey{Namespace: ns, Name: name}, pod); err != nil {
-		return ""
-	}
-	for _, container := range pod.Spec.Containers {
-		if container.Name == "manager" {
-			return container.Image
+	var image string
+	var lastErr error
+	err := wait.PollUntilContextCancel(ctx, interval, true, func(ctx context.Context) (bool, error) {
+		pod := &corev1.Pod{}
+		if err := reader.Get(ctx, client.ObjectKey{Namespace: ns, Name: name}, pod); err != nil {
+			lastErr = err
+			return false, nil
 		}
+		for _, container := range pod.Spec.Containers {
+			if container.Name == "manager" {
+				image = container.Image
+			}
+		}
+		return true, nil
+	})
+	if err != nil {
+		if lastErr != nil {
+			return "", fmt.Errorf("cannot get operator pod %s/%s: %w", ns, name, lastErr)
+		}
+		return "", err
 	}
-	return ""
+	return image, nil
 }

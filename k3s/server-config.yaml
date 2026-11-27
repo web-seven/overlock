@@ -4,3 +4,7 @@
 # adding later files to config.yaml.d.
 disable:
   - traefik
+# The network policy controller stops K3s when the node's IP changed, e.g. after
+# "docker compose down" and "up" with a new Compose network, until the node is
+# updated; Overlock environments do not use NetworkPolicies.
+disable-network-policy: true

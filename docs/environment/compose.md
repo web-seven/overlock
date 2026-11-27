@@ -205,3 +205,7 @@ that mounts the volume has full access to the cluster.
   and a newer image instead.
 - **Ingress:** Traefik is disabled. Ports 80 and 443 are served by K3s
   LoadBalancer services, if any are created.
+- **Network policies:** the network policy controller is disabled, so
+  NetworkPolicies are not enforced. It would stop K3s when the container gets
+  another IP on the recreated Compose network after `docker compose down` and
+  `up`.
