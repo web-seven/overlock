@@ -20,8 +20,8 @@ It contains:
   - `k3s-system-images.tar.zst`: the K3s system images (CoreDNS,
     metrics-server, local-path provisioner, ...) listed by the K3s release,
     without Traefik; the list is at `/opt/overlock/k3s-images.txt`
-- K3s server defaults that disable Traefik, which Overlock environments do not
-  use (installed into `/etc/rancher/k3s/config.yaml.d/00-overlock.yaml` for
+- K3s server defaults that disable Traefik and the network policy controller,
+  which Overlock environments do not use (installed into `/etc/rancher/k3s/config.yaml.d/00-overlock.yaml` for
   servers only, since agents reject server options)
 - Environment profiles at `/opt/overlock/profiles/`
 
